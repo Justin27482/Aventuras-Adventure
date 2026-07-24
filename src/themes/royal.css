@@ -1,0 +1,84 @@
+/* =============================================
+   ROYAL THEME
+   Deep purple and gold aesthetic
+   ============================================= */
+[data-theme='royal'] {
+  /* Shadcn Variables (Royal) */
+  --radius: 0.5rem;
+  --background: hsl(270 50% 5%);
+  --foreground: hsl(270 20% 95%);
+  --muted: hsl(270 30% 15%);
+  --muted-foreground: hsl(270 20% 70%);
+  --popover: hsl(270 40% 8%);
+  --popover-foreground: hsl(270 20% 95%);
+  --card: hsl(270 40% 8%);
+  --card-foreground: hsl(270 20% 95%);
+  --border: hsl(270 30% 20%);
+  --input: hsl(270 30% 20%);
+  --primary: hsl(270 70% 50%);
+  --primary-foreground: hsl(270 20% 95%);
+  --secondary: hsl(270 30% 15%);
+  --secondary-foreground: hsl(270 20% 95%);
+  --accent: hsl(45 90% 50%);
+  --accent-foreground: hsl(45 90% 10%);
+  --destructive: hsl(0 62.8% 30.6%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --ring: hsl(270 70% 50%);
+
+  /* Surface colors (Purple scale) - Darkened for background usage */
+  --color-surface-50: #faf5ff;
+  --color-surface-100: #f3e8ff;
+  --color-surface-200: #e9d5ff;
+  --color-surface-300: #d8b4fe;
+  --color-surface-400: #c084fc;
+  --color-surface-500: #a855f7;
+  --color-surface-600: #9333ea;
+  --color-surface-700: #581c87;
+  --color-surface-800: #2e0f4f; /* Much darker than standard purple-800 */
+  --color-surface-900: #1a0b2e; /* Very dark background purple */
+  --color-surface-950: #0d0216; /* Near black purple */
+
+  /* We need darker surfaces for the background layers in dark mode */
+  /* Re-mapping surfaces to be dark-mode appropriate for the theme logic */
+  /* Actually, usually surface-50 is light and 950 is dark. 
+     The theme logic uses:
+     bg-primary: surface-950
+     bg-secondary: surface-900
+     text-primary: surface-50
+  */
+
+  /* Accent colors - Gold scale */
+  --color-accent-50: #fffbeb;
+  --color-accent-100: #fef3c7;
+  --color-accent-200: #fde68a;
+  --color-accent-300: #fcd34d;
+  --color-accent-400: #fbbf24;
+  --color-accent-500: #f59e0b;
+  --color-accent-600: #d97706;
+  --color-accent-700: #b45309;
+  --color-accent-800: #92400e;
+  --color-accent-900: #78350f;
+  --color-accent-950: #451a03;
+
+  /* Semantic colors */
+  --bg-primary: var(--background);
+  --bg-secondary: var(--card);
+  --bg-tertiary: var(--muted);
+  --text-primary: var(--foreground);
+  --text-secondary: var(--muted-foreground);
+  --text-muted: hsl(270 20% 50%);
+  --text-accent: var(--accent);
+  --border-primary: var(--border);
+  --border-secondary: hsl(270 30% 25%);
+
+  /* Scrollbar */
+  --scrollbar-track: var(--background);
+  --scrollbar-thumb: var(--muted);
+  --scrollbar-thumb-hover: var(--border);
+
+  /* Special effects */
+  --crt-scanline: transparent;
+  --crt-glow: none;
+  --crt-flicker: none;
+  --font-story: sans-serif;
+}

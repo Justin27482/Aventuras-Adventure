@@ -1,0 +1,195 @@
+/* =============================================
+   CYBERPUNK THEME (Neon City)
+   High contrast, neon cyan/magenta, deep black/navy.
+   Standard Scale: 50=Light, 950=Dark
+   ============================================= */
+[data-theme='cyberpunk'] {
+  /* 
+     Cyberpunk Scale
+     950 = Deep Navy/Black (Main BG)
+     800 = Card BG
+     100 = Text (Bright Cyan-White)
+  */
+  --color-surface-50: #f0fdfa;
+  --color-surface-100: #e0f7fa; /* Text Main */
+  --color-surface-200: #ccfbf1;
+  --color-surface-300: #99f6e4;
+  --color-surface-400: #5eead4;
+  --color-surface-500: #2dd4bf;
+  --color-surface-600: #14b8a6;
+  --color-surface-700: #1a2a47; /* Secondary BG */
+  --color-surface-800: #142036; /* Card BG */
+  --color-surface-850: #0f1a2e;
+  --color-surface-900: #0b1426;
+  --color-surface-950: #0d1326; /* Main BG */
+
+  /* Accent colors (Neon Cyan) */
+  --color-accent-50: #f0fdfa;
+  --color-accent-100: #ccfbf1;
+  --color-accent-200: #99f6e4;
+  --color-accent-300: #5eead4;
+  --color-accent-400: #2dd4bf;
+  --color-accent-500: #00f0ff; /* Neon Cyan */
+  --color-accent-600: #00d9e6; /* Deep Cyan (Primary) */
+  --color-accent-700: #008c99;
+  --color-accent-800: #115e59;
+  --color-accent-900: #134e4a;
+  --color-accent-950: #042f2e;
+
+  /* Neon Palette */
+  --neon-cyan: #00f0ff;
+  --neon-pink: #ff00ff;
+  --neon-yellow: #faff00;
+  --neon-yellow-dim: #b3b800;
+
+  /* Semantic colors */
+  --bg-primary: var(--color-surface-950);
+  --bg-secondary: var(--color-surface-800);
+  --bg-tertiary: var(--color-surface-700);
+  --text-primary: var(--color-surface-100);
+  --text-secondary: #94a3b8; /* Cool Gray */
+  --text-muted: #64748b;
+  --text-accent: var(--neon-pink); /* Neon Pink for Accent Text */
+  --border-primary: var(--color-surface-700);
+  --border-secondary: var(--color-surface-800);
+  --scrollbar-track: var(--color-surface-950);
+  --scrollbar-thumb: var(--color-surface-700);
+  --scrollbar-thumb-hover: var(--color-accent-600);
+
+  /* Shadcn Variables */
+  --radius: 0px; /* Sharp edges */
+  --background: hsl(225 49% 10%); /* Surface 950 - Vibrant Navy */
+  --foreground: hsl(180 50% 93%); /* Surface 100 */
+
+  --card: hsl(225 45% 18%); /* Surface 800 - Lighter Navy */
+  --card-foreground: hsl(180 50% 93%);
+
+  --popover: hsl(225 47% 14%); /* Surface 900 */
+  --popover-foreground: hsl(180 50% 93%);
+
+  --primary: hsl(186 100% 50%); /* Neon Cyan */
+  --primary-foreground: hsl(222 47% 5%); /* Black text on neon */
+
+  --secondary: hsla(60, 100%, 50%, 0.25); /* Transparent Neon Yellow Background */
+  --secondary-foreground: hsl(300 100% 50%); /* Neon Pink Text */
+
+  --muted: hsl(217 33% 18%); /* Surface 700 */
+  --muted-foreground: hsl(215 20% 65%);
+
+  --accent: hsla(60, 100%, 50%, 0.25); /* Yellow Background for accent items */
+  --accent-foreground: hsl(300 100% 50%); /* Pink Text */
+
+  --destructive: hsl(0 100% 50%); /* Bright Red */
+  --destructive-foreground: hsl(210 40% 98%);
+
+  --border: hsl(217 33% 25%); /* Subtle Blue-Gray */
+  --input: hsl(217 33% 18%);
+  --ring: hsl(60 100% 50%); /* Yellow Ring */
+
+  /* Special effects */
+  --crt-scanline: rgba(0, 240, 255, 0.03);
+  --crt-glow: 0 0 10px rgba(0, 240, 255, 0.1);
+  --crt-text-glow: 0 0 2px rgba(0, 240, 255, 0.5);
+  --font-story: 'Courier New', 'Monaco', monospace;
+}
+
+/* Select dropdown styling */
+[data-theme='cyberpunk'] select.input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23faff00' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+[data-theme='cyberpunk'] select.input option {
+  background-color: var(--color-surface-800);
+  color: var(--color-surface-100);
+}
+
+[data-theme='cyberpunk'] select.input option:checked {
+  background-color: var(--neon-yellow);
+  color: var(--color-surface-950);
+}
+
+/* =============================================
+   SPECIAL EFFECTS IMPLEMENTATION
+   ============================================= */
+
+/* Scanlines Overlay */
+[data-theme='cyberpunk'] body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0px,
+      transparent 1px,
+      rgba(0, 0, 0, 0.2) 1px,
+      rgba(0, 0, 0, 0.2) 2px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      var(--crt-scanline) 0px,
+      var(--crt-scanline) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  animation: cyberpunk-scanlines 0.2s linear infinite;
+  opacity: 0.5;
+}
+
+/* Vignette / Glow Overlay */
+[data-theme='cyberpunk'] body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9998;
+  background: radial-gradient(
+    circle at 50% 50%,
+    transparent 60%,
+    rgba(0, 10, 20, 0.4) 90%,
+    rgba(0, 0, 0, 0.6) 100%
+  );
+  mix-blend-mode: multiply;
+}
+
+/* Text Glows */
+[data-theme='cyberpunk'] h1,
+[data-theme='cyberpunk'] h2,
+[data-theme='cyberpunk'] h3,
+[data-theme='cyberpunk'] .text-glow {
+  text-shadow:
+    0 0 5px rgba(0, 240, 255, 0.3),
+    0 0 10px rgba(0, 240, 255, 0.2);
+}
+
+[data-theme='cyberpunk'] .text-accent-pink {
+  color: #ff00ff;
+  text-shadow:
+    0 0 5px rgba(255, 0, 255, 0.3),
+    0 0 10px rgba(255, 0, 255, 0.2);
+}
+
+/* Animations */
+@keyframes cyberpunk-scanlines {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 0 4px;
+  }
+}
+
+/* Input Focus Glow */
+[data-theme='cyberpunk'] input:focus,
+[data-theme='cyberpunk'] textarea:focus {
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+  border-color: var(--color-accent-500);
+}

@@ -1,0 +1,76 @@
+/* =============================================
+   OLED THEME
+   Pure black background for high contrast/battery saving
+   ============================================= */
+[data-theme='oled'] {
+  /* Shadcn Variables (OLED) */
+  --radius: 0.5rem;
+  --background: hsl(0 0% 0%);
+  --foreground: hsl(0 0% 100%);
+  --muted: hsl(0 0% 10%);
+  --muted-foreground: hsl(0 0% 60%);
+  --popover: hsl(0 0% 3%);
+  --popover-foreground: hsl(0 0% 100%);
+  --card: hsl(0 0% 3%);
+  --card-foreground: hsl(0 0% 100%);
+  --border: hsl(0 0% 12%);
+  --input: hsl(0 0% 12%);
+  --primary: hsl(0 0% 20%);
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: hsl(0 0% 10%);
+  --secondary-foreground: hsl(0 0% 100%);
+  --accent: hsl(0 0% 10%);
+  --accent-foreground: hsl(0 0% 100%);
+  --destructive: hsl(0 62.8% 30.6%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --ring: hsl(0 0% 80%);
+
+  /* Surface colors (backgrounds, borders) */
+  --color-surface-50: #fafafa;
+  --color-surface-100: #f5f5f5;
+  --color-surface-200: #e5e5e5;
+  --color-surface-300: #d4d4d4;
+  --color-surface-400: #a3a3a3;
+  --color-surface-500: #737373;
+  --color-surface-600: #525252;
+  --color-surface-700: #404040;
+  --color-surface-800: #262626;
+  --color-surface-850: #171717;
+  --color-surface-900: #0a0a0a;
+  --color-surface-950: #000000;
+
+  /* Accent colors - Monochromatic for minimal look */
+  --color-accent-50: #ffffff;
+  --color-accent-100: #f5f5f5;
+  --color-accent-200: #e5e5e5;
+  --color-accent-300: #d4d4d4;
+  --color-accent-400: #a3a3a3;
+  --color-accent-500: #737373;
+  --color-accent-600: #525252;
+  --color-accent-700: #404040;
+  --color-accent-800: #262626;
+  --color-accent-900: #171717;
+  --color-accent-950: #0a0a0a;
+
+  /* Semantic colors */
+  --bg-primary: var(--color-surface-950);
+  --bg-secondary: var(--color-surface-900);
+  --bg-tertiary: var(--color-surface-800);
+  --text-primary: var(--color-surface-50);
+  --text-secondary: var(--color-surface-300);
+  --text-muted: var(--color-surface-500);
+  --text-accent: var(--color-surface-50);
+  --border-primary: var(--color-surface-800);
+  --border-secondary: var(--color-surface-700);
+
+  /* Scrollbar */
+  --scrollbar-track: var(--color-surface-950);
+  --scrollbar-thumb: var(--color-surface-700);
+  --scrollbar-thumb-hover: var(--color-surface-600);
+
+  /* Special effects */
+  --crt-scanline: transparent;
+  --crt-glow: none;
+  --crt-flicker: none;
+  --font-story: sans-serif;
+}

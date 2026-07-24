@@ -1,0 +1,105 @@
+/* =============================================
+   FANTASY THEME (Dark)
+   Old leather, dark wood, and gold/bronze aesthetic.
+   Standard Scale: 50=Light, 950=Dark
+   ============================================= */
+[data-theme='fantasy'] {
+  /* 
+     Fantasy Scale (Dark Wood & Gold)
+     Standard Scale:
+     900-950 = Backgrounds (Dark Brown)
+     700-800 = Cards/Surfaces (Wood/Leather)
+     200-300 = Borders (Gold/Light Wood)
+     50-100  = Text (Parchment)
+  */
+  --color-surface-50: #fcf9f2; /* Brightest Parchment (Text High) */
+  --color-surface-100: #f5ebd6; /* Parchment (Text Main) */
+  --color-surface-200: #ece0c1; /* Darker Parchment */
+  --color-surface-300: #d4b483; /* Gold/Beige (Borders) */
+  --color-surface-400: #b08d55; /* Raw Wood */
+  --color-surface-500: #8f6a3d; /* Wood */
+  --color-surface-600: #6d4e2c; /* Dark Wood */
+  --color-surface-700: #523922; /* Deep Wood (Secondary BG) */
+  --color-surface-800: #3b2818; /* Dark Leather (Card BG) */
+  --color-surface-850: #2d1e12; /* Darker Leather */
+  --color-surface-900: #24180f; /* Very Dark Brown */
+  --color-surface-950: #1a110a; /* Almost Black Brown (Main BG) */
+
+  /* Accent colors (Amber/Gold) */
+  --color-accent-50: #fffbeb;
+  --color-accent-100: #fef3c7;
+  --color-accent-200: #fde68a;
+  --color-accent-300: #fcd34d;
+  --color-accent-400: #fbbf24;
+  --color-accent-500: #f59e0b; /* Amber */
+  --color-accent-600: #d97706; /* Deep Amber (Primary) */
+  --color-accent-700: #b45309;
+  --color-accent-800: #92400e;
+  --color-accent-900: #78350f;
+  --color-accent-950: #451a03;
+
+  /* Semantic colors - DIRECT MAPPING (No Inversion) */
+  --bg-primary: var(--color-surface-950);
+  --bg-secondary: var(--color-surface-900);
+  --bg-tertiary: var(--color-surface-800);
+  --text-primary: var(--color-surface-100);
+  --text-secondary: var(--color-surface-300);
+  --text-muted: var(--color-surface-400);
+  --text-accent: var(--color-accent-400);
+  --border-primary: var(--color-surface-700);
+  --border-secondary: var(--color-surface-800);
+  --scrollbar-track: var(--color-surface-950);
+  --scrollbar-thumb: var(--color-surface-700);
+  --scrollbar-thumb-hover: var(--color-surface-600);
+
+  /* Shadcn Variables (Fantasy Dark) */
+  --radius: 0.5rem;
+  --background: hsl(26 43% 7%); /* Surface 950 approx */
+  --foreground: hsl(38 55% 90%); /* Surface 100 approx */
+
+  --card: hsl(26 42% 16%); /* Surface 800 approx */
+  --card-foreground: hsl(38 55% 90%);
+
+  --popover: hsl(26 42% 16%); /* Surface 800 approx */
+  --popover-foreground: hsl(38 55% 90%);
+
+  --primary: hsl(35 92% 38%); /* Accent 600 (Deep Amber) */
+  --primary-foreground: hsl(38 55% 90%);
+
+  --secondary: hsl(27 41% 23%); /* Surface 700 approx */
+  --secondary-foreground: hsl(38 55% 90%);
+
+  --muted: hsl(27 41% 23%); /* Surface 700 approx */
+  --muted-foreground: hsl(38 30% 60%); /* Surface 400 approx */
+
+  --accent: hsl(27 41% 23%); /* Surface 700 approx */
+  --accent-foreground: hsl(35 92% 38%);
+
+  --destructive: hsl(0 60% 30%); /* Deep Crimson */
+  --destructive-foreground: hsl(38 55% 90%);
+
+  --border: hsl(27 41% 30%); /* Surface 600/700 hybrid (Lighter for visibility) */
+  --input: hsl(27 41% 23%); /* Surface 700 approx */
+  --ring: hsl(35 92% 38%); /* Matches Primary */
+
+  /* Special effects */
+  --crt-scanline: transparent;
+  --crt-glow: none;
+  --crt-flicker: none;
+  --font-story: 'Crimson Text', 'Garamond', 'Georgia', serif;
+}
+
+/* Select dropdown styling */
+[data-theme='fantasy'] select.input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23d97706' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+[data-theme='fantasy'] select.input option {
+  background-color: var(--color-surface-800);
+  color: var(--color-surface-100);
+}
+
+[data-theme='fantasy'] select.input option:checked {
+  background-color: var(--color-accent-600);
+  color: var(--color-surface-100);
+}

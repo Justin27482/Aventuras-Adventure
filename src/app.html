@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en" class="dark" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%sveltekit.assets%/favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Aventuras</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    %sveltekit.head%
+    <script>
+      // Pull Android system-bar insets from the native bridge and set them as
+      // CSS vars (fallback for devices where env(safe-area-inset-*) misses
+      // system bars or gesture areas). Re-runs on resize/visibility change
+      // so rotation and keyboard transitions refresh the values.
+      ;(function () {
+        function apply() {
+          try {
+            var bridge = window.AndroidBridge
+            if (!bridge || typeof bridge.getInsets !== 'function') return
+            var i = JSON.parse(bridge.getInsets())
+            var r = document.documentElement
+            r.style.setProperty('--sat', i.top + 'px')
+            r.style.setProperty('--sab', i.bottom + 'px')
+            r.style.setProperty('--sal', i.left + 'px')
+            r.style.setProperty('--sar', i.right + 'px')
+          } catch (e) {}
+        }
+        apply()
+        document.addEventListener('visibilitychange', function () {
+          if (document.visibilityState === 'visible') apply()
+        })
+        window.addEventListener('resize', apply)
+      })()
+    </script>
+  </head>
+
+  <body data-sveltekit-preload-data="hover" class="overflow-hidden">
+    <div style="display: contents">%sveltekit.body%</div>
+  </body>
+</html>

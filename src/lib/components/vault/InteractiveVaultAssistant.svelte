@@ -1,0 +1,1763 @@
+<script lang="ts">
+  import {
+    InteractiveVaultService,
+    type ChatMessage,
+    type ToolCallDisplay,
+    type VaultState,
+    type FocusedEntity,
+  } from '$lib/services/ai/vault/InteractiveVaultService'
+  import type { VaultPendingChange } from '$lib/services/ai/sdk/schemas/vault'
+  import type { VaultConversation } from '$lib/types'
+  import { database } from '$lib/services/database'
+
+  import { characterVault } from '$lib/stores/characterVault.svelte'
+  import { lorebookVault } from '$lib/stores/lorebookVault.svelte'
+  import { scenarioVault } from '$lib/stores/scenarioVault.svelte'
+  import { vaultEditor } from '$lib/stores/vaultEditorStore.svelte'
+  import {
+    ChevronLeft,
+    Bot,
+    Loader2,
+    User,
+    Brain,
+    ChevronDown,
+    ChevronUp,
+    Wrench,
+    AlertCircle,
+    CheckCheck,
+    Trash2,
+    Plus,
+    History,
+    BookOpen,
+    Map,
+    Check,
+    X,
+    ListChecks,
+    ImageIcon,
+    CornerDownLeft,
+    CircleUser,
+    GitBranch,
+    Pencil,
+  } from 'lucide-svelte'
+  import type { ModelMessage } from 'ai'
+  import { Button } from '$lib/components/ui/button'
+  import { Textarea } from '$lib/components/ui/textarea'
+  import VaultDiffView from './VaultDiffView.svelte'
+  import VaultEntityEditPanel from './VaultEntityEditPanel.svelte'
+  import VaultAssistantInput from './VaultAssistantInput.svelte'
+  import { fade, slide } from 'svelte/transition'
+  import { onMount, onDestroy, tick } from 'svelte'
+  import * as Dialog from '$lib/components/ui/dialog'
+  import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
+  import { parseMarkdown } from '$lib/utils/markdown'
+  import { cn } from '$lib/utils/cn'
+  import { templateEngine } from '$lib/services/templates/engine'
+  import { SvelteSet } from 'svelte/reactivity'
+  import { createIsCompact } from '$lib/hooks/is-compact.svelte'
+
+  interface Props {
+    onClose: () => void
+    onEditEntity?: (change: VaultPendingChange) => void
+    focusedEntity?: FocusedEntity | null
+  }
+
+  let { onClose, onEditEntity, focusedEntity = null }: Props = $props()
+
+  // Layout breakpoint: below 1024px we use the compact (tabs, full-screen) layout
+  const isCompact = createIsCompact()
+
+  // AbortController for cancelling ongoing requests
+  let abortController: AbortController | null = null
+
+  // Identifies which handleSend() invocation currently "owns" generation
+  // state. Bumped by handleAbort() and by each new handleSend() call so that
+  // a superseded invocation's finally block (which can still be resolving
+  // asynchronously well after the user moved on) can detect it's stale and
+  // skip finalizing/saving — otherwise it could clobber a newer generation's
+  // in-progress state or abortController, or write a stale save.
+  let activeGenerationId = 0
+
+  // Service instance
+  let service: InteractiveVaultService | null = $state(null)
+
+  // Tracks whether the component has finished mounting.
+  // Prevents spurious onOpenChange(false) events from immediately closing the
+  // assistant when it's re-opened after a previous close (bits-ui Dialog can
+  // fire an onOpenChange(false) during the initial render/mount cycle).
+  let mounted = $state(false)
+
+  // UI State
+  let messages = $state<ChatMessage[]>([])
+  let isGenerating = $state(false)
+  let error = $state<string | null>(null)
+  let messagesContainer = $state<HTMLDivElement | null>(null)
+  let expandedReasoning = $state<Set<string>>(new Set())
+  let editingGreetingId = $state<string | null>(null)
+  let greetingDraft = $state('')
+
+  // Progress state
+  let activeToolCalls = $state<ToolCallDisplay[]>([])
+  let isThinking = $state(false)
+
+  // In-flight pending changes (shown in chat before step message arrives)
+  let streamingChanges = $state<VaultPendingChange[]>([])
+
+  // ID of the message currently being streamed into
+  let streamingMessageId = $state<string | null>(null)
+
+  // RAF-throttled scroll for frequent text deltas
+  let scrollRAF: number | null = null
+  function scrollToBottomThrottled() {
+    if (scrollRAF) return
+    scrollRAF = requestAnimationFrame(() => {
+      scrollToBottom()
+      scrollRAF = null
+    })
+  }
+
+  // Serializes conversation saves so a slower-resolving earlier write can never
+  // overwrite a more complete later one (e.g. eager save vs. final save).
+  //
+  // pendingSave itself always resolves (even when a save fails) so one failed
+  // save can never block saves queued after it. The promise *returned* to the
+  // caller reflects the real outcome instead, so callers can avoid a
+  // destructive transition (new conversation / switch) when their own save
+  // just failed rather than silently discarding it.
+  let pendingSave: Promise<unknown> = Promise.resolve()
+  function queueSave(): Promise<boolean> {
+    if (!service) return Promise.resolve(false)
+    const attempt = pendingSave.then(async () => {
+      await service!.saveConversation(messages, vaultEditor.pendingChanges)
+      // Refresh history opportunistically, but don't keep callers waiting on a
+      // full conversation-list query when they only need the save to complete.
+      loadConversationsList().catch(() => {})
+    })
+    pendingSave = attempt.catch((e) => {
+      console.error('[VaultAssistant] Save failed:', e)
+    })
+    return attempt.then(
+      () => true,
+      () => false,
+    )
+  }
+
+  // Conversation history selector
+  let conversations = $state<VaultConversation[]>([])
+  let conversationSelectorOpen = $state(false)
+  const MAX_CONVERSATIONS = 10
+
+  // Rename conversation
+  let renamingConversationId = $state<string | null>(null)
+  let renameValue = $state('')
+
+  // Pending changes quick list
+  let pendingListOpen = $state(false)
+  const pendingOnly = $derived(vaultEditor.pendingChanges.filter((c) => c.status === 'pending'))
+
+  let enlargedImageUrl = $state<string | null>(null)
+
+  // Tracks the most recently viewed character via show_entity (fallback when no focusedEntity)
+  let viewedEntity = $state<FocusedEntity | null>(null)
+
+  // Compact-width tab state
+  let activeTab = $state<'chat' | 'entity'>('chat')
+
+  // Auto-fall-back to chat tab when the Entity tab loses its content
+  // (e.g. user closed the editor, approved/rejected the last pending change,
+  // or conversation switched away from an active change).
+  $effect(() => {
+    const entityTabAvailable = vaultEditor.editorOpen && vaultEditor.activeChange !== null
+    if (!entityTabAvailable && activeTab === 'entity') {
+      activeTab = 'chat'
+    }
+  })
+
+  // Pulse the Entity tab when a new pending change arrives while user is on Chat
+  let entityTabPulsing = $state(false)
+  let prevPendingCount = vaultEditor.pendingCount
+  $effect(() => {
+    const current = vaultEditor.pendingCount
+    if (current > prevPendingCount && activeTab === 'chat') {
+      entityTabPulsing = true
+      const timer = setTimeout(() => {
+        entityTabPulsing = false
+      }, 800)
+      prevPendingCount = current
+      return () => clearTimeout(timer)
+    }
+    prevPendingCount = current
+  })
+
+  const activeCharacterEntity = $derived<FocusedEntity | null>(
+    focusedEntity?.entityType === 'character'
+      ? focusedEntity
+      : viewedEntity?.entityType === 'character'
+        ? viewedEntity
+        : null,
+  )
+
+  const entityTabLabel = $derived.by(() => {
+    const type = vaultEditor.activeChange?.entityType
+    if (type === 'character') return 'Character'
+    if (type === 'lorebook') return 'Lorebook'
+    if (type === 'lorebook-entry') return 'Lorebook'
+    if (type === 'scenario') return 'Scenario'
+    return 'Entity'
+  })
+
+  const assistantLorebookId = $derived.by(() => {
+    if (focusedEntity?.entityType === 'lorebook') return focusedEntity.entityId
+    if (vaultEditor.currentLorebookId) return vaultEditor.currentLorebookId
+    if (vaultEditor.viewMode && vaultEditor.viewEntityType === 'lorebook' && vaultEditor.viewEntityId) {
+      return vaultEditor.viewEntityId
+    }
+    return null
+  })
+
+  const assistantLorebook = $derived.by(() => {
+    const id = assistantLorebookId
+    if (!id) return null
+    return lorebookVault.getById(id) ?? null
+  })
+
+  const lorebookViewerOpen = $derived.by(() => {
+    if (!vaultEditor.editorOpen || !vaultEditor.activeChange) return false
+    const active = vaultEditor.activeChange
+    if (active.entityType === 'lorebook') return true
+    if (active.entityType === 'lorebook-entry') return true
+    if (vaultEditor.viewMode && vaultEditor.viewEntityType === 'lorebook') return true
+    return false
+  })
+
+  function toggleLorebookViewer() {
+    if (lorebookViewerOpen) {
+      vaultEditor.closeEditor()
+      return
+    }
+
+    const lorebook = assistantLorebook
+    if (!lorebook) return
+
+    // Open a lorebook in direct view mode from chat even when no pending change is active.
+    const viewerChange = {
+      id: `view-${lorebook.id}-${Date.now()}`,
+      toolCallId: 'manual',
+      entityType: 'lorebook',
+      action: 'update',
+      status: 'pending',
+      entityId: lorebook.id,
+      data: JSON.parse(JSON.stringify(lorebook)),
+    } as unknown as VaultPendingChange
+
+    vaultEditor.openViewer(viewerChange, lorebook.id, 'lorebook')
+    if (isCompact.current) activeTab = 'entity'
+  }
+
+  const entityIcons = {
+    character: User,
+    'lorebook-entry': BookOpen,
+    scenario: Map,
+    lorebook: BookOpen,
+  }
+  const entityStyles = {
+    character: { text: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-l-amber-500/60' },
+    'lorebook-entry': {
+      text: 'text-cyan-400',
+      bg: 'bg-cyan-500/10',
+      border: 'border-l-cyan-500/60',
+    },
+    scenario: { text: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-l-violet-500/60' },
+    lorebook: { text: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-l-blue-500/60' },
+  }
+  const actionStyles = {
+    create: { label: 'Create', text: 'text-emerald-400', bg: 'bg-emerald-500/15' },
+    update: { label: 'Update', text: 'text-blue-400', bg: 'bg-blue-500/15' },
+    delete: { label: 'Delete', text: 'text-red-400', bg: 'bg-red-500/15' },
+    merge: { label: 'Merge', text: 'text-purple-400', bg: 'bg-purple-500/15' },
+  }
+
+  function getChangeName(change: VaultPendingChange): string {
+    if ('data' in change && change.data && 'name' in change.data) return change.data.name as string
+    if ('previous' in change && change.previous && 'name' in change.previous)
+      return change.previous.name as string
+    return 'Unknown'
+  }
+
+  function getDefaultGreeting(entity: FocusedEntity | null): string {
+    return entity
+      ? `Hello! I can see you were editing the ${entity.entityType} **${entity.entityName}**. What would you like to work on?`
+      : "Hello! I'm your Vault Assistant. I can help you manage characters, lorebooks, and scenarios in your vault.\n\nTry asking me to create a character, organize lorebook entries, or set up a new scenario."
+  }
+
+  // Initialize service on mount
+  onMount(async () => {
+    mounted = true
+    await initializeService()
+    loadConversationsList().catch(() => {})
+
+    // Auto-open focused entity if provided
+    if (focusedEntity) {
+      let entityData: any = null
+      if (focusedEntity.entityType === 'character') {
+        entityData = characterVault.getById(focusedEntity.entityId)
+      } else if (focusedEntity.entityType === 'lorebook') {
+        entityData = lorebookVault.getById(focusedEntity.entityId)
+      } else if (focusedEntity.entityType === 'scenario') {
+        entityData = scenarioVault.getById(focusedEntity.entityId)
+      }
+
+      if (entityData) {
+        // Construct a dummy change to satisfy the viewer store requirement
+        const dummyChange = {
+          id: `view-${focusedEntity.entityId}`,
+          toolCallId: 'init',
+          entityType: focusedEntity.entityType,
+          action: 'update',
+          status: 'pending',
+          entityId: focusedEntity.entityId,
+          data: JSON.parse(JSON.stringify(entityData)),
+        } as unknown as VaultPendingChange
+
+        vaultEditor.openViewer(dummyChange, focusedEntity.entityId, focusedEntity.entityType)
+      }
+    }
+  })
+
+  // Clean up on unmount
+  onDestroy(() => {
+    mounted = false
+    if (abortController) {
+      abortController.abort()
+      abortController = null
+    }
+    vaultEditor.reset()
+  })
+
+  async function initializeService(focused: FocusedEntity | null = null) {
+    try {
+      service = new InteractiveVaultService('interactiveVault')
+
+      const allLorebooks = lorebookVault.items
+      await service.initialize(
+        {
+          characterCount: characterVault.items.length,
+          lorebookCount: allLorebooks.length,
+          totalEntryCount: allLorebooks.reduce((sum, lb) => sum + lb.entries.length, 0),
+          scenarioCount: scenarioVault.items.length,
+        },
+        focused ?? undefined,
+      )
+
+      const entityToUse = focused ?? focusedEntity
+      const greetingTemplate = await database.getPackTemplate(
+        'default-pack',
+        'interactive-lorebook-greeting',
+      )
+
+      let greetingContent = getDefaultGreeting(entityToUse)
+      if (greetingTemplate?.content?.trim()) {
+        const renderedGreeting = templateEngine.render(greetingTemplate.content, {
+          entityType: entityToUse?.entityType ?? '',
+          entityName: entityToUse?.entityName ?? '',
+        })
+        if (renderedGreeting?.trim()) {
+          greetingContent = renderedGreeting
+        }
+      }
+
+      messages = [
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: greetingContent,
+          timestamp: Date.now(),
+          isGreeting: true,
+        },
+      ]
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Failed to initialize AI service'
+    }
+  }
+
+  async function loadConversationsList() {
+    try {
+      conversations = await database.listVaultConversations()
+    } catch {
+      // Non-critical — conversation selector just won't show history
+    }
+  }
+
+  async function handleNewConversation() {
+    if (!service) return
+    handleAbort()
+    // Auto-save current conversation before starting new one. Routed through the
+    // pendingSave queue (not a direct call) so it can't race a still-in-flight
+    // save from handleSend and can't run against the service instance we're about
+    // to replace below. Bail out on failure instead of silently discarding the
+    // conversation the user was just in.
+    if (messages.some((m) => !m.isGreeting)) {
+      const saved = await queueSave()
+      if (!saved) {
+        error = 'Failed to save the current conversation. Try again before starting a new one.'
+        return
+      }
+    }
+    service.reset()
+    vaultEditor.reset()
+    activeTab = 'chat'
+    prevPendingCount = 0
+    await initializeService()
+    await loadConversationsList()
+  }
+
+  async function handleSwitchConversation(id: string) {
+    if (!service) return
+    handleAbort()
+    // Auto-save current before switching. Routed through the pendingSave queue —
+    // see handleNewConversation for why a direct call here would be unsafe.
+    if (messages.some((m) => !m.isGreeting)) {
+      const saved = await queueSave()
+      if (!saved) {
+        error = 'Failed to save the current conversation. Try again before switching.'
+        return
+      }
+    }
+    const loaded = await service.loadConversation(id)
+    if (loaded) {
+      vaultEditor.reset()
+      activeTab = 'chat'
+      prevPendingCount = 0
+      // Restore full UI state from persisted data
+      if (loaded.chatMessages.length > 0) {
+        messages = loaded.chatMessages
+      } else {
+        // Fallback for conversations saved in the old format (messages-only)
+        const reconstructed = service.getChatMessages()
+        messages =
+          reconstructed.length > 0
+            ? reconstructed
+            : [
+                {
+                  id: crypto.randomUUID(),
+                  role: 'assistant',
+                  content: 'Conversation loaded. Continue where you left off!',
+                  timestamp: Date.now(),
+                  isGreeting: true,
+                },
+              ]
+      }
+      // Restore pending changes (includes approved/rejected for history display)
+      for (const change of loaded.pendingChanges) {
+        vaultEditor.addPendingChange(change)
+      }
+      await tick()
+      scrollToBottom()
+    }
+  }
+
+  async function handleDeleteConversation(id: string) {
+    try {
+      await database.deleteVaultConversation(id)
+      if (service?.getConversationId() === id) {
+        // Abort any in-flight generation before replacing the service — same
+        // reasoning as handleNewConversation/handleSwitchConversation, this is
+        // the conversation currently being generated into.
+        handleAbort()
+        service.reset()
+        vaultEditor.reset()
+        activeTab = 'chat'
+        prevPendingCount = 0
+        await initializeService()
+      }
+      await loadConversationsList()
+    } catch {
+      // Ignore
+    }
+  }
+
+  function buildBranchHistory(source: ModelMessage[], visibleMessageCount: number): ModelMessage[] {
+    if (visibleMessageCount <= 0) return []
+
+    let seenVisible = 0
+    let cutoff = -1
+
+    for (let i = 0; i < source.length; i++) {
+      const msg = source[i]
+      if (msg.role === 'tool' || msg.role === 'system') continue
+
+      const content =
+        typeof msg.content === 'string'
+          ? msg.content
+          : (msg.content as Array<{ type: string; text?: string }>)
+              .filter((p) => p.type === 'text' && p.text)
+              .map((p) => p.text!)
+              .join('\n')
+
+      if (content.startsWith('[System:')) continue
+      if (msg.role === 'assistant' && !content.trim()) continue
+
+      seenVisible += 1
+      if (seenVisible >= visibleMessageCount) {
+        cutoff = i
+        break
+      }
+    }
+
+    if (cutoff < 0) return [...source]
+    return source.slice(0, cutoff + 1)
+  }
+
+  function buildBranchTitle(message: ChatMessage): string {
+    const plain = message.content
+      .replace(/`+/g, '')
+      .replace(/\*+/g, '')
+      .replace(/#+/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+    const stem = plain.length > 42 ? `${plain.slice(0, 42).trim()}...` : plain || 'Conversation'
+    return `Branch: ${stem}`
+  }
+
+  async function handleBranchFromMessage(messageId: string) {
+    if (!service || isGenerating) return
+
+    const targetIndex = messages.findIndex((m) => m.id === messageId)
+    if (targetIndex < 0) return
+
+    const targetMessage = messages[targetIndex]
+    const branchedChatMessages = messages.slice(0, targetIndex + 1)
+    const visibleCount = branchedChatMessages.filter((m) => !m.isGreeting).length
+    const branchedHistory = buildBranchHistory(service.getConversationHistory(), visibleCount)
+
+    const includedChangeIds = new Set(
+      branchedChatMessages.flatMap((m) => m.pendingChanges?.map((c) => c.id) ?? []),
+    )
+    const branchedPendingChanges = vaultEditor.pendingChanges.filter((c) =>
+      includedChangeIds.has(c.id),
+    )
+
+    const now = new Date().toISOString()
+    const branchId = `vc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
+    await database.createVaultConversation({
+      id: branchId,
+      title: buildBranchTitle(targetMessage),
+      createdAt: now,
+      updatedAt: now,
+      messages: JSON.stringify(branchedHistory),
+      chatMessages: JSON.stringify(branchedChatMessages),
+      pendingChanges: JSON.stringify(branchedPendingChanges),
+      entryVersions: JSON.stringify([]),
+    })
+
+    await handleSwitchConversation(branchId)
+  }
+
+  function startRename(conv: VaultConversation) {
+    renamingConversationId = conv.id
+    renameValue = conv.title || ''
+  }
+
+  async function commitRename() {
+    if (!renamingConversationId) return
+    const id = renamingConversationId
+    const trimmed = renameValue.trim()
+    renamingConversationId = null
+    renameValue = ''
+    if (!trimmed) return
+    try {
+      await database.saveVaultConversation(id, { title: trimmed })
+      await loadConversationsList()
+    } catch (e) {
+      console.error('[VaultAssistant] Rename failed:', e)
+    }
+  }
+
+  function cancelRename() {
+    renamingConversationId = null
+    renameValue = ''
+  }
+
+  function focus(node: HTMLElement) {
+    node.focus()
+  }
+
+  function handleReferenceImage(imageId: string) {
+    assistantInputRef?.appendText(`[Image: ${imageId}]`)
+  }
+
+  function startEditGreeting(message: ChatMessage) {
+    editingGreetingId = message.id
+    greetingDraft = message.content
+  }
+
+  function cancelEditGreeting() {
+    editingGreetingId = null
+    greetingDraft = ''
+  }
+
+  function saveEditGreeting(messageId: string) {
+    const next = greetingDraft.trim()
+    if (!next) return
+
+    messages = messages.map((msg) => (msg.id === messageId ? { ...msg, content: next } : msg))
+    cancelEditGreeting()
+  }
+
+  let editPanelRef = $state<ReturnType<typeof VaultEntityEditPanel> | null>(null)
+  let assistantInputRef = $state<ReturnType<typeof VaultAssistantInput> | null>(null)
+
+  async function handleSetPortrait(imageId: string) {
+    if (!activeCharacterEntity || !service) return
+    const dataUrl = service.generatedImages.get(imageId)
+    if (!dataUrl) return
+    // On compact, the panel only mounts inside the Entity tab — switch first so the ref exists.
+    if (isCompact.current && activeTab !== 'entity') {
+      activeTab = 'entity'
+      await tick()
+    }
+    editPanelRef?.setPortrait(dataUrl)
+  }
+
+  async function handleSend(userMessage: string) {
+    if (!service || isGenerating) return
+
+    error = null
+
+    if (userMessage) {
+      // Add user message to UI
+      const userMsg: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: 'user',
+        content: userMessage,
+        timestamp: Date.now(),
+      }
+      messages = [...messages, userMsg]
+
+      // Eagerly save so the conversation appears in history immediately
+      queueSave()
+    }
+    await tick()
+    scrollToBottom()
+
+    isGenerating = true
+    isThinking = true
+    activeToolCalls = []
+
+    abortController = new AbortController()
+    const myGenerationId = ++activeGenerationId
+
+    try {
+      // Check for external lorebook edits before streaming
+      const lorebookId =
+        focusedEntity?.entityType === 'lorebook'
+          ? focusedEntity.entityId
+          : vaultEditor.currentLorebookId
+      if (lorebookId) {
+        service.injectLorebookChangeNote(lorebookId)
+      }
+
+      const vaultState: VaultState = {
+        characters: () => characterVault.items,
+        lorebooks: () => lorebookVault.items,
+        scenarios: () => scenarioVault.items,
+        get activeLorebookId() {
+          if (focusedEntity?.entityType === 'lorebook') return focusedEntity.entityId
+          return vaultEditor.currentLorebookId ?? undefined
+        },
+        get activeEntries() {
+          const id =
+            focusedEntity?.entityType === 'lorebook'
+              ? focusedEntity.entityId
+              : vaultEditor.currentLorebookId
+          if (!id) return undefined
+          return lorebookVault.getById(id)?.entries
+        },
+        activeCharacterId:
+          focusedEntity?.entityType === 'character' ? focusedEntity.entityId : undefined,
+        activeScenarioId:
+          focusedEntity?.entityType === 'scenario' ? focusedEntity.entityId : undefined,
+      }
+
+      for await (const event of service.sendMessageStreaming(
+        vaultState,
+        userMessage,
+        abortController.signal,
+      )) {
+        // Ensure a streaming placeholder message exists in the messages array
+        function ensureStreamingMessage() {
+          if (!streamingMessageId) {
+            const id = `streaming-${Date.now()}`
+            streamingMessageId = id
+            messages = [
+              ...messages,
+              {
+                id,
+                role: 'assistant',
+                content: '',
+                timestamp: Date.now(),
+              },
+            ]
+          }
+        }
+
+        // Update the last message (the streaming placeholder) in place
+        function updateStreamingMessage(updater: (msg: ChatMessage) => ChatMessage) {
+          const idx = messages.findIndex((m) => m.id === streamingMessageId)
+          if (idx === -1) return
+          const updated = updater(messages[idx])
+          messages = [...messages.slice(0, idx), updated, ...messages.slice(idx + 1)]
+        }
+
+        switch (event.type) {
+          case 'thinking':
+            isThinking = true
+            activeToolCalls = []
+            ensureStreamingMessage()
+            break
+
+          case 'text_delta':
+            isThinking = false
+            ensureStreamingMessage()
+            updateStreamingMessage((msg) => ({
+              ...msg,
+              content: msg.content + event.text,
+            }))
+            scrollToBottomThrottled()
+            break
+
+          case 'reasoning_delta':
+            isThinking = false
+            ensureStreamingMessage()
+            updateStreamingMessage((msg) => ({
+              ...msg,
+              reasoning: (msg.reasoning || '') + event.text,
+            }))
+            break
+
+          case 'tool_start':
+            isThinking = false
+            // Ensure a placeholder exists even when the model calls a tool with no
+            // preceding text/reasoning, so the tool chip has somewhere to render.
+            ensureStreamingMessage()
+            activeToolCalls = [
+              ...activeToolCalls,
+              {
+                id: event.toolCallId,
+                name: event.toolName,
+                args: event.args,
+                result: '...',
+              },
+            ]
+            await tick()
+            scrollToBottom()
+            break
+
+          case 'tool_end':
+            activeToolCalls = activeToolCalls.map((tc) =>
+              tc.id === event.toolCall.id ? event.toolCall : tc,
+            )
+            // Collect pending changes as they arrive (store handles dedup)
+            if (event.toolCall.pendingChange) {
+              const incoming = event.toolCall.pendingChange
+              // Auto-approve lorebook creation (it's a prerequisite step)
+              if (incoming.entityType === 'lorebook' && incoming.action === 'create' && service) {
+                vaultEditor.addPendingChange(incoming)
+                await handleApprove(incoming)
+                // Open the newly created lorebook in the editor
+                await tick()
+                vaultEditor.openEditor(incoming)
+              } else {
+                vaultEditor.addPendingChange(incoming)
+                // Auto-open entity editor (store handles same-lorebook skip).
+                // On compact, the Entity tab becomes available — user still has to tap to switch.
+                vaultEditor.openEditorSmart(incoming)
+              }
+              // Track for immediate chat display
+              streamingChanges = [...streamingChanges, incoming]
+            }
+            await tick()
+            scrollToBottom()
+            break
+
+          case 'message': {
+            // Clear streaming changes that are now attached to this message
+            const msgChangeIds = new Set(event.message.pendingChanges?.map((c) => c.id) ?? [])
+            streamingChanges = streamingChanges.filter((c) => !msgChangeIds.has(c.id))
+            // Replace the streaming placeholder with the final message
+            if (streamingMessageId) {
+              const idx = messages.findIndex((m) => m.id === streamingMessageId)
+              if (idx !== -1) {
+                messages = [...messages.slice(0, idx), event.message, ...messages.slice(idx + 1)]
+              } else {
+                messages = [...messages, event.message]
+              }
+            } else {
+              messages = [...messages, event.message]
+            }
+            streamingMessageId = null
+            activeToolCalls = []
+            isThinking = true
+            await tick()
+            scrollToBottom()
+            break
+          }
+
+          case 'show_entity':
+            // Open entity in view mode (no approval workflow)
+            vaultEditor.openViewer(event.change, event.entityId, event.entityType)
+            // Track which character is currently being viewed so the Set Portrait button appears
+            if (event.entityType === 'character') {
+              viewedEntity = {
+                entityType: 'character',
+                entityId: event.entityId,
+                entityName:
+                  ('data' in event.change && (event.change.data as { name?: string }).name) ||
+                  event.entityId,
+              }
+            }
+            break
+
+          case 'done':
+            break
+
+          case 'aborted':
+            // User-initiated stop (button or Escape) — handleAbort() already reset
+            // the UI state; nothing else to do here, and no error should be shown.
+            break
+
+          case 'error':
+            error = event.error
+            const errorMsg: ChatMessage = {
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              content: `Sorry, I encountered an error: ${event.error}`,
+              timestamp: Date.now(),
+            }
+            messages = [...messages, errorMsg]
+            break
+        }
+      }
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') {
+        return
+      }
+      error = e instanceof Error ? e.message : 'Failed to get response'
+      const errorMsg: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: `Sorry, I encountered an error: ${error}`,
+        timestamp: Date.now(),
+      }
+      messages = [...messages, errorMsg]
+    } finally {
+      // A newer generation (or an explicit abort) has already taken over —
+      // let it own the shared state instead of clobbering it out from under
+      // whoever's active now (their abortController, their isGenerating, or
+      // worse, a stale save of this stale generation's messages).
+      if (myGenerationId === activeGenerationId) {
+        isGenerating = false
+        isThinking = false
+        activeToolCalls = []
+        streamingChanges = []
+        streamingMessageId = null
+        abortController = null
+        // Always save conversation (success, error, or abort)
+        if (messages.some((m) => !m.isGreeting)) {
+          queueSave()
+        }
+      }
+    }
+  }
+
+  function scrollToBottom() {
+    if (messagesContainer) {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight
+    }
+  }
+
+  function toggleReasoning(messageId: string) {
+    const newSet = new SvelteSet(expandedReasoning)
+    if (newSet.has(messageId)) {
+      newSet.delete(messageId)
+    } else {
+      newSet.add(messageId)
+    }
+    expandedReasoning = newSet
+  }
+
+  function formatToolCallName(name: string): string {
+    return name
+      .split('_')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+  }
+
+  const IMAGE_TOOL_NAMES = new Set(['generate_standard_image', 'generate_portrait'])
+
+  // --- Approval handlers (delegated to store) ---
+
+  async function handleApprove(change?: VaultPendingChange) {
+    if (!service) return
+    if (vaultEditor.editorDirty) {
+      error = 'Save your local edits before approving changes.'
+      return
+    }
+    const target = change ?? vaultEditor.activeChange
+    if (!target) return
+    try {
+      await vaultEditor.approve(target, service)
+      await queueSave()
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Failed to apply change'
+    }
+  }
+
+  async function handleReject(change: VaultPendingChange) {
+    if (!service) return
+    vaultEditor.reject(change, service)
+    await queueSave()
+  }
+
+  function handleEdit(change: VaultPendingChange) {
+    if (change.status !== 'pending') return
+    vaultEditor.openEditor(change)
+    onEditEntity?.(change)
+  }
+
+  async function handleApproveAll(): Promise<string | null> {
+    if (!service) return 'Service not initialized'
+    if (vaultEditor.editorDirty) {
+      error = 'Save your local edits before approving changes.'
+      return 'Editor has unsaved changes'
+    }
+    const err = await vaultEditor.approveAll(service)
+    if (err) error = err
+    if (!err) {
+      await queueSave()
+    }
+    return err
+  }
+
+  /**
+   * Abort the in-flight request (if any) and reset generation UI state.
+   * Shared by the Escape handler, the dialog-close handler, and the
+   * stop button in VaultAssistantInput.
+   */
+  function handleAbort() {
+    // Invalidate any in-flight handleSend() so its finally block, whenever it
+    // gets around to resolving, recognizes it's stale and skips finalizing.
+    activeGenerationId++
+    if (abortController) {
+      abortController.abort()
+      abortController = null
+    }
+    isGenerating = false
+    isThinking = false
+    activeToolCalls = []
+    streamingChanges = []
+    // Drop the in-progress assistant message entirely rather than leaving a
+    // frozen partial response behind — it never finished, so there's nothing
+    // worth keeping.
+    if (streamingMessageId) {
+      messages = messages.filter((m) => m.id !== streamingMessageId)
+      streamingMessageId = null
+    }
+  }
+
+  /**
+   * Handle Escape key in the modal:
+   * - If generating: abort the request and keep the assistant open
+   * - If not generating: let the modal close normally (onOpenChange handles this)
+   */
+  function handleEscapeKeydown(e: KeyboardEvent) {
+    if (isGenerating) {
+      e.preventDefault()
+      handleAbort()
+      error = 'Generation stopped'
+    }
+  }
+
+  /**
+   * Handle dialog open state changes.
+   * Guards against spurious close during mount (mounted flag),
+   * aborts generation if user closes mid-stream, then always
+   * delegates to onClose to ensure showVaultAssistant is reset.
+   */
+  function handleOpenChange(open: boolean) {
+    if (open) return
+    if (!mounted) return
+    if (isGenerating) {
+      handleAbort()
+    }
+    onClose()
+  }
+</script>
+
+{#snippet assistantContent()}
+  <Dialog.Title class="sr-only">Vault Assistant</Dialog.Title>
+  <div class="flex flex-col overflow-hidden" style="height: 100%">
+    <!-- Top Bar -->
+    <div
+      class="border-surface-700 bg-surface-900 flex items-center justify-between border-b px-4 py-2.5"
+    >
+      <div class="flex items-center gap-2.5">
+        <Button
+          variant="ghost"
+          size="icon"
+          class="text-surface-400 hover:text-foreground hover:bg-foreground/5 h-8 w-8"
+          onclick={onClose}
+          title="Back to Vault"
+        >
+          <ChevronLeft class="h-4 w-4" />
+        </Button>
+        <div class="flex items-center gap-2">
+          <div class="bg-accent-500/15 flex h-7 w-7 items-center justify-center rounded-lg">
+            <Bot class="text-accent-400 h-4 w-4" />
+          </div>
+          <h2 class="text-surface-100 text-sm font-semibold tracking-tight">Vault Assistant</h2>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          class={cn(
+            'h-7 gap-1.5 px-2.5 text-xs',
+            lorebookViewerOpen
+              ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/15'
+              : 'border-surface-700 text-surface-300 hover:bg-foreground/5',
+          )}
+          onclick={toggleLorebookViewer}
+          disabled={!assistantLorebook}
+          title={assistantLorebook
+            ? lorebookViewerOpen
+              ? 'Hide lorebook editor'
+              : 'Open lorebook editor'
+            : 'Open a lorebook first to use the viewer'}
+        >
+          <BookOpen class="h-3.5 w-3.5" />
+          <span class="hidden sm:inline">Lorebook</span>
+        </Button>
+
+        {#if vaultEditor.pendingCount > 0}
+          <div in:fade={{ duration: 150 }}>
+          <Button
+            variant="outline"
+            size="sm"
+            class="h-7 gap-1.5 border-emerald-500/30 bg-emerald-500/8 px-2.5 text-xs text-emerald-400 hover:bg-emerald-500/15"
+            onclick={handleApproveAll}
+            disabled={isGenerating}
+          >
+            <CheckCheck class="h-3.5 w-3.5" />
+            Approve All
+            <span
+              class="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300"
+            >
+              {vaultEditor.pendingBreakdown}
+            </span>
+          </Button>
+          </div>
+        {/if}
+      </div>
+    </div>
+
+    <!-- Two-panel layout -->
+    <div class="flex flex-1 overflow-hidden">
+      <!-- Entity Editor Panel (left, wide layout only) -->
+      {#if vaultEditor.editorOpen && vaultEditor.activeChange && !isCompact.current}
+        <div
+          class="border-surface-700 flex min-w-[28rem] flex-1 flex-col overflow-hidden border-r"
+          transition:fade={{ duration: 100 }}
+        >
+          <VaultEntityEditPanel
+            bind:this={editPanelRef}
+            change={vaultEditor.activeChange}
+            onApprove={(specificChange) =>
+              handleApprove(specificChange ?? vaultEditor.activeChange!)}
+            onReject={(change) => handleReject(change)}
+            onApproveAllAsync={handleApproveAll}
+            onClose={() => vaultEditor.closeEditor()}
+          />
+        </div>
+      {/if}
+
+      <!-- Chat Panel (right, or full-width on compact) -->
+      <div
+        class="flex flex-col overflow-hidden {isCompact.current
+          ? 'w-full'
+          : vaultEditor.editorOpen
+            ? 'w-full max-w-2xl min-w-[22rem] flex-1'
+            : 'mx-auto w-full max-w-2xl'}"
+      >
+        <!-- Conversation selector -->
+        <div class="relative {conversationSelectorOpen ? 'z-20' : 'z-10'}">
+          <button
+            class="border-surface-700 text-surface-400 hover:text-foreground hover:bg-foreground/5 flex w-full items-center gap-2 border-b px-3 py-1.5 text-xs transition-colors"
+            onclick={() => (conversationSelectorOpen = !conversationSelectorOpen)}
+          >
+            <History class="h-3.5 w-3.5" />
+            <span class="font-medium">
+              {conversations.length > 0
+                ? `${conversations.length} conversation${conversations.length !== 1 ? 's' : ''}`
+                : 'No history'}
+            </span>
+            {#if conversationSelectorOpen}
+              <ChevronUp class="ml-auto h-3 w-3" />
+            {:else}
+              <ChevronDown class="ml-auto h-3 w-3" />
+            {/if}
+          </button>
+          {#if conversationSelectorOpen}
+            <!-- Backdrop -->
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <!-- svelte-ignore a11y_click_events_have_key_events -->
+            <div
+              class="fixed inset-0 z-10"
+              onclick={() => (conversationSelectorOpen = false)}
+              transition:fade={{ duration: 100 }}
+            ></div>
+            <!-- Floating panel -->
+            <div
+              class="border-surface-700 bg-surface-900 absolute right-2 left-2 z-20 mt-1 max-h-72 overflow-y-auto rounded-xl border shadow-xl shadow-black/30"
+              transition:slide={{ duration: 150 }}
+            >
+              <div class="space-y-1 p-1.5">
+                <!-- New conversation button -->
+                <button
+                  class="text-surface-300 hover:text-foreground hover:bg-foreground/5 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs transition-colors"
+                  onclick={() => {
+                    conversationSelectorOpen = false
+                    handleNewConversation()
+                  }}
+                >
+                  <div
+                    class="bg-accent-500/15 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md"
+                  >
+                    <Plus class="text-accent-400 h-3.5 w-3.5" />
+                  </div>
+                  <span class="font-medium">New Conversation</span>
+                </button>
+
+                {#if conversations.length > 0}
+                  <div class="border-surface-700 mx-2 border-t"></div>
+                  {#each conversations as conv, i (conv.id)}
+                    <div
+                      class="group bg-surface-800 hover:bg-foreground/5 flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors"
+                    >
+                      {#if renamingConversationId === conv.id}
+                        <!-- Inline rename input -->
+                        <div
+                          class="bg-surface-700 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md"
+                        >
+                          <History class="text-surface-400 h-3.5 w-3.5" />
+                        </div>
+                        <form
+                          class="flex min-w-0 flex-1 items-center gap-1.5"
+                          onsubmit={(e) => {
+                            e.preventDefault()
+                            commitRename()
+                          }}
+                        >
+                          <input
+                            class="bg-surface-700 text-surface-200 border-surface-600 focus:border-accent-500 min-w-0 flex-1 rounded-md border px-2 py-1 text-xs focus:outline-none"
+                            type="text"
+                            bind:value={renameValue}
+                            onkeydown={(e) => {
+                              if (e.key === 'Escape') cancelRename()
+                            }}
+                            onblur={() => commitRename()}
+                            use:focus
+                          />
+                        </form>
+                      {:else}
+                        <button
+                          class="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                          onclick={() => {
+                            conversationSelectorOpen = false
+                            handleSwitchConversation(conv.id)
+                          }}
+                        >
+                          <div
+                            class="bg-surface-700 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md"
+                          >
+                            <History class="text-surface-400 h-3.5 w-3.5" />
+                          </div>
+                          <div class="min-w-0 flex-1">
+                            <div class="text-surface-200 truncate text-xs font-medium">
+                              {conv.title || 'Untitled'}
+                            </div>
+                            <div class="text-surface-500 mt-0.5 text-[10px]">
+                              {new Date(conv.updatedAt).toLocaleString(undefined, {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit',
+                              })}
+                              {#if i === conversations.length - 1 && conversations.length >= MAX_CONVERSATIONS}
+                                <span class="text-surface-600 ml-1">· oldest</span>
+                              {/if}
+                            </div>
+                          </div>
+                        </button>
+                        <button
+                          class="text-surface-500 hover:bg-surface-600 hover:text-surface-200 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md transition-all focus-visible:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                          onclick={(e) => {
+                            e.stopPropagation()
+                            startRename(conv)
+                          }}
+                          title="Rename conversation"
+                        >
+                          <Pencil class="h-3 w-3" />
+                        </button>
+                        <button
+                          class="text-surface-500 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md transition-all hover:bg-red-500/20 hover:text-red-400 focus-visible:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                          onclick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteConversation(conv.id)
+                          }}
+                          title="Delete conversation"
+                        >
+                          <Trash2 class="h-3 w-3" />
+                        </button>
+                      {/if}
+                    </div>
+                  {/each}
+                {/if}
+              </div>
+            </div>
+          {/if}
+        </div>
+
+        <!-- Pending Changes Quick List (popover) -->
+        {#if pendingOnly.length > 0}
+          <div class="relative z-10">
+            <button
+              class="border-surface-700 text-surface-400 hover:text-foreground hover:bg-foreground/5 flex w-full items-center gap-2 border-b px-3 py-1.5 text-xs transition-colors"
+              onclick={() => (pendingListOpen = !pendingListOpen)}
+            >
+              <ListChecks class="h-3.5 w-3.5" />
+              <span class="font-medium">{pendingOnly.length} pending</span>
+              {#if pendingListOpen}
+                <ChevronUp class="ml-auto h-3 w-3" />
+              {:else}
+                <ChevronDown class="ml-auto h-3 w-3" />
+              {/if}
+            </button>
+            {#if pendingListOpen}
+              <!-- Backdrop -->
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <!-- svelte-ignore a11y_click_events_have_key_events -->
+              <div
+                class="fixed inset-0 z-10"
+                onclick={() => (pendingListOpen = false)}
+                transition:fade={{ duration: 100 }}
+              ></div>
+              <!-- Floating panel -->
+              <div
+                class="border-surface-700 bg-surface-900 absolute right-2 left-2 z-20 mt-1 max-h-72 overflow-y-auto rounded-xl border shadow-xl shadow-black/30"
+                transition:slide={{ duration: 150 }}
+              >
+                <div class="space-y-1 p-1.5">
+                  {#each pendingOnly as change (change.id)}
+                    {@const Icon = entityIcons[change.entityType]}
+                    {@const eStyle = entityStyles[change.entityType]}
+                    {@const aStyle = actionStyles[change.action]}
+                    <div
+                      class="group flex items-center gap-2.5 rounded-lg border-l-2 px-2.5 py-2 transition-colors {eStyle.border} {eStyle.bg} cursor-pointer hover:brightness-125"
+                      role="button"
+                      tabindex="0"
+                      onclick={() => handleEdit(change)}
+                      onkeydown={(e) => e.key === 'Enter' && handleEdit(change)}
+                    >
+                      <!-- Entity icon -->
+                      <div
+                        class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md {eStyle.bg}"
+                      >
+                        <Icon class="h-3.5 w-3.5 {eStyle.text}" />
+                      </div>
+                      <!-- Info -->
+                      <div class="min-w-0 flex-1">
+                        <div class="text-surface-200 truncate text-xs font-medium">
+                          {getChangeName(change)}
+                        </div>
+                        <div class="mt-0.5 flex items-center gap-1.5">
+                          <span
+                            class="inline-flex items-center rounded px-1 py-px text-[10px] font-semibold uppercase {aStyle.text} {aStyle.bg}"
+                          >
+                            {aStyle.label}
+                          </span>
+                          <span class="text-surface-500 text-[10px]">
+                            {change.entityType === 'lorebook-entry' ? 'entry' : change.entityType}
+                          </span>
+                        </div>
+                      </div>
+                      <!-- Actions -->
+                      <!-- svelte-ignore a11y_no_static_element_interactions -->
+                      <!-- svelte-ignore a11y_click_events_have_key_events -->
+                      <div
+                        class="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100"
+                        onclick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          class="flex h-6 w-6 items-center justify-center rounded-md text-red-400/70 transition-colors hover:bg-red-500/20 hover:text-red-400"
+                          onclick={() => handleReject(change)}
+                          title="Reject"
+                        >
+                          <X class="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          class="flex h-6 w-6 items-center justify-center rounded-md text-emerald-400/70 transition-colors hover:bg-emerald-500/20 hover:text-emerald-400"
+                          onclick={() => handleApprove(change)}
+                          title="Approve"
+                        >
+                          <Check class="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+          </div>
+        {/if}
+
+        <!-- Compact-width tab bar: Chat | Entity -->
+        {#if isCompact.current && vaultEditor.editorOpen && vaultEditor.activeChange}
+          <div class="border-surface-700 flex shrink-0 gap-1 border-b px-2 py-1.5" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'chat'}
+              class={cn(
+                'flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+                activeTab === 'chat'
+                  ? 'bg-surface-700 text-surface-100'
+                  : 'text-surface-400 hover:text-foreground hover:bg-foreground/5',
+              )}
+              onclick={() => (activeTab = 'chat')}
+            >
+              Chat
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'entity'}
+              class={cn(
+                'relative flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+                activeTab === 'entity'
+                  ? 'bg-surface-700 text-surface-100'
+                  : 'text-surface-400 hover:text-foreground hover:bg-foreground/5',
+                entityTabPulsing && 'vault-tab-pulse',
+              )}
+              onclick={() => (activeTab = 'entity')}
+            >
+              {entityTabLabel}
+              {#if vaultEditor.pendingCount > 0}
+                <span
+                  class="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500/20 px-1 text-[10px] font-bold text-emerald-300"
+                >
+                  {vaultEditor.pendingCount}
+                </span>
+              {/if}
+            </button>
+          </div>
+        {/if}
+
+        <!-- Messages -->
+        {#if !isCompact.current || activeTab === 'chat'}
+          <div class="flex-1 space-y-3 overflow-y-auto px-4 py-3" bind:this={messagesContainer}>
+            {#each messages as message (message.id)}
+              {@const isStreaming = message.id === streamingMessageId}
+              <div in:fade={{ duration: 150 }}>
+                <div
+                  class={cn(
+                    'flex w-full',
+                    message.role === 'user' ? 'justify-end' : 'justify-start',
+                  )}
+                >
+                  <div class={cn('max-w-[85%]', message.role === 'user' ? 'order-2' : 'order-1')}>
+                    <!-- Message bubble -->
+                    <div
+                      class={cn(
+                        'rounded-xl text-sm',
+                        message.role === 'user'
+                          ? 'bg-accent-600/90 px-3.5 py-2.5 text-white'
+                          : 'bg-surface-800 border-surface-700 border px-3.5 py-2.5',
+                      )}
+                    >
+                      <!-- Icon + content -->
+                      <div class="flex items-start gap-2.5">
+                        {#if message.role === 'assistant'}
+                          <div
+                            class="bg-accent-500/15 mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md"
+                          >
+                            <Bot class="text-accent-400 h-3 w-3" />
+                          </div>
+                        {:else}
+                          <div
+                            class="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md bg-white/10"
+                          >
+                            <User class="h-3 w-3 opacity-90" />
+                          </div>
+                        {/if}
+                        <div class="min-w-0 flex-1">
+                          {#if editingGreetingId === message.id}
+                            <div class="space-y-2">
+                              <Textarea
+                                bind:value={greetingDraft}
+                                rows={4}
+                                class="min-h-[96px] text-sm"
+                                onkeydown={(e) => {
+                                  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                                    e.preventDefault()
+                                    saveEditGreeting(message.id)
+                                  }
+                                  if (e.key === 'Escape') {
+                                    e.preventDefault()
+                                    cancelEditGreeting()
+                                  }
+                                }}
+                              />
+                              <div class="flex items-center gap-2">
+                                <Button size="sm" onclick={() => saveEditGreeting(message.id)}>
+                                  <Check class="mr-1 h-3.5 w-3.5" />
+                                  Save
+                                </Button>
+                                <Button variant="secondary" size="sm" onclick={cancelEditGreeting}>
+                                  <X class="mr-1 h-3.5 w-3.5" />
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          {:else}
+                            {#if message.content}
+                              <div
+                                class={cn(
+                                  'chat-markdown prose-content break-words',
+                                  isStreaming && 'streaming-content',
+                                )}
+                              >
+                                {@html parseMarkdown(message.content)}{#if isStreaming}<span
+                                    class="streaming-cursor"
+                                  ></span>{/if}
+                              </div>
+                            {:else if isStreaming && isThinking && !message.reasoning}
+                              <div class="text-surface-400 flex items-center gap-2 text-sm">
+                                <Loader2 class="text-accent-400 h-3.5 w-3.5 animate-spin" />
+                                <span>Thinking...</span>
+                              </div>
+                            {/if}
+
+                            <!-- Active tool calls (only on the streaming message) -->
+                            {#if isStreaming && activeToolCalls.length > 0}
+                              <div class={message.content ? 'mt-2 space-y-1' : 'space-y-1'}>
+                                {#each activeToolCalls as toolCall (toolCall.id)}
+                                  <div
+                                    class="border-surface-700 bg-surface-900 flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs"
+                                    in:fade
+                                  >
+                                    {#if toolCall.result === '...'}
+                                      <Loader2
+                                        class="text-accent-400 h-3 w-3 flex-shrink-0 animate-spin"
+                                      />
+                                    {:else}
+                                      <Wrench class="text-surface-500 h-3 w-3 flex-shrink-0" />
+                                    {/if}
+                                    <span class="text-surface-300 font-medium"
+                                      >{formatToolCallName(toolCall.name)}</span
+                                    >
+                                  </div>
+                                {/each}
+                              </div>
+                            {/if}
+                          {/if}
+                        </div>
+                      </div>
+
+                      <!-- Reasoning (collapsible) -->
+                      {#if message.role === 'assistant' && message.reasoning}
+                        <div class="border-surface-700 mt-2 border-t pt-2">
+                          <button
+                            class="text-surface-400 hover:text-foreground flex items-center gap-1.5 text-xs transition-colors"
+                            onclick={() => toggleReasoning(message.id)}
+                          >
+                            <Brain class="h-3 w-3" />
+                            <span>Reasoning</span>
+                            {#if expandedReasoning.has(message.id)}
+                              <ChevronUp class="h-3 w-3" />
+                            {:else}
+                              <ChevronDown class="h-3 w-3" />
+                            {/if}
+                          </button>
+                          {#if expandedReasoning.has(message.id)}
+                            <div
+                              class="bg-surface-900 text-surface-400 mt-2 rounded-lg p-2.5 font-mono text-xs whitespace-pre-wrap"
+                              in:slide
+                            >
+                              {message.reasoning}
+                            </div>
+                          {/if}
+                        </div>
+                      {/if}
+                    </div>
+
+                    <!-- Tool calls for this message -->
+                    {#if message.toolCalls && message.toolCalls.length > 0}
+                      <div class="mt-1.5 space-y-1">
+                        {#each message.toolCalls as toolCall (toolCall.id)}
+                          {#if !IMAGE_TOOL_NAMES.has(toolCall.name) || toolCall.imageUrl}
+                            <div
+                              class="border-surface-700 bg-surface-800 flex items-center gap-2 rounded-lg border px-2.5 py-1 text-xs"
+                            >
+                              {#if IMAGE_TOOL_NAMES.has(toolCall.name)}
+                                <ImageIcon class="text-surface-500 h-3 w-3 flex-shrink-0" />
+                              {:else}
+                                <Wrench class="text-surface-500 h-3 w-3 flex-shrink-0" />
+                              {/if}
+                              <span class="text-surface-400 font-medium"
+                                >{formatToolCallName(toolCall.name)}</span
+                              >
+                            </div>
+                          {/if}
+                          {#if toolCall.imageUrl}
+                            <div class="group relative mt-1 inline-block">
+                              <button
+                                class="border-surface-700 block cursor-pointer overflow-hidden rounded-lg border transition-transform hover:scale-[1.02]"
+                                onclick={() => (enlargedImageUrl = toolCall.imageUrl!)}
+                                title="Click to enlarge"
+                              >
+                                <img
+                                  src={toolCall.imageUrl}
+                                  alt="AI generated result"
+                                  class="h-auto max-h-52 w-auto max-w-full object-contain"
+                                />
+                              </button>
+                              {#if toolCall.imageId}
+                                <button
+                                  class="absolute right-1.5 bottom-1.5 flex items-center gap-1 rounded-md bg-black/70 px-1.5 py-1 text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/90"
+                                  onclick={(e) => {
+                                    e.stopPropagation()
+                                    handleReferenceImage(toolCall.imageId!)
+                                  }}
+                                  title="Add image reference to message"
+                                >
+                                  <CornerDownLeft class="h-2.5 w-2.5" />
+                                  Use
+                                </button>
+                                {#if activeCharacterEntity}
+                                  <button
+                                    class="absolute bottom-1.5 left-1.5 flex items-center gap-1 rounded-md bg-black/70 px-1.5 py-1 text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/90"
+                                    onclick={(e) => {
+                                      e.stopPropagation()
+                                      handleSetPortrait(toolCall.imageId!)
+                                    }}
+                                    title="Set as portrait for {activeCharacterEntity.entityName}"
+                                  >
+                                    <CircleUser class="h-2.5 w-2.5" />
+                                    Set Portrait
+                                  </button>
+                                {/if}
+                              {/if}
+                            </div>
+                          {/if}
+                        {/each}
+                      </div>
+                    {/if}
+
+                    <!-- Timestamp -->
+                    <div
+                      class={cn(
+                        'text-surface-500 mt-1 flex items-center gap-2 px-1 text-[10px]',
+                        message.role === 'user' ? 'justify-end text-right' : '',
+                      )}
+                    >
+                      <span>{new Date(message.timestamp).toLocaleTimeString()}</span>
+                      {#if message.role === 'assistant' && message.isGreeting}
+                        <button
+                          class="text-surface-500 hover:text-foreground inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:bg-foreground/5"
+                          onclick={() => startEditGreeting(message)}
+                          title="Edit this one-time greeting"
+                          disabled={isGenerating || editingGreetingId === message.id}
+                        >
+                          <Pencil class="h-3 w-3" />
+                          Edit
+                        </button>
+                      {/if}
+                      {#if message.role === 'assistant' && !message.isGreeting}
+                        <button
+                          class="text-surface-500 hover:text-foreground inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:bg-foreground/5"
+                          onclick={() => handleBranchFromMessage(message.id)}
+                          title="Create branch from this message"
+                          disabled={isGenerating}
+                        >
+                          <GitBranch class="h-3 w-3" />
+                          Branch
+                        </button>
+                      {/if}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Inline diff cards for pending changes produced by this message -->
+                {#if message.pendingChanges && message.pendingChanges.length > 0}
+                  <div class="mt-3 space-y-2">
+                    {#each message.pendingChanges as change (change.id)}
+                      {@const liveChange = vaultEditor.getLiveChange(change.id) ?? change}
+                      <VaultDiffView
+                        change={liveChange}
+                        onApprove={() => handleApprove(liveChange)}
+                        onReject={() => handleReject(liveChange)}
+                        onEdit={() => handleEdit(liveChange)}
+                      />
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+            {/each}
+
+            <!-- Streaming diff cards (shown before step message arrives) -->
+            {#if streamingChanges.length > 0}
+              <div class="mt-3 space-y-2">
+                {#each streamingChanges as change (change.id)}
+                  {@const liveChange = vaultEditor.getLiveChange(change.id) ?? change}
+                  <VaultDiffView
+                    change={liveChange}
+                    onApprove={() => handleApprove(liveChange)}
+                    onReject={() => handleReject(liveChange)}
+                    onEdit={() => handleEdit(liveChange)}
+                  />
+                {/each}
+              </div>
+            {/if}
+          </div>
+
+          <!-- Error display -->
+          {#if error}
+            <div class="border-t border-red-500/20 bg-red-500/8 px-4 py-2" in:slide>
+              <div class="flex items-center gap-2 text-xs text-red-400">
+                <AlertCircle class="h-3.5 w-3.5" />
+                <span>{error}</span>
+              </div>
+            </div>
+          {/if}
+
+          <!-- Input area -->
+          <VaultAssistantInput
+            bind:this={assistantInputRef}
+            onSend={handleSend}
+            onAbort={handleAbort}
+            disabled={!service}
+            {isGenerating}
+          />
+        {:else}
+          <!-- Entity tab body (compact only) -->
+          {#if vaultEditor.activeChange}
+            <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <VaultEntityEditPanel
+                bind:this={editPanelRef}
+                change={vaultEditor.activeChange}
+                hideHeader={true}
+                onApprove={(specificChange) =>
+                  handleApprove(specificChange ?? vaultEditor.activeChange!)}
+                onReject={(change) => handleReject(change)}
+                onApproveAllAsync={handleApproveAll}
+                onClose={() => vaultEditor.closeEditor()}
+              />
+            </div>
+          {/if}
+        {/if}
+      </div>
+    </div>
+  </div>
+{/snippet}
+
+{#if isCompact.current}
+  <Dialog.Root open={true} onOpenChange={handleOpenChange}>
+    <Dialog.Content
+      class="flex h-[100dvh] w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none border-none p-0"
+      style="padding-top: var(--safe-top);"
+      onEscapeKeydown={handleEscapeKeydown}
+    >
+      {@render assistantContent()}
+    </Dialog.Content>
+  </Dialog.Root>
+{:else}
+  <ResponsiveModal.Root open={true} onOpenChange={handleOpenChange}>
+    <ResponsiveModal.Content
+      class={cn(
+        'flex h-[90vh] w-full flex-col gap-0 overflow-hidden p-0',
+        vaultEditor.editorOpen ? 'max-w-[90vw]' : 'max-w-2xl',
+      )}
+      onEscapeKeydown={handleEscapeKeydown}
+    >
+      {@render assistantContent()}
+    </ResponsiveModal.Content>
+  </ResponsiveModal.Root>
+{/if}
+
+<!-- Image enlargement dialog -->
+<Dialog.Root
+  open={!!enlargedImageUrl}
+  onOpenChange={(open) => {
+    if (!open) enlargedImageUrl = null
+  }}
+>
+  <Dialog.Content
+    class="z-[60] max-h-[90vh] max-w-[90vw] overflow-hidden border-none bg-transparent p-0 shadow-none"
+  >
+    <Dialog.Title class="sr-only">Generated Image</Dialog.Title>
+    <button class="flex items-center justify-center" onclick={() => (enlargedImageUrl = null)}>
+      {#if enlargedImageUrl}
+        <img
+          src={enlargedImageUrl}
+          alt="Enlarged view"
+          class="max-h-[85vh] max-w-full rounded-lg object-contain"
+        />
+      {/if}
+    </button>
+  </Dialog.Content>
+</Dialog.Root>
+
+<style>
+  :global(.vault-tab-pulse) {
+    animation: vault-tab-pulse 800ms ease-out 1;
+  }
+
+  @keyframes vault-tab-pulse {
+    0% {
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45);
+    }
+    60% {
+      box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+  }
+
+  @keyframes blink {
+    0%,
+    50% {
+      opacity: 1;
+    }
+    51%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  .streaming-cursor {
+    display: inline-block;
+    width: 0.5rem;
+    height: 1rem;
+    margin-left: 0.125rem;
+    background-color: var(--color-accent-400, #60a5fa);
+    animation: blink 1s infinite;
+    vertical-align: text-bottom;
+  }
+
+  :global(.streaming-content > *:last-child) {
+    display: inline;
+  }
+</style>

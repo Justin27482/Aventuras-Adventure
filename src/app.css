@@ -1,0 +1,410 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  /* Radius (for rounded-*) */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* Colors - map to Tailwind theme system */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-ring: var(--ring);
+  --color-radius: var(--radius);
+
+  /* Surface Colors */
+  --color-surface-50: var(--color-surface-50);
+  --color-surface-100: var(--color-surface-100);
+  --color-surface-200: var(--color-surface-200);
+  --color-surface-300: var(--color-surface-300);
+  --color-surface-400: var(--color-surface-400);
+  --color-surface-500: var(--color-surface-500);
+  --color-surface-600: var(--color-surface-600);
+  --color-surface-700: var(--color-surface-700);
+  --color-surface-800: var(--color-surface-800);
+  --color-surface-850: var(--color-surface-850);
+  --color-surface-900: var(--color-surface-900);
+  --color-surface-950: var(--color-surface-950);
+
+  /* Accent Palette */
+  --color-accent-50: var(--color-accent-50);
+  --color-accent-100: var(--color-accent-100);
+  --color-accent-200: var(--color-accent-200);
+  --color-accent-300: var(--color-accent-300);
+  --color-accent-400: var(--color-accent-400);
+  --color-accent-500: var(--color-accent-500);
+  --color-accent-600: var(--color-accent-600);
+  --color-accent-700: var(--color-accent-700);
+  --color-accent-800: var(--color-accent-800);
+  --color-accent-900: var(--color-accent-900);
+  --color-accent-950: var(--color-accent-950);
+}
+
+/* =============================================
+   THEME IMPORTS
+   ============================================= */
+@import './themes/index.css';
+
+/* =============================================
+   BASE STYLES
+   ============================================= */
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /*
+   * Safe-area insets.
+   *
+   * Primary source: native env(safe-area-inset-*) (iOS; Android WebView with
+   * enableEdgeToEdge + viewport-fit=cover). Fallback: --sat/--sab/--sal/--sar
+   * pulled from AndroidBridge.getInsets() in app.html for devices where env()
+   * misses system bars or gesture insets.
+   */
+  :root {
+    --safe-top: max(env(safe-area-inset-top, 0px), var(--sat, 0px));
+    --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--sab, 0px));
+    --safe-left: max(env(safe-area-inset-left, 0px), var(--sal, 0px));
+    --safe-right: max(env(safe-area-inset-right, 0px), var(--sar, 0px));
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+    border-radius: 2px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
+  }
+
+  /* Hide scrollbars on mobile */
+  @media (max-width: 768px) {
+    ::-webkit-scrollbar {
+      display: none;
+      width: 0;
+      height: 0;
+    }
+
+    * {
+      -ms-overflow-style: none; /* IE and Edge */
+      scrollbar-width: none; /* Firefox */
+    }
+  }
+}
+
+/* =============================================
+   STORY TEXT STYLING
+   ============================================= */
+@layer utilities {
+  .story-text {
+    /* Use custom font if set, otherwise fall back to theme default */
+    font-family: var(--font-story-custom, var(--font-story));
+    @apply text-lg leading-relaxed;
+    color: var(--text-secondary);
+  }
+
+  /* Font size variants based on user setting */
+  :root[data-font-size='small'] .story-text {
+    @apply text-base;
+  }
+
+  :root[data-font-size='large'] .story-text {
+    @apply text-xl;
+  }
+
+  .user-action {
+    @apply font-medium;
+    color: var(--text-accent);
+  }
+
+  .narration {
+    color: var(--text-secondary);
+  }
+
+  .system-text {
+    @apply text-sm italic;
+    color: var(--text-muted);
+  }
+}
+
+/* =============================================
+   MARKDOWN/PROSE CONTENT STYLING
+   ============================================= */
+
+.prose-content {
+  /* Paragraphs */
+  p {
+    @apply mb-4 last:mb-0;
+  }
+  /* Headers */
+  h1 {
+    @apply mt-6 mb-4 text-2xl font-bold first:mt-0;
+    color: var(--text-primary);
+  }
+
+  h2 {
+    @apply mt-5 mb-3 text-xl font-bold first:mt-0;
+    color: var(--text-primary);
+  }
+
+  h3 {
+    @apply mt-4 mb-2 text-lg font-semibold first:mt-0;
+    color: var(--text-primary);
+  }
+
+  h4,
+  h5,
+  h6 {
+    @apply mt-3 mb-2 text-base font-semibold first:mt-0;
+    color: var(--text-primary);
+  }
+
+  /* Bold and italic */
+  strong,
+  b {
+    @apply font-bold;
+    color: var(--text-primary);
+  }
+
+  em,
+  i {
+    @apply italic;
+  }
+
+  /* Links */
+  a {
+    color: var(--text-accent);
+    @apply underline hover:no-underline;
+  }
+
+  /* Lists */
+  ul {
+    @apply mb-4 list-inside list-disc space-y-1;
+  }
+
+  ol {
+    @apply mb-4 list-inside list-decimal space-y-1;
+  }
+
+  li {
+    @apply leading-relaxed;
+  }
+
+  li > ul,
+  li > ol {
+    @apply mt-1 mb-0 ml-4;
+  }
+
+  /* Blockquotes */
+  blockquote {
+    @apply my-4 border-l-4 pl-4 italic;
+    border-color: var(--border-secondary);
+    color: var(--text-muted);
+  }
+
+  /* Inline code */
+  code {
+    @apply rounded px-1.5 py-0.5 font-mono text-sm;
+    background-color: var(--bg-tertiary);
+    color: var(--text-accent);
+  }
+
+  /* Code blocks */
+  pre {
+    @apply my-4 overflow-x-auto rounded-lg p-4;
+    background-color: var(--bg-tertiary);
+  }
+
+  pre code {
+    @apply bg-transparent p-0;
+    color: var(--text-primary);
+  }
+
+  /* Horizontal rule */
+  hr {
+    @apply my-6 h-px border-0;
+    background-color: var(--border-primary);
+  }
+
+  /* Tables */
+  table {
+    @apply my-4 w-full border-collapse;
+  }
+
+  th,
+  td {
+    @apply border px-3 py-2 text-left;
+    border-color: var(--border-primary);
+  }
+
+  th {
+    background-color: var(--bg-tertiary);
+    @apply font-semibold;
+  }
+
+  /* Images */
+  img {
+    @apply my-4 h-auto max-w-full rounded;
+  }
+
+  /* Remove margin from inline generated images */
+  .inline-generated-image img {
+    @apply my-0 rounded-xl;
+  }
+
+  /* Strikethrough */
+  del {
+    @apply line-through opacity-60;
+  }
+
+  /* Task lists (GFM) */
+  input[type='checkbox'] {
+    @apply mr-2;
+  }
+}
+
+/* Reading-window formatting colors */
+.story-text {
+  color: var(--reading-window-main-text, var(--text-secondary));
+}
+
+.story-text em,
+.story-text i {
+  color: var(--reading-window-italics-text, var(--text-secondary));
+}
+
+.story-text strong,
+.story-text b {
+  color: var(--reading-window-double-asterisk-text, var(--text-primary));
+}
+
+.story-text .reading-window-format,
+.story-text .reading-window-quote {
+  color: var(--reading-window-quote-text, var(--text-accent));
+}
+
+.story-text .reading-window-quote em,
+.story-text .reading-window-quote i,
+.story-text .reading-window-quote strong,
+.story-text .reading-window-quote b,
+.story-text .reading-window-format.reading-window-quote em,
+.story-text .reading-window-format.reading-window-quote i,
+.story-text .reading-window-format.reading-window-quote strong,
+.story-text .reading-window-format.reading-window-quote b {
+  color: inherit;
+}
+
+.story-text .reading-window-angle-bracket {
+  color: var(--reading-window-angle-bracket-text, var(--text-accent));
+}
+
+/* Chat markdown overrides - compact spacing for chat bubbles */
+.chat-markdown.prose-content {
+  p {
+    @apply mb-2 last:mb-0;
+  }
+
+  ul,
+  ol {
+    @apply my-2;
+  }
+
+  li {
+    @apply mb-1;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply mt-3 mb-2 first:mt-0;
+  }
+
+  pre {
+    @apply my-2;
+  }
+
+  blockquote {
+    @apply my-2;
+  }
+
+  code {
+    @apply text-xs;
+  }
+}
+
+/* Streaming cursor animation */
+.streaming-cursor {
+  display: inline-block;
+  width: 0.5em;
+  height: 1em;
+  background-color: currentColor;
+  opacity: 0.7;
+  animation: blink 1s step-end infinite;
+  vertical-align: text-bottom;
+  margin-left: 1px;
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Collapsible animations */
+@keyframes collapsible-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--bits-collapsible-content-height);
+  }
+}
+
+@keyframes collapsible-up {
+  from {
+    height: var(--bits-collapsible-content-height);
+  }
+  to {
+    height: 0;
+  }
+}

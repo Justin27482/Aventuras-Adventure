@@ -1,0 +1,273 @@
+# =============================================================================
+# Aventuras .gitignore
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Environment & Secrets
+# -----------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+.opencode/
+.planning/
+
+# Keystore files (Android signing)
+*.keystore
+*.jks
+keystore.properties
+keystore-base64.txt
+
+# -----------------------------------------------------------------------------
+# Dependencies
+# -----------------------------------------------------------------------------
+node_modules/
+.pnpm-store/
+.yarn/
+.npm/
+
+# -----------------------------------------------------------------------------
+# Build Outputs
+# -----------------------------------------------------------------------------
+dist/
+build/
+.svelte-kit/
+.output/
+.vercel/
+.netlify/
+
+# -----------------------------------------------------------------------------
+# Rust / Tauri
+# -----------------------------------------------------------------------------
+src-tauri/target/
+src-tauri/gen/schemas/
+src-tauri/WixTools/
+src-tauri/Cargo.lock.bak
+
+# Android: files regenerated at build time (do NOT track)
+src-tauri/gen/android/app/src/main/jniLibs/
+src-tauri/gen/android/app/src/main/assets/
+src-tauri/gen/android/app/src/main/java/**/generated/
+
+# Android: secrets (handled by CI secrets)
+src-tauri/gen/android/aventura.keystore
+src-tauri/gen/android/key.properties
+
+# SQLite databases (runtime data)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# Aventuras story files (user data, not source code)
+*.avt
+
+# -----------------------------------------------------------------------------
+# Android Build Artifacts
+# -----------------------------------------------------------------------------
+*.apk
+*.aab
+*.idsig
+*.dex
+*.class
+
+# Android Studio / Gradle
+.gradle/
+local.properties
+*.iml
+.navigation/
+captures/
+.externalNativeBuild/
+.cxx/
+*.hprof
+
+# Generated Android files
+src-tauri/gen/android/.gradle/
+src-tauri/gen/android/build/
+src-tauri/gen/android/app/build/
+src-tauri/gen/android/local.properties
+src-tauri/gen/android/.idea/
+src-tauri/gen/android/*.iml
+
+# -----------------------------------------------------------------------------
+# iOS Build Artifacts
+# -----------------------------------------------------------------------------
+src-tauri/gen/apple/build/
+*.xcworkspace/
+*.xcuserdata/
+Pods/
+Podfile.lock
+DerivedData/
+*.ipa
+*.dSYM.zip
+*.dSYM/
+
+# -----------------------------------------------------------------------------
+# IDE & Editor
+# -----------------------------------------------------------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+*~
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+.project
+.classpath
+.settings/
+.devcontainer/
+.devcontainer
+
+# JetBrains
+*.iws
+.idea_modules/
+
+# -----------------------------------------------------------------------------
+# Operating System
+# -----------------------------------------------------------------------------
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
+Icon?
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# -----------------------------------------------------------------------------
+# Logs
+# -----------------------------------------------------------------------------
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-store/
+
+# -----------------------------------------------------------------------------
+# Testing & Coverage
+# -----------------------------------------------------------------------------
+coverage/
+.nyc_output/
+*.lcov
+.vitest/
+test-results/
+playwright-report/
+playwright/.cache/
+
+# -----------------------------------------------------------------------------
+# Cache & Temp
+# -----------------------------------------------------------------------------
+.cache/
+.parcel-cache/
+.turbo/
+*.tsbuildinfo
+.temp/
+.tmp/
+temp/
+tmp/
+*.bak
+*.backup
+
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# -----------------------------------------------------------------------------
+# Tauri Build Cache
+# -----------------------------------------------------------------------------
+.tauri/
+
+# -----------------------------------------------------------------------------
+# Release Artifacts
+# -----------------------------------------------------------------------------
+releases/
+*.tar.gz
+*.zip
+*.dmg
+*.msi
+*.exe
+*.AppImage
+
+# -----------------------------------------------------------------------------
+# Debug Symbols
+# -----------------------------------------------------------------------------
+*.pdb
+*.map
+
+# -----------------------------------------------------------------------------
+# Documentation (development only, not for repo)
+# -----------------------------------------------------------------------------
+prompting_guide.md
+architecture.md
+design.md
+
+# Temporary image files used during icon creation
+# (sun2022.png is kept as the app icon source)
+!sun2022.png
+sunicon.*
+
+# -----------------------------------------------------------------------------
+# Claude Code
+# -----------------------------------------------------------------------------
+CLAUDE.md
+.claude/
+scripts/ralph/
+tasks/
+docs/superpowers/
+
+# -----------------------------------------------------------------------------
+# Antigravity
+# -----------------------------------------------------------------------------
+.agent/
+
+# -----------------------------------------------------------------------------
+# Other Agentic Coding Documents
+# -----------------------------------------------------------------------------
+AGENTS.md
+FEATURES.md
+IMPLEMENTATION_PLAN.md
+TODO_*.md
+
+# -----------------------------------------------------------------------------
+# AUR Package (separate repo)
+# -----------------------------------------------------------------------------
+aur/
+
+# -----------------------------------------------------------------------------
+# Miscellaneous
+# -----------------------------------------------------------------------------
+*.local
+.env*.local
+aventura-release.keystore.old
+key.properties
+nul
+test_data/
+debug_screenshot/
