@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy } from 'svelte'
   import { story } from '$lib/stores/story.svelte'
+  /* eslint-disable svelte/prefer-writable-derived */
   import { hasRequiredCredentials } from '$lib/services/ai/image'
   import { templateEngine } from '$lib/services/templates/engine'
   import { PROMPT_TEMPLATES } from '$lib/services/prompts/templates'
@@ -108,7 +109,9 @@
   const storyBeatClassifierEnabled = $derived(storySettings.storyBeatClassificationEnabled ?? true)
   const sceneClassifierEnabled = $derived(storySettings.sceneClassificationEnabled ?? true)
   const timeClassifierEnabled = $derived(storySettings.timeClassificationEnabled ?? true)
-  const runtimeVarClassifierEnabled = $derived(storySettings.runtimeVarClassificationEnabled ?? true)
+  const runtimeVarClassifierEnabled = $derived(
+    storySettings.runtimeVarClassificationEnabled ?? true,
+  )
   const moneyClassifierEnabled = $derived(
     !!storySettings.moneySystemEnabled &&
       (storySettings.moneyClassificationEnabled ?? defaultClassifierEnabled),
@@ -246,7 +249,9 @@
     await story.updateStorySettings({ moneyName: next })
   }
 
-  function currentSettingsValue<K extends keyof StorySettings>(key: K): StorySettings[K] | undefined {
+  function currentSettingsValue<K extends keyof StorySettings>(
+    key: K,
+  ): StorySettings[K] | undefined {
     return story.currentStory?.settings?.[key]
   }
 
@@ -255,9 +260,7 @@
     return value.trim()
   }
 
-  function isTransitionSensitiveChange(
-    updates: Partial<StorySettings>,
-  ): boolean {
+  function isTransitionSensitiveChange(updates: Partial<StorySettings>): boolean {
     return Object.entries(updates).some(([key, value]) => {
       switch (key) {
         case 'pov':
@@ -266,17 +269,17 @@
           return currentSettingsValue(key as 'pov' | 'tense' | 'visualProseMode') !== value
         case 'tone':
         case 'customSystemPrompt':
-          return normalizeStyleValue(currentSettingsValue(key as 'tone' | 'customSystemPrompt')) !==
+          return (
+            normalizeStyleValue(currentSettingsValue(key as 'tone' | 'customSystemPrompt')) !==
             normalizeStyleValue(value)
+          )
         default:
           return false
       }
     })
   }
 
-  function describeTransition(
-    updates: Partial<StorySettings>,
-  ): string {
+  function describeTransition(updates: Partial<StorySettings>): string {
     const parts: string[] = []
 
     if (updates.pov !== undefined && updates.pov !== story.currentStory?.settings?.pov) {
@@ -313,11 +316,9 @@
     return parts.join(' | ')
   }
 
-  function buildTransitionGuidance(
-    updates: Partial<StorySettings>,
-  ): string {
+  function buildTransitionGuidance(updates: Partial<StorySettings>): string {
     const instructionLines = [
-      'Starting with this reply, transition fully into the story\'s updated narration settings.',
+      "Starting with this reply, transition fully into the story's updated narration settings.",
       'Treat any prior prose as summarized backstory continuity rather than a style sample to keep copying.',
       'Use the current story settings and custom prompt override as the source of truth for voice and formatting.',
     ]
@@ -340,7 +341,7 @@
     if (updates.visualProseMode !== undefined) {
       instructionLines.push(
         updates.visualProseMode
-          ? 'Use the story\'s visual prose presentation rules from this response onward.'
+          ? "Use the story's visual prose presentation rules from this response onward."
           : 'Keep the response in normal prose without visual prose formatting unless the updated story settings explicitly require it.',
       )
     }
@@ -366,16 +367,11 @@
     }
   }
 
-  async function applyTransitionUpdates(
-    updates: Partial<StorySettings>,
-  ) {
+  async function applyTransitionUpdates(updates: Partial<StorySettings>) {
     if (!story.currentStory) return
 
     await story.updateStorySettings(updates)
-    ui.queueNarrativeTransitionGuidance(
-      story.currentStory.id,
-      buildTransitionGuidance(updates),
-    )
+    ui.queueNarrativeTransitionGuidance(story.currentStory.id, buildTransitionGuidance(updates))
   }
 
   async function requestTransition(
@@ -446,7 +442,9 @@
       {#if atChapterBoundary}
         Chapter boundary reached. Narrative voice changes can apply immediately to the next reply.
       {:else}
-        {unsummarizedEntryCount} unsummarized entr{unsummarizedEntryCount === 1 ? 'y remains' : 'ies remain'} in the current prose window. Voice or style changes will summarize them first.
+        {unsummarizedEntryCount} unsummarized entr{unsummarizedEntryCount === 1
+          ? 'y remains'
+          : 'ies remain'} in the current prose window. Voice or style changes will summarize them first.
       {/if}
     </p>
 
@@ -602,7 +600,10 @@
                 value={String(Math.max(0, Math.floor(storySettings.moneyAmount ?? 0)))}
                 oninput={(e) =>
                   story.updateStorySettings({
-                    moneyAmount: Math.max(0, Math.floor(Number((e.currentTarget as HTMLInputElement).value) || 0)),
+                    moneyAmount: Math.max(
+                      0,
+                      Math.floor(Number((e.currentTarget as HTMLInputElement).value) || 0),
+                    ),
                   })}
               />
               <p class="text-muted-foreground text-xs">
@@ -634,7 +635,9 @@
         />
         <div class="grid gap-1.5 leading-none">
           <Label for="character-classifier-enabled">Track Characters</Label>
-          <p class="text-muted-foreground text-xs">Character updates and newly introduced characters.</p>
+          <p class="text-muted-foreground text-xs">
+            Character updates and newly introduced characters.
+          </p>
         </div>
       </div>
 
@@ -646,7 +649,9 @@
         />
         <div class="grid gap-1.5 leading-none">
           <Label for="location-classifier-enabled">Track Locations</Label>
-          <p class="text-muted-foreground text-xs">Location updates and newly introduced locations.</p>
+          <p class="text-muted-foreground text-xs">
+            Location updates and newly introduced locations.
+          </p>
         </div>
       </div>
 
@@ -743,7 +748,8 @@
             id="item-fallback-enabled"
             checked={itemFallbackEnabled}
             disabled={!inventoryClassifierEnabled}
-            onCheckedChange={(v) => story.updateStorySettings({ itemAcquisitionFallbackEnabled: v })}
+            onCheckedChange={(v) =>
+              story.updateStorySettings({ itemAcquisitionFallbackEnabled: v })}
           />
           <div class="grid gap-1.5 leading-none">
             <Label for="item-fallback-enabled">Item Acquisition Fallback</Label>
@@ -950,7 +956,8 @@
     <ResponsiveModal.Header class="border-b px-6 py-4">
       <ResponsiveModal.Title>Summarize Before Switching Voice</ResponsiveModal.Title>
       <ResponsiveModal.Description>
-        Narrative voice changes are safest after current prose has been summarized into chapter history.
+        Narrative voice changes are safest after current prose has been summarized into chapter
+        history.
       </ResponsiveModal.Description>
     </ResponsiveModal.Header>
 
@@ -963,13 +970,19 @@
       <div class="space-y-2 rounded-md border p-3">
         <p class="text-sm font-medium">Unsummarized prose</p>
         <p class="text-muted-foreground text-sm">
-          {unsummarizedEntryCount} entr{unsummarizedEntryCount === 1 ? 'y is' : 'ies are'} still in the active prose window. To avoid mixing old and new voice, the app will create a chapter summary first.
+          {unsummarizedEntryCount} entr{unsummarizedEntryCount === 1 ? 'y is' : 'ies are'} still in the
+          active prose window. To avoid mixing old and new voice, the app will create a chapter summary
+          first.
         </p>
       </div>
     </div>
 
     <ResponsiveModal.Footer class="border-t px-6 py-4">
-      <Button variant="outline" onclick={() => closeTransitionModal(true)} disabled={transitionLoading}>
+      <Button
+        variant="outline"
+        onclick={() => closeTransitionModal(true)}
+        disabled={transitionLoading}
+      >
         Cancel
       </Button>
       <Button onclick={confirmSummarizeAndApplyTransition} disabled={transitionLoading}>

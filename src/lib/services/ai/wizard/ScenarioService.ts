@@ -722,7 +722,7 @@ class ScenarioService {
     mode: StoryMode,
     protagonistName: string,
     outputMode: 'json' | 'stream',
-    pov?: POV,
+    _pov?: POV,
   ): string {
     if (outputMode === 'stream') {
       return 'Write ONLY prose. No JSON, no metadata.'

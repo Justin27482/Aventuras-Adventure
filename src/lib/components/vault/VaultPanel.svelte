@@ -31,6 +31,7 @@
   import TagManager from '$lib/components/tags/TagManager.svelte'
   import { tagStore } from '$lib/stores/tags.svelte'
   import { fade } from 'svelte/transition'
+  import { SvelteMap } from 'svelte/reactivity'
   import { tick } from 'svelte'
   import PromptPackList from './prompts/PromptPackList.svelte'
   import PromptPackEditor from './prompts/PromptPackEditor.svelte'
@@ -370,7 +371,7 @@
   }
 
   function buildCharacterDuplicateGroups(): CharacterDuplicateGroup[] {
-    const grouped = new Map<string, VaultCharacter[]>()
+    const grouped = new SvelteMap<string, VaultCharacter[]>()
     for (const item of characterVault.items) {
       const key = normalizeCharacterName(item.name)
       if (!key) continue
@@ -955,7 +956,9 @@
                   onclick={() => selectDedupKeep(group.key, item.id)}
                 >
                   <div class="font-medium">{item.name}</div>
-                  <div class="mt-1 line-clamp-2 opacity-80">{item.description || 'No description'}</div>
+                  <div class="mt-1 line-clamp-2 opacity-80">
+                    {item.description || 'No description'}
+                  </div>
                   <div class="mt-1.5 opacity-70">
                     Updated: {new Date(item.updatedAt).toLocaleString()}
                     {#if item.favorite}

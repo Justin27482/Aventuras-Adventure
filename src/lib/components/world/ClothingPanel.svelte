@@ -109,7 +109,11 @@
     const inferredZones = inferCoveredZones(item.name)
     await updateClothingMeta(item, {
       isClothing: checked,
-      coveredZones: checked ? getCoveredZones(item).length > 0 ? getCoveredZones(item) : inferredZones : [],
+      coveredZones: checked
+        ? getCoveredZones(item).length > 0
+          ? getCoveredZones(item)
+          : inferredZones
+        : [],
       exposedZones: checked ? getExposedZones(item) : [],
       durability: checked ? getDurability(item) : undefined,
       maxDurability: checked ? getMaxDurability(item) : undefined,
@@ -121,7 +125,9 @@
     const nextCoveredZones = checked
       ? Array.from(new Set([...getCoveredZones(item), zone]))
       : getCoveredZones(item).filter((currentZone) => currentZone !== zone)
-    const nextExposedZones = getExposedZones(item).filter((currentZone) => nextCoveredZones.includes(currentZone))
+    const nextExposedZones = getExposedZones(item).filter((currentZone) =>
+      nextCoveredZones.includes(currentZone),
+    )
 
     await updateClothingMeta(item, {
       isClothing: true,
@@ -148,19 +154,12 @@
   }
 
   function itemsCoveringZone(zone: string): Item[] {
-    return equippedInventoryItems.filter((item) => isClothing(item) && getEffectiveZones(item).includes(zone))
+    return equippedInventoryItems.filter(
+      (item) => isClothing(item) && getEffectiveZones(item).includes(zone),
+    )
   }
 
   const canRepair = $derived(story.canRepairClothing())
-
-  async function enableClothingSystem() {
-    await story.updateStorySettings({
-      clothingSystemEnabled: true,
-      clothingZones: story.currentStory?.settings?.clothingZones ?? DEFAULT_ZONES,
-      clothingMaxDurability: story.currentStory?.settings?.clothingMaxDurability ?? 100,
-      clothingRepairAmount: story.currentStory?.settings?.clothingRepairAmount ?? 20,
-    })
-  }
 </script>
 
 {#if showClothingPanel}
@@ -180,9 +179,10 @@
           <div class="flex items-center justify-between gap-2">
             <span class="text-xs font-semibold uppercase">{zone}</span>
             {#if coveredBy.length > 0}
-              <span class="text-right text-xs">{coveredBy.map((item) => item.name).join(', ')}</span>
+              <span class="text-right text-xs">{coveredBy.map((item) => item.name).join(', ')}</span
+              >
             {:else}
-              <span class="text-red-500 text-xs italic">exposed</span>
+              <span class="text-xs text-red-500 italic">exposed</span>
             {/if}
           </div>
         </div>
@@ -258,18 +258,30 @@
                         Expose {zone}
                       </Button>
                     {/each}
-                    <Button size="sm" variant="outline" class="h-7 text-xs" onclick={() => applyDamage(item, 10)}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      class="h-7 text-xs"
+                      onclick={() => applyDamage(item, 10)}
+                    >
                       <Scissors class="mr-1 h-3 w-3" />
                       Wear -10
                     </Button>
-                    <Button size="sm" variant="outline" class="h-7 text-xs" onclick={() => repairItem(item)}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      class="h-7 text-xs"
+                      onclick={() => repairItem(item)}
+                    >
                       <Wrench class="mr-1 h-3 w-3" />
                       Repair {Math.max(1, repairAmount)}
                     </Button>
                   </div>
 
                   {#if !canRepair}
-                    <p class="text-muted-foreground text-xs italic">Requires a sewing kit in inventory.</p>
+                    <p class="text-muted-foreground text-xs italic">
+                      Requires a sewing kit in inventory.
+                    </p>
                   {/if}
                 </div>
               {/if}

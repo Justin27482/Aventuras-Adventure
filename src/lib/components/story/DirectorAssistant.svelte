@@ -83,7 +83,9 @@
 
   function getSummary(artifact: DirectorProposalArtifact): string {
     const payload = getDraftPayload(artifact)
-    return typeof payload.summary === 'string' ? payload.summary : artifact.title ?? 'Untitled proposal'
+    return typeof payload.summary === 'string'
+      ? payload.summary
+      : (artifact.title ?? 'Untitled proposal')
   }
 
   function getOutline(artifact: DirectorProposalArtifact): string {
@@ -103,7 +105,9 @@
     return JSON.stringify(value, null, 2)
   }
 
-  function buildInteractiveContext(currentStory = story.currentStory): DirectorInteractiveContext | null {
+  function buildInteractiveContext(
+    currentStory = story.currentStory,
+  ): DirectorInteractiveContext | null {
     if (!currentStory) return null
 
     const chapterEntriesByNumber: Record<string, typeof story.entries> = {}
@@ -220,8 +224,7 @@
           if (event.message.content?.trim() || (event.message.toolCalls?.length ?? 0) > 0) {
             appendAssistantMessage({
               ...event.message,
-              content:
-                event.message.content?.trim() || summarizeToolCalls(event.message.toolCalls),
+              content: event.message.content?.trim() || summarizeToolCalls(event.message.toolCalls),
             })
           }
           streamStatus = null
@@ -278,7 +281,7 @@
   }
 </script>
 
-<ResponsiveModal.Root open={open} onOpenChange={(v) => !v && onClose()}>
+<ResponsiveModal.Root {open} onOpenChange={(v) => !v && onClose()}>
   <ResponsiveModal.Content class="max-h-[90vh] max-w-5xl overflow-hidden p-0">
     <div class="bg-background flex h-[90vh] flex-col">
       <div class="border-b px-5 py-4">
@@ -309,7 +312,12 @@
                     Drafts stay pending until you explicitly approve them.
                   </p>
                 </div>
-                <Button variant="outline" size="sm" onclick={refreshProposals} disabled={refreshing}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onclick={refreshProposals}
+                  disabled={refreshing}
+                >
                   {#if refreshing}
                     <Loader2 class="mr-2 h-4 w-4 animate-spin" />
                   {:else}
@@ -332,7 +340,13 @@
                       <div>
                         <div class="flex items-center gap-2">
                           <h4 class="font-medium">{artifact.title ?? 'Untitled proposal'}</h4>
-                          <Badge variant={artifact.approvalState === 'approved' ? 'default' : artifact.approvalState === 'rejected' ? 'destructive' : 'secondary'}>
+                          <Badge
+                            variant={artifact.approvalState === 'approved'
+                              ? 'default'
+                              : artifact.approvalState === 'rejected'
+                                ? 'destructive'
+                                : 'secondary'}
+                          >
                             {artifact.approvalState}
                           </Badge>
                         </div>
@@ -341,27 +355,50 @@
                     </div>
 
                     <div class="text-muted-foreground mt-3 grid gap-2 text-xs sm:grid-cols-2">
-                      <p><span class="text-foreground font-medium">Created:</span> {formatTimestamp(artifact.createdAt)}</p>
-                      <p><span class="text-foreground font-medium">Updated:</span> {formatTimestamp(artifact.updatedAt)}</p>
-                      <p><span class="text-foreground font-medium">Approved by:</span> {artifact.approvedBy ?? 'n/a'}</p>
-                      <p><span class="text-foreground font-medium">Approved at:</span> {formatTimestamp(artifact.approvedAt)}</p>
+                      <p>
+                        <span class="text-foreground font-medium">Created:</span>
+                        {formatTimestamp(artifact.createdAt)}
+                      </p>
+                      <p>
+                        <span class="text-foreground font-medium">Updated:</span>
+                        {formatTimestamp(artifact.updatedAt)}
+                      </p>
+                      <p>
+                        <span class="text-foreground font-medium">Approved by:</span>
+                        {artifact.approvedBy ?? 'n/a'}
+                      </p>
+                      <p>
+                        <span class="text-foreground font-medium">Approved at:</span>
+                        {formatTimestamp(artifact.approvedAt)}
+                      </p>
                     </div>
 
                     {#if getOutline(artifact)}
-                      <pre class="bg-muted/30 mt-3 max-h-44 overflow-auto rounded-md p-3 text-xs whitespace-pre-wrap">{getOutline(artifact)}</pre>
+                      <pre
+                        class="bg-muted/30 mt-3 max-h-44 overflow-auto rounded-md p-3 text-xs whitespace-pre-wrap">{getOutline(
+                          artifact,
+                        )}</pre>
                     {/if}
 
                     {#if artifact.diffPayload}
                       <details class="mt-3 rounded-md border border-dashed p-3">
                         <summary class="cursor-pointer text-sm font-medium">Diff Payload</summary>
-                        <pre class="bg-muted/30 mt-3 max-h-40 overflow-auto rounded-md p-3 text-xs whitespace-pre-wrap">{formatJson(artifact.diffPayload)}</pre>
+                        <pre
+                          class="bg-muted/30 mt-3 max-h-40 overflow-auto rounded-md p-3 text-xs whitespace-pre-wrap">{formatJson(
+                            artifact.diffPayload,
+                          )}</pre>
                       </details>
                     {/if}
 
                     {#if artifact.draftPayload}
                       <details class="mt-3 rounded-md border border-dashed p-3">
-                        <summary class="cursor-pointer text-sm font-medium">Raw Draft Payload</summary>
-                        <pre class="bg-muted/30 mt-3 max-h-52 overflow-auto rounded-md p-3 text-xs whitespace-pre-wrap">{formatJson(artifact.draftPayload)}</pre>
+                        <summary class="cursor-pointer text-sm font-medium"
+                          >Raw Draft Payload</summary
+                        >
+                        <pre
+                          class="bg-muted/30 mt-3 max-h-52 overflow-auto rounded-md p-3 text-xs whitespace-pre-wrap">{formatJson(
+                            artifact.draftPayload,
+                          )}</pre>
                       </details>
                     {/if}
 
@@ -371,7 +408,11 @@
                           <Check class="mr-2 h-4 w-4" />
                           Approve
                         </Button>
-                        <Button variant="outline" size="sm" onclick={() => rejectProposal(artifact)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onclick={() => rejectProposal(artifact)}
+                        >
                           <X class="mr-2 h-4 w-4" />
                           Reject
                         </Button>
@@ -387,13 +428,28 @@
             <h3 class="font-medium">Story Snapshot</h3>
             {#if story.currentStory}
               <div class="text-muted-foreground mt-2 space-y-2 text-sm">
-                <p><span class="text-foreground font-medium">Title:</span> {story.currentStory.title}</p>
+                <p>
+                  <span class="text-foreground font-medium">Title:</span>
+                  {story.currentStory.title}
+                </p>
                 <p><span class="text-foreground font-medium">Mode:</span> {story.storyMode}</p>
-                <p><span class="text-foreground font-medium">Characters:</span> {story.characters.length}</p>
-                <p><span class="text-foreground font-medium">Locations:</span> {story.locations.length}</p>
+                <p>
+                  <span class="text-foreground font-medium">Characters:</span>
+                  {story.characters.length}
+                </p>
+                <p>
+                  <span class="text-foreground font-medium">Locations:</span>
+                  {story.locations.length}
+                </p>
                 <p><span class="text-foreground font-medium">Items:</span> {story.items.length}</p>
-                <p><span class="text-foreground font-medium">Story beats:</span> {story.storyBeats.length}</p>
-                <p><span class="text-foreground font-medium">Lorebook entries:</span> {story.lorebookEntries.length}</p>
+                <p>
+                  <span class="text-foreground font-medium">Story beats:</span>
+                  {story.storyBeats.length}
+                </p>
+                <p>
+                  <span class="text-foreground font-medium">Lorebook entries:</span>
+                  {story.lorebookEntries.length}
+                </p>
               </div>
             {:else}
               <p class="text-muted-foreground mt-2 text-sm">Open a story to generate proposals.</p>
@@ -401,8 +457,8 @@
 
             <div class="border-muted-foreground/20 mt-4 border-t pt-4 text-xs leading-6">
               Drafts are stored as <span class="font-medium">pending artifacts</span> in the director
-              proposal table. Approving them only changes approval state; it does not mutate the
-              story automatically.
+              proposal table. Approving them only changes approval state; it does not mutate the story
+              automatically.
             </div>
           </div>
         </div>
@@ -413,7 +469,8 @@
               <div>
                 <h3 class="font-medium">Conversation</h3>
                 <p class="text-muted-foreground text-xs">
-                  Conversational planning by default. Ask for a draft in chat when you want one saved.
+                  Conversational planning by default. Ask for a draft in chat when you want one
+                  saved.
                 </p>
               </div>
               <Button variant="outline" size="sm" onclick={resetConversation} disabled={loading}>
@@ -421,7 +478,9 @@
               </Button>
             </div>
             {#if streamStatus}
-              <div class="text-muted-foreground mt-2 rounded-md border border-dashed px-3 py-2 text-xs">
+              <div
+                class="text-muted-foreground mt-2 rounded-md border border-dashed px-3 py-2 text-xs"
+              >
                 {streamStatus}
               </div>
             {/if}
@@ -443,8 +502,10 @@
                   {message.content}
                   {#if message.toolCalls?.length}
                     <div class="mt-2 flex flex-wrap gap-1">
-                      {#each message.toolCalls as call}
-                        <span class="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px]">
+                      {#each message.toolCalls as call, callIndex (`${message.id}:${call.name}:${callIndex}`)}
+                        <span
+                          class="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px]"
+                        >
                           {call.name}
                         </span>
                       {/each}
@@ -478,7 +539,9 @@
                 {/if}
               </Button>
             </div>
-            <p class="text-muted-foreground mt-1 text-[10px]">Enter to send, Shift+Enter for new line</p>
+            <p class="text-muted-foreground mt-1 text-[10px]">
+              Enter to send, Shift+Enter for new line
+            </p>
           </div>
         </div>
       </div>

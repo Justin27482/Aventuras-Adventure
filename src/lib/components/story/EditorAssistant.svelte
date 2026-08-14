@@ -13,6 +13,7 @@
   import { Button } from '$lib/components/ui/button'
   import { Textarea } from '$lib/components/ui/textarea'
   import { Badge } from '$lib/components/ui/badge'
+  import { SvelteMap } from 'svelte/reactivity'
   import {
     Loader2,
     BookMarked,
@@ -64,7 +65,10 @@
   let reviewCurrentTextarea = $state<HTMLTextAreaElement | null>(null)
   let reviewTextarea = $state<HTMLTextAreaElement | null>(null)
   let syncingReviewScroll = false
-  let deferredChapterReprocess = new Map<string, { entryId: string; rerunLorebookPass: boolean }>()
+  let deferredChapterReprocess = new SvelteMap<
+    string,
+    { entryId: string; rerunLorebookPass: boolean }
+  >()
 
   function createWelcomeMessage(storyTitle: string | undefined): EditorChatMessage {
     return {
@@ -109,7 +113,11 @@
     edit: EditorProposedEdit,
     remainingEdits: EditorProposedEdit[],
     markDirty: boolean,
-  ): Promise<{ chapterUpdated: boolean; chapterNumber: number | null; lorebookRefreshed: boolean }> {
+  ): Promise<{
+    chapterUpdated: boolean
+    chapterNumber: number | null
+    lorebookRefreshed: boolean
+  }> {
     const chapter = getChapterForEntry(edit.entryId)
     if (!chapter) {
       return { chapterUpdated: false, chapterNumber: null, lorebookRefreshed: false }
@@ -144,7 +152,9 @@
       return `Edit applied (chapter ${result.chapterNumber ?? '?'} refresh deferred)`
     }
 
-    const chapterNote = result.chapterUpdated ? ` (chapter ${result.chapterNumber ?? '?'} refreshed)` : ''
+    const chapterNote = result.chapterUpdated
+      ? ` (chapter ${result.chapterNumber ?? '?'} refreshed)`
+      : ''
     const loreNote = result.lorebookRefreshed ? ' + lorebook pass' : ''
     return `Edit applied${chapterNote}${loreNote}`
   }
@@ -155,12 +165,12 @@
     selectedTargetEntryId = ''
     interactiveService.reset()
     activeConversationId = null
-    deferredChapterReprocess = new Map()
+    deferredChapterReprocess = new SvelteMap()
   }
 
   $effect(() => {
-    chatMessages.length
-    loading
+    const _effectDependency = `${chatMessages.length}:${loading ? 1 : 0}`
+    void _effectDependency
     if (!autoScrollConversation) return
     queueMicrotask(() => {
       scrollConversationToBottom()
@@ -338,7 +348,9 @@
     }
   })
 
-  function buildInteractiveContext(currentStory = story.currentStory): EditorInteractiveContext | null {
+  function buildInteractiveContext(
+    currentStory = story.currentStory,
+  ): EditorInteractiveContext | null {
     if (!currentStory) return null
 
     const chapterEntriesByNumber: Record<string, typeof story.entries> = {}
@@ -377,7 +389,8 @@
   }
 
   function parseStructuredRewriteEdits(messageContent: string): EditorProposedEdit[] {
-    const pattern = /\*\*Entry\s+(\d+)\s*\((Rewritten(?:\s+as\s+([A-Za-z_ ]+))?[^)]*)\):\*\*[\s\S]*?```\n?([\s\S]*?)```/gi
+    const pattern =
+      /\*\*Entry\s+(\d+)\s*\((Rewritten(?:\s+as\s+([A-Za-z_ ]+))?[^)]*)\):\*\*[\s\S]*?```\n?([\s\S]*?)```/gi
     const parsed: EditorProposedEdit[] = []
 
     for (const match of messageContent.matchAll(pattern)) {
@@ -456,7 +469,10 @@
   }
 
   function looksLikeConcreteRewriteRequest(userText: string): boolean {
-    return /(rewrite|revise|edit|convert|rework)/i.test(userText) && /(entry|entries|message|messages)/i.test(userText)
+    return (
+      /(rewrite|revise|edit|convert|rework)/i.test(userText) &&
+      /(entry|entries|message|messages)/i.test(userText)
+    )
   }
 
   function enqueueProposedEdit(edit: EditorProposedEdit) {
@@ -518,7 +534,10 @@
     return edits[edits.length - 1]?.id ?? null
   }
 
-  function getPreviousReviewEditId(currentEditId: string, edits: EditorProposedEdit[]): string | null {
+  function getPreviousReviewEditId(
+    currentEditId: string,
+    edits: EditorProposedEdit[],
+  ): string | null {
     const currentIndex = edits.findIndex((candidate) => candidate.id === currentEditId)
     if (currentIndex <= 0) return null
     return edits[currentIndex - 1]?.id ?? null
@@ -621,8 +640,7 @@
           if (event.message.content?.trim() || (event.message.toolCalls?.length ?? 0) > 0) {
             appendAssistantMessage({
               ...event.message,
-              content:
-                event.message.content?.trim() || summarizeToolCalls(event.message.toolCalls),
+              content: event.message.content?.trim() || summarizeToolCalls(event.message.toolCalls),
             })
             const parsedRewriteEdits = event.message.content?.trim()
               ? parseStructuredRewriteEdits(event.message.content)
@@ -672,7 +690,7 @@
     await sendPrompt()
   }
 
-  async function applyEdit(edit: EditorProposedEdit) {
+  async function _applyEdit(edit: EditorProposedEdit) {
     applying = true
     try {
       await story.applyEditorAssistantEdit(edit.entryId, edit.revisedContent, {
@@ -684,7 +702,8 @@
       pendingEdits = remainingEdits
 
       const chapter = getChapterForEntry(edit.entryId)
-      const deferred = !!chapter && hasPendingEditsForChapter(chapter.id, remainingEdits) && edit.reprocessChapter
+      const deferred =
+        !!chapter && hasPendingEditsForChapter(chapter.id, remainingEdits) && edit.reprocessChapter
       const result = await finalizeDeferredChapterReprocess(edit, remainingEdits, true)
       ui.showToast(buildApplyToast(result, deferred), 'info')
     } catch (error) {
@@ -696,7 +715,9 @@
     queueSave().catch(() => {})
   }
 
-  async function applySingleReviewedEdit(edit: EditorProposedEdit): Promise<EditorProposedEdit[] | null> {
+  async function applySingleReviewedEdit(
+    edit: EditorProposedEdit,
+  ): Promise<EditorProposedEdit[] | null> {
     applying = true
     try {
       await story.applyEditorAssistantEdit(edit.entryId, edit.revisedContent, {
@@ -708,7 +729,8 @@
       pendingEdits = remainingEdits
 
       const chapter = getChapterForEntry(edit.entryId)
-      const deferred = !!chapter && hasPendingEditsForChapter(chapter.id, remainingEdits) && edit.reprocessChapter
+      const deferred =
+        !!chapter && hasPendingEditsForChapter(chapter.id, remainingEdits) && edit.reprocessChapter
       const result = await finalizeDeferredChapterReprocess(edit, remainingEdits, true)
       ui.showToast(buildApplyToast(result, deferred), 'info')
       queueSave().catch(() => {})
@@ -738,7 +760,10 @@
       rerunLorebookPass: reviewRerunLorebookPass,
     }
 
-    const nextReviewEditId = getNextReviewEditId(editToApply.id, pendingEdits.filter((candidate) => candidate.id !== editToApply.id))
+    const nextReviewEditId = getNextReviewEditId(
+      editToApply.id,
+      pendingEdits.filter((candidate) => candidate.id !== editToApply.id),
+    )
     const remainingEdits = await applySingleReviewedEdit(editToApply)
     if (!remainingEdits) return
 
@@ -789,7 +814,9 @@
   function discardEdit(editId: string, options?: { advanceReview?: boolean }) {
     const discardedEdit = pendingEdits.find((candidate) => candidate.id === editId)
     const remainingEdits = pendingEdits.filter((candidate) => candidate.id !== editId)
-    const nextReviewEditId = options?.advanceReview ? getNextReviewEditId(editId, remainingEdits) : null
+    const nextReviewEditId = options?.advanceReview
+      ? getNextReviewEditId(editId, remainingEdits)
+      : null
     pendingEdits = remainingEdits
     if (reviewEditId === editId) {
       if (nextReviewEditId) {
@@ -816,7 +843,7 @@
   }
 </script>
 
-<ResponsiveModal.Root open={open} onOpenChange={handleOpenChange}>
+<ResponsiveModal.Root {open} onOpenChange={handleOpenChange}>
   <ResponsiveModal.Content class="max-h-[90vh] max-w-5xl overflow-hidden p-0">
     <div class="bg-background flex h-[90vh] flex-col">
       <div class="border-b px-5 py-4">
@@ -856,7 +883,12 @@
                     <Check class="mr-2 h-4 w-4" />
                     Apply All ({pendingEdits.length})
                   </Button>
-                  <Button variant="outline" size="sm" onclick={resetConversation} disabled={loading || applying}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onclick={resetConversation}
+                    disabled={loading || applying}
+                  >
                     <RefreshCw class="mr-2 h-4 w-4" />
                     Reset
                   </Button>
@@ -867,7 +899,8 @@
             <div class="max-h-[calc(90vh-22rem)] space-y-3 overflow-y-auto p-4">
               {#if pendingEdits.length === 0}
                 <div class="text-muted-foreground rounded-md border border-dashed p-6 text-sm">
-                  No pending edits yet. Ask for a rewrite and the assistant can queue exact entry edits.
+                  No pending edits yet. Ask for a rewrite and the assistant can queue exact entry
+                  edits.
                 </div>
               {:else}
                 {#each pendingEdits as edit (edit.id)}
@@ -875,7 +908,9 @@
                     <div class="mb-2 flex items-center justify-between gap-3">
                       <div class="flex items-center gap-2">
                         <Badge variant="secondary">{edit.entryType}</Badge>
-                        <span class="text-muted-foreground text-xs">Entry #{getEntryPosition(edit.entryId)}</span>
+                        <span class="text-muted-foreground text-xs"
+                          >Entry #{getEntryPosition(edit.entryId)}</span
+                        >
                       </div>
                       <div class="text-muted-foreground text-xs">
                         {edit.reprocessChapter ? 'Reprocess chapter' : 'No chapter reprocess'}
@@ -885,15 +920,26 @@
 
                     <p class="text-muted-foreground mb-2 line-clamp-2 text-xs">{edit.reason}</p>
                     <p class="text-muted-foreground line-clamp-2 text-xs">
-                      {edit.revisedContent.slice(0, 180)}{edit.revisedContent.length > 180 ? '...' : ''}
+                      {edit.revisedContent.slice(0, 180)}{edit.revisedContent.length > 180
+                        ? '...'
+                        : ''}
                     </p>
 
                     <div class="mt-3 flex items-center gap-2">
-                      <Button size="sm" onclick={() => openReviewModal(edit)} disabled={applying || loading}>
+                      <Button
+                        size="sm"
+                        onclick={() => openReviewModal(edit)}
+                        disabled={applying || loading}
+                      >
                         <Maximize2 class="mr-2 h-4 w-4" />
                         Review
                       </Button>
-                      <Button variant="outline" size="sm" onclick={() => discardEdit(edit.id)} disabled={applying || loading}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onclick={() => discardEdit(edit.id)}
+                        disabled={applying || loading}
+                      >
                         <X class="mr-2 h-4 w-4" />
                         Discard
                       </Button>
@@ -924,7 +970,8 @@
               <div>
                 <h3 class="font-medium">Conversation</h3>
                 <p class="text-muted-foreground text-xs">
-                  Ask for critique, expansion, pacing updates, or direct rewrites to specific entries.
+                  Ask for critique, expansion, pacing updates, or direct rewrites to specific
+                  entries.
                 </p>
               </div>
               <div class="flex items-center gap-2">
@@ -955,7 +1002,9 @@
                     : 'No saved conversations yet'}
                 </span>
                 {#if activeConversationId}
-                  <span class="bg-muted text-muted-foreground ml-1 rounded px-1.5 py-0.5 text-[10px]">
+                  <span
+                    class="bg-muted text-muted-foreground ml-1 rounded px-1.5 py-0.5 text-[10px]"
+                  >
                     active
                   </span>
                 {/if}
@@ -977,7 +1026,9 @@
                   onclick={() => (conversationSelectorOpen = false)}
                 ></div>
 
-                <div class="bg-background absolute right-0 left-0 z-20 mt-1 max-h-72 overflow-y-auto rounded-md border shadow-lg">
+                <div
+                  class="bg-background absolute right-0 left-0 z-20 mt-1 max-h-72 overflow-y-auto rounded-md border shadow-lg"
+                >
                   <div class="space-y-1 p-1.5">
                     <button
                       class="hover:bg-muted/70 flex w-full items-center gap-2 rounded px-2 py-2 text-left text-xs"
@@ -990,7 +1041,9 @@
                     {#if conversations.length > 0}
                       <div class="my-1 border-t"></div>
                       {#each conversations as conv (conv.id)}
-                        <div class="group hover:bg-muted/60 flex items-center gap-2 rounded px-2 py-2">
+                        <div
+                          class="group hover:bg-muted/60 flex items-center gap-2 rounded px-2 py-2"
+                        >
                           {#if renamingConversationId === conv.id}
                             <form
                               class="flex min-w-0 flex-1 items-center gap-1"
@@ -1061,16 +1114,17 @@
             </div>
           </div>
 
-          <div class="bg-muted/10 min-h-0 flex-1 overflow-y-auto p-4" bind:this={conversationContainer}>
+          <div
+            class="bg-muted/10 min-h-0 flex-1 overflow-y-auto p-4"
+            bind:this={conversationContainer}
+          >
             <div class="space-y-3">
               {#each chatMessages as message (message.id)}
                 <div class={message.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
                   <div
-                    class={
-                      message.role === 'user'
-                        ? 'bg-primary text-primary-foreground max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap'
-                        : 'bg-card max-w-[90%] rounded-lg border px-3 py-2 text-sm whitespace-pre-wrap'
-                    }
+                    class={message.role === 'user'
+                      ? 'bg-primary text-primary-foreground max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap'
+                      : 'bg-card max-w-[90%] rounded-lg border px-3 py-2 text-sm whitespace-pre-wrap'}
                   >
                     {message.content}
                   </div>
@@ -1089,7 +1143,10 @@
           <div class="border-t p-4">
             <div class="space-y-2">
               <div class="space-y-1">
-                <label class="text-muted-foreground text-xs font-medium uppercase tracking-wide" for="editor-assistant-target-entry">
+                <label
+                  class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
+                  for="editor-assistant-target-entry"
+                >
                   Rewrite Target (Optional)
                 </label>
                 <select
@@ -1101,7 +1158,9 @@
                   <option value="">No fixed target</option>
                   {#each editableBranchEntries as entry (entry.id)}
                     <option value={entry.id}>
-                      #{entry.position} [{entry.type === 'user_action' ? 'USER' : 'ASSISTANT'}] {entry.content.slice(0, 90).replace(/\s+/g, ' ')}
+                      #{entry.position} [{entry.type === 'user_action' ? 'USER' : 'ASSISTANT'}] {entry.content
+                        .slice(0, 90)
+                        .replace(/\s+/g, ' ')}
                     </option>
                   {/each}
                 </select>
@@ -1129,7 +1188,10 @@
                 <p class="text-muted-foreground text-xs">
                   Use Shift+Enter for newline, Enter to send.
                 </p>
-                <Button onclick={sendPrompt} disabled={!composer.trim() || loading || applying || !story.currentStory}>
+                <Button
+                  onclick={sendPrompt}
+                  disabled={!composer.trim() || loading || applying || !story.currentStory}
+                >
                   <Send class="mr-2 h-4 w-4" />
                   Send
                 </Button>
@@ -1187,7 +1249,7 @@
       {#if reviewEdit}
         <div class="px-5 pt-4">
           <div class="bg-muted/25 rounded-lg border px-4 py-3">
-            <p class="text-muted-foreground mb-1 text-[11px] font-semibold uppercase tracking-wide">
+            <p class="text-muted-foreground mb-1 text-[11px] font-semibold tracking-wide uppercase">
               Assistant Notes
             </p>
             <p class="text-sm leading-relaxed whitespace-pre-wrap">{reviewEdit.reason}</p>
@@ -1249,7 +1311,10 @@
               <X class="mr-2 h-4 w-4" />
               Discard Edit
             </Button>
-            <Button onclick={applyReviewedEdit} disabled={loading || applying || !reviewRevisedContent.trim()}>
+            <Button
+              onclick={applyReviewedEdit}
+              disabled={loading || applying || !reviewRevisedContent.trim()}
+            >
               <Check class="mr-2 h-4 w-4" />
               Apply This Edit
             </Button>

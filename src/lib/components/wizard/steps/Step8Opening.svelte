@@ -75,7 +75,7 @@
     cardImportedFirstMessage,
     cardImportedAlternateGreetings,
     selectedGreetingIndex,
-    selectedMode,
+    selectedMode: _selectedMode,
     selectedGenre,
     customGenre,
     selectedPOV,

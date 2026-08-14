@@ -104,7 +104,11 @@ function getEpistemicIdentityRefs(
   return raw.filter((value): value is EpistemicIdentityRef => {
     if (!value || typeof value !== 'object') return false
     const record = value as Record<string, unknown>
-    return typeof record.refType === 'string' && typeof record.refId === 'string' && record.refId.trim().length > 0
+    return (
+      typeof record.refType === 'string' &&
+      typeof record.refId === 'string' &&
+      record.refId.trim().length > 0
+    )
   })
 }
 
@@ -119,7 +123,7 @@ function normalizeIdentityName(value: string | null | undefined): string {
 }
 
 function getCharacterIdentityNames(character: Character): string[] {
-  const names = new Set<string>()
+  const names = new SvelteSet<string>()
 
   const canonicalName = normalizeIdentityName(character.name)
   if (canonicalName) names.add(canonicalName)
@@ -708,17 +712,25 @@ class StoryStore {
     this.currentBgImage = await database.getBackgroundForBranch(storyId, story.currentBranchId)
 
     // Load branch-independent data first
-    const [characters, locations, items, storyBeats, checkpoints, lorebookEntries, chapterSources, branches] =
-      await Promise.all([
-        database.getCharacters(storyId),
-        database.getLocations(storyId),
-        database.getItems(storyId),
-        database.getStoryBeats(storyId),
-        database.getCheckpoints(storyId),
-        database.getEntries(storyId),
-        database.getChapterSources(storyId),
-        database.getBranches(storyId),
-      ])
+    const [
+      characters,
+      locations,
+      items,
+      storyBeats,
+      checkpoints,
+      lorebookEntries,
+      chapterSources,
+      branches,
+    ] = await Promise.all([
+      database.getCharacters(storyId),
+      database.getLocations(storyId),
+      database.getItems(storyId),
+      database.getStoryBeats(storyId),
+      database.getCheckpoints(storyId),
+      database.getEntries(storyId),
+      database.getChapterSources(storyId),
+      database.getBranches(storyId),
+    ])
 
     this.characters = characters
     this.locations = locations
@@ -1006,7 +1018,11 @@ class StoryStore {
       reprocessChapter?: boolean
       rerunLorebookPass?: boolean
     },
-  ): Promise<{ chapterUpdated: boolean; chapterNumber: number | null; lorebookRefreshed: boolean }> {
+  ): Promise<{
+    chapterUpdated: boolean
+    chapterNumber: number | null
+    lorebookRefreshed: boolean
+  }> {
     if (!this.currentStory) throw new Error('No story loaded')
 
     if (this._isRetryInProgress || ui.isGenerating) {
@@ -1030,7 +1046,11 @@ class StoryStore {
   async reprocessEditorAssistantChapter(
     entryId: string,
     rerunLorebookPass: boolean,
-  ): Promise<{ chapterUpdated: boolean; chapterNumber: number | null; lorebookRefreshed: boolean }> {
+  ): Promise<{
+    chapterUpdated: boolean
+    chapterNumber: number | null
+    lorebookRefreshed: boolean
+  }> {
     if (!this.currentStory) throw new Error('No story loaded')
 
     if (this._isRetryInProgress || ui.isGenerating) {
@@ -1043,7 +1063,11 @@ class StoryStore {
   private async reprocessChapterForEditedEntry(
     entryId: string,
     rerunLorebookPass: boolean,
-  ): Promise<{ chapterUpdated: boolean; chapterNumber: number | null; lorebookRefreshed: boolean }> {
+  ): Promise<{
+    chapterUpdated: boolean
+    chapterNumber: number | null
+    lorebookRefreshed: boolean
+  }> {
     if (!this.currentStory) throw new Error('No story loaded')
 
     const entry = this.entries.find((candidate) => candidate.id === entryId)
@@ -1153,7 +1177,7 @@ class StoryStore {
     }
 
     const currentBranchId = this.currentStory.currentBranchId
-    const updatesById = new Map<string, Partial<StoryEntry>>()
+    const updatesById = new SvelteMap<string, Partial<StoryEntry>>()
     let replacements = 0
     let skippedInherited = 0
 
@@ -1865,7 +1889,8 @@ class StoryStore {
       storyId: this.currentStory.id,
       name: vaultCharacter.name,
       description: vaultCharacter.description,
-      relationship: makeProtagonist && !currentProtagonist ? 'self' : (options?.relationship ?? null),
+      relationship:
+        makeProtagonist && !currentProtagonist ? 'self' : (options?.relationship ?? null),
       traits: [...vaultCharacter.traits],
       status: 'active',
       metadata: vaultCharacter.metadata ? structuredClone(vaultCharacter.metadata) : null,
@@ -1875,7 +1900,7 @@ class StoryStore {
     }
 
     await database.addCharacter(character)
-  await reconcileCharacterEpistemicRefs(character)
+    await reconcileCharacterEpistemicRefs(character)
     this.characters = [...this.characters, character]
 
     if (makeProtagonist && currentProtagonist) {
@@ -2160,7 +2185,10 @@ class StoryStore {
     return covered.filter((zone) => !exposed.has(zone))
   }
 
-  private async updateClothingMetadata(item: Item, patch: Partial<ClothingMetadata>): Promise<void> {
+  private async updateClothingMetadata(
+    item: Item,
+    patch: Partial<ClothingMetadata>,
+  ): Promise<void> {
     const metadata = (item.metadata ?? {}) as Record<string, unknown>
     const clothing = this.getClothingMetadata(item)
     await this.updateItem(item.id, {
@@ -2307,7 +2335,10 @@ class StoryStore {
         unusable = true
         directItemChanges.equipped = false
       } else {
-        durability = Math.max(0, durability - this.getClothingDamageAmount(clothingState.damageSeverity))
+        durability = Math.max(
+          0,
+          durability - this.getClothingDamageAmount(clothingState.damageSeverity),
+        )
         if (durability <= 0) {
           exposedZones = [...coveredZones]
           unusable = true
@@ -2316,7 +2347,10 @@ class StoryStore {
       }
     }
 
-    if (Array.isArray(clothingState.newlyExposedZones) && clothingState.newlyExposedZones.length > 0) {
+    if (
+      Array.isArray(clothingState.newlyExposedZones) &&
+      clothingState.newlyExposedZones.length > 0
+    ) {
       exposedZones = Array.from(
         new Set([
           ...exposedZones,
@@ -2712,9 +2746,7 @@ class StoryStore {
       try {
         const result = await fn()
         const elapsedMs = Date.now() - startedAt
-        console.log(
-          `[NovelImport] ${stepName} completed for "${chapterTitle}" in ${elapsedMs}ms`,
-        )
+        console.log(`[NovelImport] ${stepName} completed for "${chapterTitle}" in ${elapsedMs}ms`)
         return result
       } finally {
         clearInterval(heartbeat)
@@ -2723,7 +2755,8 @@ class StoryStore {
 
     for (const [index, sourceFile] of sources.entries()) {
       const chapterIndex = index + 1
-      const title = sourceFile.filename.replace(/\.[^.]+$/, '').trim() || `Imported Chapter ${index + 1}`
+      const title =
+        sourceFile.filename.replace(/\.[^.]+$/, '').trim() || `Imported Chapter ${index + 1}`
       const chapterNumberMatch = sourceFile.filename.match(/(?:chapter|ch)\s*(\d+)/i)
       const chapterNumber = chapterNumberMatch ? Number(chapterNumberMatch[1]) : index + 1
 
@@ -2777,7 +2810,13 @@ class StoryStore {
         errors: [],
       }
 
-      emitProgress(chapterIndex, sourceFile, title, 'chapter-start', `Starting chapter ${chapterIndex}`)
+      emitProgress(
+        chapterIndex,
+        sourceFile,
+        title,
+        'chapter-start',
+        `Starting chapter ${chapterIndex}`,
+      )
 
       if (parseIntoStoryState) {
         const charactersBefore = getNames(this.characters)
@@ -2825,7 +2864,13 @@ class StoryStore {
               currentStory.settings?.tense ?? 'present',
             ),
           )
-          emitProgress(chapterIndex, sourceFile, title, 'summarize-complete', 'Chapter summary complete')
+          emitProgress(
+            chapterIndex,
+            sourceFile,
+            title,
+            'summarize-complete',
+            'Chapter summary complete',
+          )
           source.summary = summaryResult.summary
           source.keywords = summaryResult.keywords
           source.characters = summaryResult.characters
@@ -2839,7 +2884,13 @@ class StoryStore {
           chapterResult.plotThreads = [...summaryResult.plotThreads]
           chapterResult.emotionalTone = summaryResult.emotionalTone ?? null
 
-          emitProgress(chapterIndex, sourceFile, title, 'classify-start', 'Extracting world updates')
+          emitProgress(
+            chapterIndex,
+            sourceFile,
+            title,
+            'classify-start',
+            'Extracting world updates',
+          )
           const classification = await runTimedStep(title, 'classifyResponse', async () =>
             aiService.classifyResponse(
               sourceFile.content,
@@ -2943,9 +2994,12 @@ class StoryStore {
                     entry.id === id ? { ...entry, ...updates } : entry,
                   )
                   chapterResult.lorebookChanges.updated += 1
-                  const updatedType = (updates.type as Entry['type'] | undefined) ?? existingEntry?.type
+                  const updatedType =
+                    (updates.type as Entry['type'] | undefined) ?? existingEntry?.type
                   const updatedName =
-                    (updates.name as string | undefined) ?? existingEntry?.name ?? `entry:${id.slice(0, 8)}`
+                    (updates.name as string | undefined) ??
+                    existingEntry?.name ??
+                    `entry:${id.slice(0, 8)}`
                   if (updatedType === 'event') {
                     chapterResult.lorebookChanges.eventsUpdated += 1
                   }
@@ -2981,15 +3035,9 @@ class StoryStore {
               currentStory.settings?.tense ?? 'present',
             ),
           )
-          emitProgress(
-            chapterIndex,
-            sourceFile,
-            title,
-            'lore-complete',
-            'Lore management complete',
-          )
+          emitProgress(chapterIndex, sourceFile, title, 'lore-complete', 'Lore management complete')
 
-          const eventEntryNames = new Set<string>()
+          const eventEntryNames = new SvelteSet<string>()
           for (const labeledEntry of [
             ...chapterResult.lorebookChanges.createdEntries,
             ...chapterResult.lorebookChanges.updatedEntries,
@@ -3623,7 +3671,10 @@ class StoryStore {
           if (update.changes.clothingState) {
             Object.assign(
               changes,
-              await this.applyNarrativeClothingStateChange(currentItem, update.changes.clothingState),
+              await this.applyNarrativeClothingStateChange(
+                currentItem,
+                update.changes.clothingState,
+              ),
             )
             existing = this.items.find((i) => i.id === currentItem.id) ?? currentItem
           }
@@ -3986,7 +4037,9 @@ class StoryStore {
     }
 
     // Apply money changes extracted from the narrative/classifier.
-    const moneyChanged = await this.applyNarrativeMoneyChange(result.scene.moneyUpdate as MoneyUpdate)
+    const moneyChanged = await this.applyNarrativeMoneyChange(
+      result.scene.moneyUpdate as MoneyUpdate,
+    )
 
     // Phase 1: Save world state delta on the entry
     if (trackingEnabled && entryId) {
@@ -5972,7 +6025,12 @@ class StoryStore {
   }): Promise<Story> {
     const fallbackFilename = options?.fallbackFilename?.trim() || 'Imported Novel'
     const title = options?.title?.trim() || inferNovelTitle(fallbackFilename, 0)
-    const story = await this.createStory(title, 'novel-import', options?.genre ?? 'Novel', 'adventure')
+    const story = await this.createStory(
+      title,
+      'novel-import',
+      options?.genre ?? 'Novel',
+      'adventure',
+    )
 
     if (options?.description?.trim()) {
       const description = options.description.trim()

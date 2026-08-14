@@ -15,6 +15,7 @@
   import { Input } from '$lib/components/ui/input'
   import { Textarea } from '$lib/components/ui/textarea'
   import { Label } from '$lib/components/ui/label'
+  import { SvelteMap, SvelteSet } from 'svelte/reactivity'
   import {
     AlertTriangle,
     ArrowDown,
@@ -24,7 +25,6 @@
     ChevronDown,
     ChevronLeft,
     ChevronRight,
-    FileText,
     Loader2,
     MapPin,
     Plus,
@@ -64,13 +64,13 @@
   let loading = $state(false)
   let fileInput = $state<HTMLInputElement | null>(null)
   let importReport = $state<ChapterSourceImportReport | null>(null)
-  let addedLorebookKeys = $state<Set<string>>(new Set())
+  let addedLorebookKeys = new SvelteSet<string>()
   let stepByStepReview = $state(true)
   let pendingSources = $state<Array<{ filename: string; content: string }>>([])
   let guidedActive = $state(false)
   let awaitingGuidedDecision = $state(false)
-  let guidedAborted = $state(false)
-  let guidedStoryMode = $state<'adventure'>('adventure')
+  let _guidedAborted = $state(false)
+  let _guidedStoryMode = $state<'adventure'>('adventure')
   let progressState = $state<{
     chapterIndex: number
     totalChapters: number
@@ -81,7 +81,7 @@
   } | null>(null)
   let guidedProcessedCount = $state(0)
   let totalPlannedChapters = $state(0)
-  let expandedChapterKeys = $state<Set<string>>(new Set())
+  let expandedChapterKeys = new SvelteSet<string>()
   let reviewSidebarCollapsed = $state(false)
   let selectedReviewEntryKey = $state<string | null>(null)
   let selectedPackId = $state('default-pack')
@@ -193,17 +193,17 @@
     description = ''
     dragOver = false
     importReport = null
-    addedLorebookKeys = new Set()
+    addedLorebookKeys = new SvelteSet()
     stepByStepReview = true
     pendingSources = []
     guidedActive = false
     awaitingGuidedDecision = false
-    guidedAborted = false
-    guidedStoryMode = 'adventure'
+    _guidedAborted = false
+    _guidedStoryMode = 'adventure'
     progressState = null
     guidedProcessedCount = 0
     totalPlannedChapters = 0
-    expandedChapterKeys = new Set()
+    expandedChapterKeys = new SvelteSet()
     reviewSidebarCollapsed = false
     selectedReviewEntryKey = null
     selectedPackId = 'default-pack'
@@ -225,7 +225,7 @@
     pendingSources = []
 
     if (!options?.keepAbortedFlag) {
-      guidedAborted = false
+      _guidedAborted = false
     }
 
     if (!options?.keepReport) {
@@ -290,7 +290,10 @@
     resetState()
   }
 
-  function chapterKey(chapter: ChapterSourceImportReport['chapters'][number], index: number): string {
+  function chapterKey(
+    chapter: ChapterSourceImportReport['chapters'][number],
+    index: number,
+  ): string {
     return `${chapter.filename}::${index}`
   }
 
@@ -384,7 +387,9 @@
     if (!entry) return null
 
     const lorebookEntry = story.lorebookEntries.find(
-      (candidate) => candidate.type === entry.type && lorebookKey(candidate.name, candidate.type) === lorebookKey(entry.name, entry.type),
+      (candidate) =>
+        candidate.type === entry.type &&
+        lorebookKey(candidate.name, candidate.type) === lorebookKey(entry.name, entry.type),
     )
     if (lorebookEntry?.description?.trim()) {
       return lorebookEntry.description.trim()
@@ -411,13 +416,19 @@
     return null
   }
 
-  function isChapterExpanded(chapter: ChapterSourceImportReport['chapters'][number], index: number): boolean {
+  function isChapterExpanded(
+    chapter: ChapterSourceImportReport['chapters'][number],
+    index: number,
+  ): boolean {
     return expandedChapterKeys.has(chapterKey(chapter, index))
   }
 
-  function toggleChapterExpanded(chapter: ChapterSourceImportReport['chapters'][number], index: number) {
+  function toggleChapterExpanded(
+    chapter: ChapterSourceImportReport['chapters'][number],
+    index: number,
+  ) {
     const key = chapterKey(chapter, index)
-    const next = new Set(expandedChapterKeys)
+    const next = new SvelteSet(expandedChapterKeys)
     if (next.has(key)) {
       next.delete(key)
     } else {
@@ -428,20 +439,22 @@
 
   function expandAllChapters() {
     if (!importReport) return
-    expandedChapterKeys = new Set(importReport.chapters.map((chapter, index) => chapterKey(chapter, index)))
+    expandedChapterKeys = new SvelteSet(
+      importReport.chapters.map((chapter, index) => chapterKey(chapter, index)),
+    )
   }
 
   function collapseAllChapters() {
-    expandedChapterKeys = new Set()
+    expandedChapterKeys = new SvelteSet()
   }
 
   function expandLatestChapter(chapters: ChapterSourceImportReport['chapters']) {
     if (chapters.length === 0) {
-      expandedChapterKeys = new Set()
+      expandedChapterKeys = new SvelteSet()
       return
     }
     const lastIndex = chapters.length - 1
-    expandedChapterKeys = new Set([chapterKey(chapters[lastIndex], lastIndex)])
+    expandedChapterKeys = new SvelteSet([chapterKey(chapters[lastIndex], lastIndex)])
   }
 
   function openFilePicker() {
@@ -490,7 +503,7 @@
       if (showToast) {
         ui.showToast(`${trimmedName} is already in lorebook`, 'info')
       }
-      addedLorebookKeys = new Set([...addedLorebookKeys, key])
+      addedLorebookKeys = new SvelteSet([...addedLorebookKeys, key])
       return 'already'
     }
 
@@ -523,14 +536,16 @@
       loreManagementBlacklisted: false,
     })
 
-    addedLorebookKeys = new Set([...addedLorebookKeys, key])
+    addedLorebookKeys = new SvelteSet([...addedLorebookKeys, key])
     if (showToast) {
       ui.showToast(`Added ${trimmedName} to lorebook`, 'info')
     }
     return 'added'
   }
 
-  function rebuildReportFromChapters(chapters: ChapterSourceImportReport['chapters']): ChapterSourceImportReport {
+  function rebuildReportFromChapters(
+    chapters: ChapterSourceImportReport['chapters'],
+  ): ChapterSourceImportReport {
     return {
       importedCount: chapters.length,
       parseIntoStoryState: true,
@@ -628,7 +643,7 @@
 
   function abortGuidedImport() {
     finalizeImportRun({ keepReport: true, keepProgress: true, keepAbortedFlag: true })
-    guidedAborted = true
+    _guidedAborted = true
     progressState = {
       chapterIndex: guidedProcessedCount,
       totalChapters: totalPlannedChapters,
@@ -644,7 +659,7 @@
     items: Array<{ name: string; type: EntryType }>,
     chapterTitle: string,
   ) {
-    const unique = new Map<string, { name: string; type: EntryType }>()
+    const unique = new SvelteMap<string, { name: string; type: EntryType }>()
     for (const item of items) {
       const trimmedName = item.name.trim()
       if (!trimmedName) continue
@@ -663,10 +678,7 @@
       if (result === 'already') alreadyCount++
     }
 
-    ui.showToast(
-      `Bulk add complete: ${addedCount} added, ${alreadyCount} already present`,
-      'info',
-    )
+    ui.showToast(`Bulk add complete: ${addedCount} added, ${alreadyCount} already present`, 'info')
   }
 
   function handleDrop(event: DragEvent) {
@@ -725,10 +737,10 @@
         const shellElapsedMs = Date.now() - shellStartedAt
         console.log(`[NovelImport] createNovelStoryShell completed in ${shellElapsedMs}ms`)
 
-        guidedStoryMode = createdStory.mode
+        _guidedStoryMode = createdStory.mode
         pendingSources = [...sources]
         guidedActive = true
-        guidedAborted = false
+        _guidedAborted = false
         progressState = {
           chapterIndex: 0,
           totalChapters: sources.length,
@@ -750,7 +762,7 @@
 
         importReport = result.report
         expandLatestChapter(result.report.chapters)
-        guidedStoryMode = result.story.mode
+        _guidedStoryMode = result.story.mode
         progressState = {
           chapterIndex: result.report.importedCount,
           totalChapters: sources.length,
@@ -767,7 +779,8 @@
     } catch (error) {
       finalizeImportRun({ keepReport: true, keepProgress: true })
       console.error('[NovelImportModal] Failed to create story from chapters:', error)
-      const message = error instanceof Error ? error.message : 'Failed to create story from chapters'
+      const message =
+        error instanceof Error ? error.message : 'Failed to create story from chapters'
       ui.showToast(`Failed to create story from chapters: ${message}`, 'error')
     } finally {
       loading = false
@@ -790,7 +803,9 @@
     if (reviewEntries.length === 0) return null
     return reviewEntries.find((entry) => entry.key === selectedReviewEntryKey) ?? reviewEntries[0]
   })
-  const selectedReviewEntryDescription = $derived.by(() => getReviewEntryDescription(selectedReviewEntry))
+  const selectedReviewEntryDescription = $derived.by(() =>
+    getReviewEntryDescription(selectedReviewEntry),
+  )
 
   $effect(() => {
     if (reviewEntries.length === 0) {
@@ -798,7 +813,10 @@
       return
     }
 
-    if (!selectedReviewEntryKey || !reviewEntries.some((entry) => entry.key === selectedReviewEntryKey)) {
+    if (
+      !selectedReviewEntryKey ||
+      !reviewEntries.some((entry) => entry.key === selectedReviewEntryKey)
+    ) {
       selectedReviewEntryKey = reviewEntries[0].key
     }
   })
@@ -812,7 +830,8 @@
         <ResponsiveModal.Title>Create Novel from Chapters</ResponsiveModal.Title>
       </div>
       <ResponsiveModal.Description>
-        Import ordered chapter files to create a new creative-writing story, then process each chapter in sequence.
+        Import ordered chapter files to create a new creative-writing story, then process each
+        chapter in sequence.
       </ResponsiveModal.Description>
     </ResponsiveModal.Header>
 
@@ -820,7 +839,10 @@
       {#if progressState && (loading || guidedActive || awaitingGuidedDecision || importReport)}
         <div class="rounded-lg border border-slate-200/30 bg-slate-900 p-3 text-xs shadow-sm">
           <p class="font-medium text-white">
-            Chapter {Math.max(progressState.chapterIndex, 1)} of {Math.max(progressState.totalChapters, 1)}
+            Chapter {Math.max(progressState.chapterIndex, 1)} of {Math.max(
+              progressState.totalChapters,
+              1,
+            )}
             {#if progressState.title}
               · {progressState.title}
             {/if}
@@ -859,10 +881,20 @@
             <p class="text-sm font-semibold">Import Results</p>
             {#if importReport.chapters.length > 0}
               <div class="flex items-center gap-1">
-                <Button variant="ghost" size="sm" class="h-7 px-2 text-[11px]" onclick={expandAllChapters}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  class="h-7 px-2 text-[11px]"
+                  onclick={expandAllChapters}
+                >
                   Expand All
                 </Button>
-                <Button variant="ghost" size="sm" class="h-7 px-2 text-[11px]" onclick={collapseAllChapters}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  class="h-7 px-2 text-[11px]"
+                  onclick={collapseAllChapters}
+                >
                   Collapse All
                 </Button>
               </div>
@@ -872,11 +904,21 @@
             {importReport.importedCount} chapters processed. Review extracted artifacts below.
           </p>
           <div class="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-5">
-            <div class="bg-muted/40 rounded border px-2 py-1.5">Characters: {importReport.createdTotals.characters}</div>
-            <div class="bg-muted/40 rounded border px-2 py-1.5">Locations: {importReport.createdTotals.locations}</div>
-            <div class="bg-muted/40 rounded border px-2 py-1.5">Items: {importReport.createdTotals.items}</div>
-            <div class="bg-muted/40 rounded border px-2 py-1.5">Story Beats: {importReport.createdTotals.storyBeats}</div>
-            <div class="bg-muted/40 rounded border px-2 py-1.5">Lorebook: {importReport.createdTotals.lorebookEntries}</div>
+            <div class="bg-muted/40 rounded border px-2 py-1.5">
+              Characters: {importReport.createdTotals.characters}
+            </div>
+            <div class="bg-muted/40 rounded border px-2 py-1.5">
+              Locations: {importReport.createdTotals.locations}
+            </div>
+            <div class="bg-muted/40 rounded border px-2 py-1.5">
+              Items: {importReport.createdTotals.items}
+            </div>
+            <div class="bg-muted/40 rounded border px-2 py-1.5">
+              Story Beats: {importReport.createdTotals.storyBeats}
+            </div>
+            <div class="bg-muted/40 rounded border px-2 py-1.5">
+              Lorebook: {importReport.createdTotals.lorebookEntries}
+            </div>
           </div>
           <div class="mt-2 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
             <div class="bg-muted/20 rounded border px-2 py-1.5">
@@ -899,10 +941,14 @@
             </div>
           </div>
           {#if importReport.failedChapterCount > 0}
-            <div class="mt-3 flex items-start gap-2 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs">
+            <div
+              class="mt-3 flex items-start gap-2 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs"
+            >
               <AlertTriangle class="mt-0.5 h-4 w-4 text-amber-500" />
               <span>
-                {importReport.failedChapterCount} chapter{importReport.failedChapterCount === 1 ? '' : 's'} had partial processing errors. Raw chapter sources were still imported.
+                {importReport.failedChapterCount} chapter{importReport.failedChapterCount === 1
+                  ? ''
+                  : 's'} had partial processing errors. Raw chapter sources were still imported.
               </span>
             </div>
           {/if}
@@ -936,7 +982,9 @@
             {#if !reviewSidebarCollapsed}
               <div class="min-h-0 flex-1 overflow-y-auto p-2">
                 {#if reviewEntries.length === 0}
-                  <p class="text-muted-foreground p-2 text-xs">No extracted entries available yet.</p>
+                  <p class="text-muted-foreground p-2 text-xs">
+                    No extracted entries available yet.
+                  </p>
                 {:else}
                   {@const characterEntries = filterReviewEntriesByType(reviewEntries, 'character')}
                   {@const locationEntries = filterReviewEntriesByType(reviewEntries, 'location')}
@@ -944,7 +992,9 @@
 
                   <div class="space-y-3">
                     <div>
-                      <p class="text-muted-foreground px-1 pb-1 text-[11px] font-medium uppercase">Characters</p>
+                      <p class="text-muted-foreground px-1 pb-1 text-[11px] font-medium uppercase">
+                        Characters
+                      </p>
                       <div class="space-y-1">
                         {#each characterEntries as entry (entry.key)}
                           <button
@@ -953,14 +1003,18 @@
                             onclick={() => selectReviewEntry(entry.key)}
                           >
                             <p class="truncate font-medium">{entry.name}</p>
-                            <p class="text-muted-foreground truncate text-[11px]">{entry.chapterTitle}</p>
+                            <p class="text-muted-foreground truncate text-[11px]">
+                              {entry.chapterTitle}
+                            </p>
                           </button>
                         {/each}
                       </div>
                     </div>
 
                     <div>
-                      <p class="text-muted-foreground px-1 pb-1 text-[11px] font-medium uppercase">Locations</p>
+                      <p class="text-muted-foreground px-1 pb-1 text-[11px] font-medium uppercase">
+                        Locations
+                      </p>
                       <div class="space-y-1">
                         {#each locationEntries as entry (entry.key)}
                           <button
@@ -969,17 +1023,23 @@
                             onclick={() => selectReviewEntry(entry.key)}
                           >
                             <p class="truncate font-medium">{entry.name}</p>
-                            <p class="text-muted-foreground truncate text-[11px]">{entry.chapterTitle}</p>
+                            <p class="text-muted-foreground truncate text-[11px]">
+                              {entry.chapterTitle}
+                            </p>
                           </button>
                         {/each}
                       </div>
                     </div>
 
                     <div>
-                      <p class="text-muted-foreground px-1 pb-1 text-[11px] font-medium uppercase">Events</p>
+                      <p class="text-muted-foreground px-1 pb-1 text-[11px] font-medium uppercase">
+                        Events
+                      </p>
                       <div class="space-y-1">
                         {#if eventEntries.length === 0}
-                          <p class="text-muted-foreground px-2 text-[11px]">No event entries detected.</p>
+                          <p class="text-muted-foreground px-2 text-[11px]">
+                            No event entries detected.
+                          </p>
                         {:else}
                           {#each eventEntries as entry (entry.key)}
                             <button
@@ -988,7 +1048,9 @@
                               onclick={() => selectReviewEntry(entry.key)}
                             >
                               <p class="truncate font-medium">{entry.name}</p>
-                              <p class="text-muted-foreground truncate text-[11px]">{entry.chapterTitle}</p>
+                              <p class="text-muted-foreground truncate text-[11px]">
+                                {entry.chapterTitle}
+                              </p>
                             </button>
                           {/each}
                         {/if}
@@ -1001,11 +1063,17 @@
               {#if selectedReviewEntry}
                 <div class="border-t p-3">
                   <p class="truncate text-sm font-semibold">{selectedReviewEntry.name}</p>
-                  <span class={`mt-1 inline-flex rounded border px-1.5 py-0.5 text-[11px] ${reviewEntryBadgeClass(selectedReviewEntry.type)}`}>
+                  <span
+                    class={`mt-1 inline-flex rounded border px-1.5 py-0.5 text-[11px] ${reviewEntryBadgeClass(selectedReviewEntry.type)}`}
+                  >
                     {reviewEntryTypeLabel(selectedReviewEntry.type)}
                   </span>
-                  <p class="text-muted-foreground mt-2 truncate text-xs">{selectedReviewEntry.chapterTitle}</p>
-                  <p class="text-muted-foreground truncate text-[11px]">{selectedReviewEntry.chapterFilename}</p>
+                  <p class="text-muted-foreground mt-2 truncate text-xs">
+                    {selectedReviewEntry.chapterTitle}
+                  </p>
+                  <p class="text-muted-foreground truncate text-[11px]">
+                    {selectedReviewEntry.chapterFilename}
+                  </p>
                   {#if selectedReviewEntryDescription}
                     <p class="bg-muted/40 mt-2 rounded border px-2 py-1.5 text-[11px]">
                       {selectedReviewEntryDescription}
@@ -1028,7 +1096,8 @@
                         selectedReviewEntry.chapterTitle,
                       )}
                   >
-                    {#if hasLorebookEntry(selectedReviewEntry.name, selectedReviewEntry.type)}Saved in Lorebook{:else}<Plus class="mr-1 h-3 w-3" />Add to Lorebook{/if}
+                    {#if hasLorebookEntry(selectedReviewEntry.name, selectedReviewEntry.type)}Saved
+                      in Lorebook{:else}<Plus class="mr-1 h-3 w-3" />Add to Lorebook{/if}
                   </Button>
                 </div>
               {/if}
@@ -1037,258 +1106,313 @@
 
           <div class="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
             {#each importReport.chapters as chapter, chapterIndex (chapter.filename + chapterIndex)}
-            {@const chapterExpanded = isChapterExpanded(chapter, chapterIndex)}
-            <div class="rounded-lg border p-3">
-              <div class="flex items-start justify-between gap-2">
-                <button
-                  type="button"
-                  class="hover:bg-muted/50 -ml-1 inline-flex min-w-0 flex-1 items-start gap-2 rounded px-1 py-0.5 text-left"
-                  onclick={() => toggleChapterExpanded(chapter, chapterIndex)}
-                >
-                  {#if chapterExpanded}
-                    <ChevronDown class="mt-0.5 h-4 w-4 shrink-0" />
-                  {:else}
-                    <ChevronRight class="mt-0.5 h-4 w-4 shrink-0" />
-                  {/if}
-                  <span class="min-w-0">
-                  <p class="truncate text-sm font-medium">{chapterIndex + 1}. {chapter.title}</p>
-                  <p class="text-muted-foreground truncate text-xs">{chapter.filename}</p>
-                  </span>
-                </button>
-                <div class="flex shrink-0 items-center gap-1">
-                {#if chapter.errors.length === 0}
-                  <span class="inline-flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-600">
-                    <Check class="h-3 w-3" />
-                    Processed
-                  </span>
-                {:else}
-                  <span class="inline-flex items-center gap-1 rounded border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs text-amber-600">
-                    <AlertTriangle class="h-3 w-3" />
-                    Partial
-                  </span>
-                {/if}
-              </div>
-              </div>
-
-              {#if chapterExpanded}
-                <div class="mt-2 flex justify-end">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    class="h-7 px-2 text-[11px]"
-                    onclick={() =>
-                      addBulkArtifactsToLorebook(
-                        [
-                          ...chapter.characters.map((name) => ({ name, type: 'character' as const })),
-                          ...chapter.locations.map((name) => ({ name, type: 'location' as const })),
-                          ...chapter.events.map((name) => ({ name, type: 'event' as const })),
-                          ...chapter.plotThreads.map((name) => ({ name, type: 'concept' as const })),
-                          ...chapter.keywords.map((name) => ({ name, type: 'concept' as const })),
-                        ],
-                        chapter.title,
-                      )}
+              {@const chapterExpanded = isChapterExpanded(chapter, chapterIndex)}
+              <div class="rounded-lg border p-3">
+                <div class="flex items-start justify-between gap-2">
+                  <button
+                    type="button"
+                    class="hover:bg-muted/50 -ml-1 inline-flex min-w-0 flex-1 items-start gap-2 rounded px-1 py-0.5 text-left"
+                    onclick={() => toggleChapterExpanded(chapter, chapterIndex)}
                   >
-                    Add All
-                  </Button>
-                </div>
-
-                {#if chapter.summary}
-                  <p class="bg-muted/30 mt-2 rounded border px-2 py-1.5 text-xs">{chapter.summary}</p>
-                {/if}
-
-                <div class="mt-2 grid gap-2 text-xs sm:grid-cols-2">
-                  <div class="rounded border p-2">
-                    <p class="mb-1 flex items-center gap-1 font-medium"><Users class="h-3.5 w-3.5" /> Characters</p>
-                    {#if chapter.characters.length === 0}
-                      <p class="text-muted-foreground">None extracted</p>
+                    {#if chapterExpanded}
+                      <ChevronDown class="mt-0.5 h-4 w-4 shrink-0" />
                     {:else}
-                      <div class="space-y-1">
-                        <div class="mb-1 flex justify-end">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            class="h-6 px-2 text-[11px]"
-                            onclick={() =>
-                              addBulkArtifactsToLorebook(
-                                chapter.characters.map((name) => ({ name, type: 'character' as const })),
-                                chapter.title,
-                              )}
-                          >
-                            Add All Characters
-                          </Button>
-                        </div>
-                        {#each chapter.characters as name}
-                          <div class="flex items-center justify-between gap-2">
-                            <span class="truncate">{name}</span>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              class="h-6 px-2 text-[11px]"
-                              disabled={hasLorebookEntry(name, 'character')}
-                              onclick={() => addArtifactToLorebook(name, 'character', chapter.title)}
-                            >
-                              {#if hasLorebookEntry(name, 'character')}Saved{:else}<Plus class="mr-1 h-3 w-3" />Lorebook{/if}
-                            </Button>
-                          </div>
-                        {/each}
-                      </div>
+                      <ChevronRight class="mt-0.5 h-4 w-4 shrink-0" />
                     {/if}
-                  </div>
-
-                  <div class="rounded border p-2">
-                    <p class="mb-1 flex items-center gap-1 font-medium"><MapPin class="h-3.5 w-3.5" /> Locations</p>
-                    {#if chapter.locations.length === 0}
-                      <p class="text-muted-foreground">None extracted</p>
+                    <span class="min-w-0">
+                      <p class="truncate text-sm font-medium">
+                        {chapterIndex + 1}. {chapter.title}
+                      </p>
+                      <p class="text-muted-foreground truncate text-xs">{chapter.filename}</p>
+                    </span>
+                  </button>
+                  <div class="flex shrink-0 items-center gap-1">
+                    {#if chapter.errors.length === 0}
+                      <span
+                        class="inline-flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-600"
+                      >
+                        <Check class="h-3 w-3" />
+                        Processed
+                      </span>
                     {:else}
-                      <div class="space-y-1">
-                        <div class="mb-1 flex justify-end">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            class="h-6 px-2 text-[11px]"
-                            onclick={() =>
-                              addBulkArtifactsToLorebook(
-                                chapter.locations.map((name) => ({ name, type: 'location' as const })),
-                                chapter.title,
-                              )}
-                          >
-                            Add All Locations
-                          </Button>
-                        </div>
-                        {#each chapter.locations as name}
-                          <div class="flex items-center justify-between gap-2">
-                            <span class="truncate">{name}</span>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              class="h-6 px-2 text-[11px]"
-                              disabled={hasLorebookEntry(name, 'location')}
-                              onclick={() => addArtifactToLorebook(name, 'location', chapter.title)}
-                            >
-                              {#if hasLorebookEntry(name, 'location')}Saved{:else}<Plus class="mr-1 h-3 w-3" />Lorebook{/if}
-                            </Button>
-                          </div>
-                        {/each}
-                      </div>
-                    {/if}
-                  </div>
-
-                  <div class="rounded border p-2">
-                    <p class="mb-1 flex items-center gap-1 font-medium"><Calendar class="h-3.5 w-3.5" /> Events</p>
-                    {#if chapter.events.length === 0}
-                      <p class="text-muted-foreground">No event entries detected</p>
-                    {:else}
-                      <div class="space-y-1">
-                        <div class="mb-1 flex justify-end">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            class="h-6 px-2 text-[11px]"
-                            onclick={() =>
-                              addBulkArtifactsToLorebook(
-                                chapter.events.map((name) => ({ name, type: 'event' as const })),
-                                chapter.title,
-                              )}
-                          >
-                            Add All Events
-                          </Button>
-                        </div>
-                        {#each chapter.events as name}
-                          <div class="flex items-center justify-between gap-2">
-                            <span class="truncate">{name}</span>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              class="h-6 px-2 text-[11px]"
-                              disabled={hasLorebookEntry(name, 'event')}
-                              onclick={() => addArtifactToLorebook(name, 'event', chapter.title)}
-                            >
-                              {#if hasLorebookEntry(name, 'event')}Saved{:else}<Plus class="mr-1 h-3 w-3" />Lorebook{/if}
-                            </Button>
-                          </div>
-                        {/each}
-                      </div>
-                    {/if}
-                  </div>
-
-                  <div class="rounded border p-2 sm:col-span-2">
-                    <p class="mb-1 flex items-center gap-1 font-medium"><Tag class="h-3.5 w-3.5" /> Plot Threads & Tags</p>
-                    {#if chapter.plotThreads.length === 0 && chapter.keywords.length === 0}
-                      <p class="text-muted-foreground">None extracted</p>
-                    {:else}
-                      <div class="flex flex-wrap gap-1.5">
-                        <div class="w-full pb-1 text-right">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            class="h-6 px-2 text-[11px]"
-                            onclick={() =>
-                              addBulkArtifactsToLorebook(
-                                [
-                                  ...chapter.plotThreads.map((name) => ({ name, type: 'concept' as const })),
-                                  ...chapter.keywords.map((name) => ({ name, type: 'concept' as const })),
-                                ],
-                                chapter.title,
-                              )}
-                          >
-                            Add All Tags
-                          </Button>
-                        </div>
-                        {#each [...chapter.plotThreads, ...chapter.keywords] as concept}
-                          <button
-                            type="button"
-                            class="bg-muted hover:bg-muted/80 inline-flex items-center gap-1 rounded border px-2 py-1 text-[11px]"
-                            disabled={hasLorebookEntry(concept, 'concept')}
-                            onclick={() => addArtifactToLorebook(concept, 'concept', chapter.title)}
-                          >
-                            {concept}
-                            {#if hasLorebookEntry(concept, 'concept')}
-                              <Check class="h-3 w-3" />
-                            {:else}
-                              <Plus class="h-3 w-3" />
-                            {/if}
-                          </button>
-                        {/each}
-                      </div>
+                      <span
+                        class="inline-flex items-center gap-1 rounded border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs text-amber-600"
+                      >
+                        <AlertTriangle class="h-3 w-3" />
+                        Partial
+                      </span>
                     {/if}
                   </div>
                 </div>
 
-                {#if chapter.emotionalTone}
-                  <p class="text-muted-foreground mt-2 inline-flex items-center gap-1 text-xs">
-                    <Theater class="h-3.5 w-3.5" /> Tone: {chapter.emotionalTone}
+                {#if chapterExpanded}
+                  <div class="mt-2 flex justify-end">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      class="h-7 px-2 text-[11px]"
+                      onclick={() =>
+                        addBulkArtifactsToLorebook(
+                          [
+                            ...chapter.characters.map((name) => ({
+                              name,
+                              type: 'character' as const,
+                            })),
+                            ...chapter.locations.map((name) => ({
+                              name,
+                              type: 'location' as const,
+                            })),
+                            ...chapter.events.map((name) => ({ name, type: 'event' as const })),
+                            ...chapter.plotThreads.map((name) => ({
+                              name,
+                              type: 'concept' as const,
+                            })),
+                            ...chapter.keywords.map((name) => ({ name, type: 'concept' as const })),
+                          ],
+                          chapter.title,
+                        )}
+                    >
+                      Add All
+                    </Button>
+                  </div>
+
+                  {#if chapter.summary}
+                    <p class="bg-muted/30 mt-2 rounded border px-2 py-1.5 text-xs">
+                      {chapter.summary}
+                    </p>
+                  {/if}
+
+                  <div class="mt-2 grid gap-2 text-xs sm:grid-cols-2">
+                    <div class="rounded border p-2">
+                      <p class="mb-1 flex items-center gap-1 font-medium">
+                        <Users class="h-3.5 w-3.5" /> Characters
+                      </p>
+                      {#if chapter.characters.length === 0}
+                        <p class="text-muted-foreground">None extracted</p>
+                      {:else}
+                        <div class="space-y-1">
+                          <div class="mb-1 flex justify-end">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              class="h-6 px-2 text-[11px]"
+                              onclick={() =>
+                                addBulkArtifactsToLorebook(
+                                  chapter.characters.map((name) => ({
+                                    name,
+                                    type: 'character' as const,
+                                  })),
+                                  chapter.title,
+                                )}
+                            >
+                              Add All Characters
+                            </Button>
+                          </div>
+                          {#each chapter.characters as name, characterIndex (characterIndex)}
+                            <div class="flex items-center justify-between gap-2">
+                              <span class="truncate">{name}</span>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                class="h-6 px-2 text-[11px]"
+                                disabled={hasLorebookEntry(name, 'character')}
+                                onclick={() =>
+                                  addArtifactToLorebook(name, 'character', chapter.title)}
+                              >
+                                {#if hasLorebookEntry(name, 'character')}Saved{:else}<Plus
+                                    class="mr-1 h-3 w-3"
+                                  />Lorebook{/if}
+                              </Button>
+                            </div>
+                          {/each}
+                        </div>
+                      {/if}
+                    </div>
+
+                    <div class="rounded border p-2">
+                      <p class="mb-1 flex items-center gap-1 font-medium">
+                        <MapPin class="h-3.5 w-3.5" /> Locations
+                      </p>
+                      {#if chapter.locations.length === 0}
+                        <p class="text-muted-foreground">None extracted</p>
+                      {:else}
+                        <div class="space-y-1">
+                          <div class="mb-1 flex justify-end">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              class="h-6 px-2 text-[11px]"
+                              onclick={() =>
+                                addBulkArtifactsToLorebook(
+                                  chapter.locations.map((name) => ({
+                                    name,
+                                    type: 'location' as const,
+                                  })),
+                                  chapter.title,
+                                )}
+                            >
+                              Add All Locations
+                            </Button>
+                          </div>
+                          {#each chapter.locations as name, locationIndex (locationIndex)}
+                            <div class="flex items-center justify-between gap-2">
+                              <span class="truncate">{name}</span>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                class="h-6 px-2 text-[11px]"
+                                disabled={hasLorebookEntry(name, 'location')}
+                                onclick={() =>
+                                  addArtifactToLorebook(name, 'location', chapter.title)}
+                              >
+                                {#if hasLorebookEntry(name, 'location')}Saved{:else}<Plus
+                                    class="mr-1 h-3 w-3"
+                                  />Lorebook{/if}
+                              </Button>
+                            </div>
+                          {/each}
+                        </div>
+                      {/if}
+                    </div>
+
+                    <div class="rounded border p-2">
+                      <p class="mb-1 flex items-center gap-1 font-medium">
+                        <Calendar class="h-3.5 w-3.5" /> Events
+                      </p>
+                      {#if chapter.events.length === 0}
+                        <p class="text-muted-foreground">No event entries detected</p>
+                      {:else}
+                        <div class="space-y-1">
+                          <div class="mb-1 flex justify-end">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              class="h-6 px-2 text-[11px]"
+                              onclick={() =>
+                                addBulkArtifactsToLorebook(
+                                  chapter.events.map((name) => ({ name, type: 'event' as const })),
+                                  chapter.title,
+                                )}
+                            >
+                              Add All Events
+                            </Button>
+                          </div>
+                          {#each chapter.events as name, eventIndex (eventIndex)}
+                            <div class="flex items-center justify-between gap-2">
+                              <span class="truncate">{name}</span>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                class="h-6 px-2 text-[11px]"
+                                disabled={hasLorebookEntry(name, 'event')}
+                                onclick={() => addArtifactToLorebook(name, 'event', chapter.title)}
+                              >
+                                {#if hasLorebookEntry(name, 'event')}Saved{:else}<Plus
+                                    class="mr-1 h-3 w-3"
+                                  />Lorebook{/if}
+                              </Button>
+                            </div>
+                          {/each}
+                        </div>
+                      {/if}
+                    </div>
+
+                    <div class="rounded border p-2 sm:col-span-2">
+                      <p class="mb-1 flex items-center gap-1 font-medium">
+                        <Tag class="h-3.5 w-3.5" /> Plot Threads & Tags
+                      </p>
+                      {#if chapter.plotThreads.length === 0 && chapter.keywords.length === 0}
+                        <p class="text-muted-foreground">None extracted</p>
+                      {:else}
+                        <div class="flex flex-wrap gap-1.5">
+                          <div class="w-full pb-1 text-right">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              class="h-6 px-2 text-[11px]"
+                              onclick={() =>
+                                addBulkArtifactsToLorebook(
+                                  [
+                                    ...chapter.plotThreads.map((name) => ({
+                                      name,
+                                      type: 'concept' as const,
+                                    })),
+                                    ...chapter.keywords.map((name) => ({
+                                      name,
+                                      type: 'concept' as const,
+                                    })),
+                                  ],
+                                  chapter.title,
+                                )}
+                            >
+                              Add All Tags
+                            </Button>
+                          </div>
+                          {#each [...chapter.plotThreads, ...chapter.keywords] as concept, conceptIndex (conceptIndex)}
+                            <button
+                              type="button"
+                              class="bg-muted hover:bg-muted/80 inline-flex items-center gap-1 rounded border px-2 py-1 text-[11px]"
+                              disabled={hasLorebookEntry(concept, 'concept')}
+                              onclick={() =>
+                                addArtifactToLorebook(concept, 'concept', chapter.title)}
+                            >
+                              {concept}
+                              {#if hasLorebookEntry(concept, 'concept')}
+                                <Check class="h-3 w-3" />
+                              {:else}
+                                <Plus class="h-3 w-3" />
+                              {/if}
+                            </button>
+                          {/each}
+                        </div>
+                      {/if}
+                    </div>
+                  </div>
+
+                  {#if chapter.emotionalTone}
+                    <p class="text-muted-foreground mt-2 inline-flex items-center gap-1 text-xs">
+                      <Theater class="h-3.5 w-3.5" /> Tone: {chapter.emotionalTone}
+                    </p>
+                  {/if}
+
+                  {#if chapter.created.storyBeats.length > 0}
+                    <p class="text-muted-foreground mt-1 text-xs">
+                      New story beats: {chapter.created.storyBeats.join(', ')}
+                    </p>
+                  {/if}
+
+                  <p class="text-muted-foreground mt-1 text-xs">
+                    Lorebook changes: +{chapter.lorebookChanges.created} created, {chapter
+                      .lorebookChanges.updated} updated, {chapter.lorebookChanges.merged} merged, {chapter
+                      .lorebookChanges.deleted} deleted
+                  </p>
+                  <p class="text-muted-foreground mt-0.5 text-xs">
+                    Event entries: +{chapter.lorebookChanges.eventsCreated} created, {chapter
+                      .lorebookChanges.eventsUpdated} updated
+                  </p>
+
+                  {#if chapter.errors.length > 0}
+                    <div
+                      class="mt-2 rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-700"
+                    >
+                      {chapter.errors.join(' | ')}
+                    </div>
+                  {/if}
+                {:else}
+                  <p class="text-muted-foreground mt-2 text-xs">
+                    Collapsed. Expand to review summary, artifacts, and lorebook actions.
                   </p>
                 {/if}
-
-                {#if chapter.created.storyBeats.length > 0}
-                  <p class="text-muted-foreground mt-1 text-xs">New story beats: {chapter.created.storyBeats.join(', ')}</p>
-                {/if}
-
-                <p class="text-muted-foreground mt-1 text-xs">
-                  Lorebook changes: +{chapter.lorebookChanges.created} created, {chapter.lorebookChanges.updated} updated, {chapter.lorebookChanges.merged} merged, {chapter.lorebookChanges.deleted} deleted
-                </p>
-                <p class="text-muted-foreground mt-0.5 text-xs">
-                  Event entries: +{chapter.lorebookChanges.eventsCreated} created, {chapter.lorebookChanges.eventsUpdated} updated
-                </p>
-
-                {#if chapter.errors.length > 0}
-                  <div class="mt-2 rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-700">
-                    {chapter.errors.join(' | ')}
-                  </div>
-                {/if}
-              {:else}
-                <p class="text-muted-foreground mt-2 text-xs">
-                  Collapsed. Expand to review summary, artifacts, and lorebook actions.
-                </p>
-              {/if}
-            </div>
+              </div>
             {/each}
           </div>
         </div>
       {:else}
         <div
           class={`rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
-            dragOver ? 'border-primary bg-primary/10' : 'border-muted hover:border-muted-foreground/50'
+            dragOver
+              ? 'border-primary bg-primary/10'
+              : 'border-muted hover:border-muted-foreground/50'
           }`}
           ondrop={handleDrop}
           ondragover={handleDragOver}
@@ -1354,21 +1478,25 @@
         <div class="rounded-lg border border-dashed p-4 text-sm">
           <p class="font-medium">Processing order</p>
           <p class="text-muted-foreground mt-1">
-            Files are initially sorted by chapter number from filename. Use Up/Down controls to reorder before import.
+            Files are initially sorted by chapter number from filename. Use Up/Down controls to
+            reorder before import.
           </p>
         </div>
 
         <div class="bg-muted/40 rounded-lg border p-4 text-sm">
           <div class="flex items-center justify-between gap-3">
             <span class="font-medium">Selected files</span>
-            <span class="text-muted-foreground text-xs">{fileCount} files · {totalBytes} bytes</span>
+            <span class="text-muted-foreground text-xs">{fileCount} files · {totalBytes} bytes</span
+            >
           </div>
           <div class="mt-3 max-h-48 space-y-2 overflow-y-auto">
             {#if files.length === 0}
               <p class="text-muted-foreground text-sm">No chapter files selected yet.</p>
             {:else}
               {#each files as selected, index (selected.id)}
-                <div class="bg-background flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                <div
+                  class="bg-background flex items-center justify-between gap-3 rounded-md border px-3 py-2"
+                >
                   <div class="min-w-0">
                     <p class="truncate text-sm font-medium">{index + 1}. {selected.file.name}</p>
                     <p class="text-muted-foreground text-xs">{selected.file.size} bytes</p>
@@ -1422,9 +1550,7 @@
           <Button variant="outline" onclick={abortGuidedImport}>
             Abort Remaining ({pendingSources.length})
           </Button>
-          <Button onclick={continueGuidedImport}>
-            Continue to Next Chapter
-          </Button>
+          <Button onclick={continueGuidedImport}>Continue to Next Chapter</Button>
         </div>
       {:else if guidedActive}
         <Button disabled>

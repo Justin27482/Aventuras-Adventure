@@ -21,6 +21,7 @@
   import { Switch } from '$lib/components/ui/switch'
   import { Button } from '$lib/components/ui/button'
   import ChapterizeOptions from '$lib/components/shared/ChapterizeOptions.svelte'
+  import { SvelteSet } from 'svelte/reactivity'
   import type { GeneratedProtagonist, GeneratedCharacter } from '$lib/services/ai/sdk'
   import type { ImportedLorebookItem } from '../wizardTypes'
   import type { StoryMode, POV, ChapterSourceImportReport } from '$lib/types'
@@ -72,7 +73,7 @@
 
   let {
     storyTitle,
-    selectedMode,
+    selectedMode: _selectedMode,
     selectedPOV,
     selectedTense,
     tone,
@@ -114,9 +115,12 @@
     onAbortChapterization,
   }: Props = $props()
 
-  let expandedChapterKeys = $state<Set<string>>(new Set())
+  let expandedChapterKeys = new SvelteSet<string>()
 
-  function chapterKey(chapter: NonNullable<ChapterSourceImportReport['chapters']>[number], index: number): string {
+  function chapterKey(
+    chapter: NonNullable<ChapterSourceImportReport['chapters']>[number],
+    index: number,
+  ): string {
     return `${chapter.filename}::${index}`
   }
 
@@ -132,7 +136,7 @@
     index: number,
   ): void {
     const key = chapterKey(chapter, index)
-    const next = new Set(expandedChapterKeys)
+    const next = new SvelteSet(expandedChapterKeys)
     if (next.has(key)) {
       next.delete(key)
     } else {
@@ -145,7 +149,7 @@
     const chapters = chapterizationReport?.chapters ?? []
     if (chapters.length === 0) return
     const lastIndex = chapters.length - 1
-    expandedChapterKeys = new Set([chapterKey(chapters[lastIndex], lastIndex)])
+    expandedChapterKeys = new SvelteSet([chapterKey(chapters[lastIndex], lastIndex)])
   })
 
   const totalLorebookEntries = $derived(importedLorebooks.flatMap((lb) => lb.entries).length)
@@ -170,7 +174,9 @@
         id: 'import-processing',
         label: importProcessingProgress.phase,
         status:
-          importProcessingProgress.current >= importProcessingProgress.total ? 'completed' : 'active',
+          importProcessingProgress.current >= importProcessingProgress.total
+            ? 'completed'
+            : 'active',
         details: `${importProcessingProgress.current}/${importProcessingProgress.total}`,
       })
     } else if (importProcessingStatus) {
@@ -480,7 +486,8 @@
         <div class="space-y-2 rounded border border-amber-400/40 bg-amber-500/10 p-3">
           <p class="text-sm font-medium">Review current chapter before continuing</p>
           <p class="text-muted-foreground text-xs">
-            Chapterization is paused for review. Continue to process the next chapter, or stop and keep completed chapters.
+            Chapterization is paused for review. Continue to process the next chapter, or stop and
+            keep completed chapters.
           </p>
           <div class="flex gap-2">
             <Button size="sm" class="h-8" onclick={onContinueChapterization}>Continue</Button>
@@ -574,9 +581,13 @@
                     <span class="block truncate text-xs font-medium"
                       >{chapterIndex + 1}. {chapter.title}</span
                     >
-                    <span class="text-muted-foreground block truncate text-[11px]">{chapter.filename}</span>
+                    <span class="text-muted-foreground block truncate text-[11px]"
+                      >{chapter.filename}</span
+                    >
                   </span>
-                  <span class="text-muted-foreground text-[11px]">{chapterExpanded ? 'Hide' : 'Show'}</span>
+                  <span class="text-muted-foreground text-[11px]"
+                    >{chapterExpanded ? 'Hide' : 'Show'}</span
+                  >
                 </button>
 
                 {#if chapterExpanded}
@@ -601,7 +612,9 @@
                       <div class="rounded border p-2">
                         <p class="font-medium">Items</p>
                         <p class="text-muted-foreground mt-1">
-                          {chapter.created.items.length > 0 ? chapter.created.items.join(', ') : 'None'}
+                          {chapter.created.items.length > 0
+                            ? chapter.created.items.join(', ')
+                            : 'None'}
                         </p>
                       </div>
                       <div class="rounded border p-2">
@@ -628,7 +641,9 @@
                     </div>
 
                     {#if chapter.errors.length > 0}
-                      <div class="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-amber-700">
+                      <div
+                        class="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-amber-700"
+                      >
                         {chapter.errors.join(' | ')}
                       </div>
                     {/if}

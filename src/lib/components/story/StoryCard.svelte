@@ -16,8 +16,8 @@
   }
 
   let { story: s, folders, onOpen, onDelete, onDuplicate, onAssignFolder }: Props = $props()
-  let folderValue = $state(s.folderId ?? '__none')
-  let previousFolderValue = $state(folderValue)
+  let folderValue = $state('__none')
+  let previousFolderValue = $state('__none')
 
   $effect(() => {
     const nextValue = s.folderId ?? '__none'
@@ -40,7 +40,7 @@
   const currentFolderLabel = $derived(
     folderValue === '__none'
       ? 'No folder'
-      : folders.find((folder) => folder.id === folderValue)?.name ?? 'Folder',
+      : (folders.find((folder) => folder.id === folderValue)?.name ?? 'Folder'),
   )
 
   function formatDate(timestamp: number): string {
@@ -127,14 +127,14 @@
           <Clock class="h-3 w-3" />
           <span>Updated {formatDate(s.updatedAt)}</span>
         </div>
-        <div class="flex items-center gap-2" onclick={(e) => e.stopPropagation()}>
+        <div class="flex items-center gap-2">
           <Folder class="h-3.5 w-3.5 shrink-0" />
           <Select.Root
             type="single"
             bind:value={folderValue}
             onValueChange={(next) => void handleFolderChange(next)}
           >
-            <Select.Trigger class="h-7 text-xs">
+            <Select.Trigger class="h-7 text-xs" onclick={(e) => e.stopPropagation()}>
               <span class="truncate">{currentFolderLabel}</span>
             </Select.Trigger>
             <Select.Content>

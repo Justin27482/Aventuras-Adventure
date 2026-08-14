@@ -2,6 +2,7 @@
   import * as RadioGroup from '$lib/components/ui/radio-group'
   import { Button } from '$lib/components/ui/button'
   import { Label } from '$lib/components/ui/label'
+  /* eslint-disable svelte/prefer-writable-derived */
   import { Input } from '$lib/components/ui/input'
   import { Switch } from '$lib/components/ui/switch'
   import { BookOpen, User, Eye } from 'lucide-svelte'

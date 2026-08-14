@@ -1128,7 +1128,6 @@ const VALID_STORY_WIDTH_KEYS: string[] = STORY_WIDTH_OPTIONS.map((o) => o.key)
 const VALID_VAULT_LOREBOOK_EDITOR_WIDTHS = ['compact', 'comfortable', 'wide'] as const
 const VAULT_LOREBOOK_TEXT_BASE_REM_MIN = 0.6
 const VAULT_LOREBOOK_TEXT_BASE_REM_MAX = 1.8
-const VAULT_LOREBOOK_TEXT_BASE_REM_STEP = 0.1
 const VAULT_LOREBOOK_TEXT_BASE_REM_DEFAULT = 1.0
 
 const READING_WINDOW_FORMATTING_DEFAULTS: ReadingWindowFormattingSettings = {
@@ -2655,9 +2654,7 @@ class SettingsStore {
     await database.setSetting('vault_lorebook_editor_text_base_rem', clamped.toFixed(1))
   }
 
-  async setReadingWindowFormatting(
-    updates: Partial<ReadingWindowFormattingSettings>,
-  ) {
+  async setReadingWindowFormatting(updates: Partial<ReadingWindowFormattingSettings>) {
     this.uiSettings.readingWindowFormatting = {
       ...this.uiSettings.readingWindowFormatting,
       ...updates,

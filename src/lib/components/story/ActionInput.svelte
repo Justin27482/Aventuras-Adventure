@@ -139,7 +139,8 @@
         return
       }
 
-      const inheritedNote = result.skippedInherited > 0 ? ` (${result.skippedInherited} inherited skipped)` : ''
+      const inheritedNote =
+        result.skippedInherited > 0 ? ` (${result.skippedInherited} inherited skipped)` : ''
       ui.showToast(
         `Updated ${result.updatedEntries} entries with ${result.replacements} replacements${inheritedNote}`,
         'info',
@@ -676,7 +677,10 @@
             classificationWarningShown = true
             const details = event.result._classifierError ? ` ${event.result._classifierError}` : ''
             console.warn('[ActionInput] Classifier fell back to heuristic parsing.', details)
-            ui.showToast('Classifier extraction failed for this turn; heuristic fallback was used.', 'warning')
+            ui.showToast(
+              'Classifier extraction failed for this turn; heuristic fallback was used.',
+              'warning',
+            )
           }
 
           if (event.result._moneyExtractionMissed && !classificationWarningShown) {
@@ -1219,77 +1223,75 @@
 
   <GrammarCheck text={inputValue} onApplySuggestion={(newText) => (inputValue = newText)} />
 
-    <div
-      class="sm:border-border rounded-lg border-l-0 sm:border sm:border-l-4 sm:shadow-sm {ui.isGenerating
-        ? 'sm:border-l-surface-60'
-        : `${actionBorderColors[actionType]}`} bg-card relative transition-colors duration-200"
-    >
-      {#if settings.uiSettings.showWordCount}<div
-          class="absolute -top-[2.05rem] -right-3 sm:hidden"
-        >
-          <div
-            class="bg-surface-800 border-surface-500/30 text-surface-400 rounded-tl-md border border-b-0 px-2 py-0.5 text-sm"
-          >
-            {story.wordCount} words
-          </div>
-        </div>{/if}
-      {#if !settings.uiSettings.disableActionPrefixes}
+  <div
+    class="sm:border-border rounded-lg border-l-0 sm:border sm:border-l-4 sm:shadow-sm {ui.isGenerating
+      ? 'sm:border-l-surface-60'
+      : `${actionBorderColors[actionType]}`} bg-card relative transition-colors duration-200"
+  >
+    {#if settings.uiSettings.showWordCount}<div class="absolute -top-[2.05rem] -right-3 sm:hidden">
         <div
-          class="border-surface-700/30 flex items-center gap-1 px-1 pt-0 pb-0 sm:border-b sm:px-2 sm:py-1"
+          class="bg-surface-800 border-surface-500/30 text-surface-400 rounded-tl-md border border-b-0 px-2 py-0.5 text-sm"
         >
-          {#each actionTypes as type (type)}{@const Icon = actionIcons[type]}<button
-              class="flex flex-1 items-center justify-center gap-1.5 rounded-md py-1 text-[10px] font-medium transition-all duration-150 sm:flex-none sm:px-3 sm:py-1 sm:text-xs {actionType ===
-              type
-                ? actionActiveStyles[type]
-                : `text-surface-500 hover:${actionButtonStyles[type]}`}"
-              onclick={() => (actionType = type)}
-              ><Icon class="h-3 w-3 sm:h-3.5 sm:w-3.5" /><span>{actionLabels[type]}</span></button
-            >{/each}
+          {story.wordCount} words
         </div>
-      {/if}
-      <div class="mb-3 flex items-center gap-1 sm:mb-0 sm:items-end sm:p-1">
-        <div class="relative min-w-0 flex-1 self-center">
-          <textarea
-            bind:value={inputValue}
-            bind:this={textareaRef}
-            use:autoResize={inputValue}
-            onkeydown={handleKeydown}
-            placeholder={actionType === 'story'
-              ? 'Describe what happens...'
-              : actionType === 'say'
-                ? 'What do you say?'
-                : actionType === 'think'
-                  ? 'What are you thinking?'
-                  : actionType === 'free'
-                    ? 'Write anything...'
-                    : 'What do you do?'}
-            class="text-surface-200 placeholder-surface-500 max-h-[160px] min-h-[24px] w-full resize-none border-none bg-transparent px-2 text-base leading-relaxed focus:ring-0 focus:outline-none sm:min-h-[24px]"
-            rows="1"
-          ></textarea>
-        </div>
-        {#if ui.isGenerating}
-          {#if !ui.isRetryingLastMessage}<button
-              onclick={handleStopGeneration}
-              class="flex h-11 w-11 shrink-0 -translate-y-0.5 animate-pulse items-center justify-center rounded-lg p-0 text-red-400 transition-all hover:text-red-300 active:scale-95 sm:translate-y-0"
-              title="Stop generation"><Square class="h-6 w-6" /></button
-            >
-          {:else}<button
-              disabled
-              class="flex h-11 w-11 shrink-0 cursor-not-allowed items-center justify-center rounded-lg p-0 text-red-400 opacity-50"
-              title="Stop disabled during retry"><Square class="h-6 w-6" /></button
-            >{/if}
-        {:else}<button
-            onclick={handleSubmit}
-            disabled={!inputValue.trim() || blockGeneration}
-            class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg p-0 transition-all active:scale-95 disabled:opacity-50 {actionButtonStyles[
-              actionType
-            ]} -translate-y-0.5 sm:translate-y-0"
-            title={blockGeneration
-              ? 'AI configuration incomplete — check Settings'
-              : `Send (${sendKeyHint})`}><Send class="h-6 w-6" /></button
-          >{/if}
+      </div>{/if}
+    {#if !settings.uiSettings.disableActionPrefixes}
+      <div
+        class="border-surface-700/30 flex items-center gap-1 px-1 pt-0 pb-0 sm:border-b sm:px-2 sm:py-1"
+      >
+        {#each actionTypes as type (type)}{@const Icon = actionIcons[type]}<button
+            class="flex flex-1 items-center justify-center gap-1.5 rounded-md py-1 text-[10px] font-medium transition-all duration-150 sm:flex-none sm:px-3 sm:py-1 sm:text-xs {actionType ===
+            type
+              ? actionActiveStyles[type]
+              : `text-surface-500 hover:${actionButtonStyles[type]}`}"
+            onclick={() => (actionType = type)}
+            ><Icon class="h-3 w-3 sm:h-3.5 sm:w-3.5" /><span>{actionLabels[type]}</span></button
+          >{/each}
       </div>
+    {/if}
+    <div class="mb-3 flex items-center gap-1 sm:mb-0 sm:items-end sm:p-1">
+      <div class="relative min-w-0 flex-1 self-center">
+        <textarea
+          bind:value={inputValue}
+          bind:this={textareaRef}
+          use:autoResize={inputValue}
+          onkeydown={handleKeydown}
+          placeholder={actionType === 'story'
+            ? 'Describe what happens...'
+            : actionType === 'say'
+              ? 'What do you say?'
+              : actionType === 'think'
+                ? 'What are you thinking?'
+                : actionType === 'free'
+                  ? 'Write anything...'
+                  : 'What do you do?'}
+          class="text-surface-200 placeholder-surface-500 max-h-[160px] min-h-[24px] w-full resize-none border-none bg-transparent px-2 text-base leading-relaxed focus:ring-0 focus:outline-none sm:min-h-[24px]"
+          rows="1"
+        ></textarea>
+      </div>
+      {#if ui.isGenerating}
+        {#if !ui.isRetryingLastMessage}<button
+            onclick={handleStopGeneration}
+            class="flex h-11 w-11 shrink-0 -translate-y-0.5 animate-pulse items-center justify-center rounded-lg p-0 text-red-400 transition-all hover:text-red-300 active:scale-95 sm:translate-y-0"
+            title="Stop generation"><Square class="h-6 w-6" /></button
+          >
+        {:else}<button
+            disabled
+            class="flex h-11 w-11 shrink-0 cursor-not-allowed items-center justify-center rounded-lg p-0 text-red-400 opacity-50"
+            title="Stop disabled during retry"><Square class="h-6 w-6" /></button
+          >{/if}
+      {:else}<button
+          onclick={handleSubmit}
+          disabled={!inputValue.trim() || blockGeneration}
+          class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg p-0 transition-all active:scale-95 disabled:opacity-50 {actionButtonStyles[
+            actionType
+          ]} -translate-y-0.5 sm:translate-y-0"
+          title={blockGeneration
+            ? 'AI configuration incomplete — check Settings'
+            : `Send (${sendKeyHint})`}><Send class="h-6 w-6" /></button
+        >{/if}
     </div>
+  </div>
 
   {#if canShowManualImageGen}
     <div class="flex justify-end">
@@ -1326,7 +1328,10 @@
     </div>
   {/if}
 
-  <ResponsiveModal.Root open={showFindReplaceModal} onOpenChange={(open) => (showFindReplaceModal = open)}>
+  <ResponsiveModal.Root
+    open={showFindReplaceModal}
+    onOpenChange={(open) => (showFindReplaceModal = open)}
+  >
     <ResponsiveModal.Content class="sm:max-w-md">
       <ResponsiveModal.Header>
         <ResponsiveModal.Title>Find & Replace</ResponsiveModal.Title>
@@ -1337,17 +1342,32 @@
 
       <div class="space-y-3 py-2">
         <div class="space-y-1.5">
-          <label class="text-muted-foreground text-xs font-medium uppercase tracking-wide">Find</label>
-          <Input bind:value={findText} placeholder="e.g. ’" class="h-9" />
+          <label
+            for="find-replace-find"
+            class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Find</label
+          >
+          <Input id="find-replace-find" bind:value={findText} placeholder="e.g. '" class="h-9" />
         </div>
         <div class="space-y-1.5">
-          <label class="text-muted-foreground text-xs font-medium uppercase tracking-wide">Replace</label>
-          <Input bind:value={replaceText} placeholder="e.g. &quot;" class="h-9" />
+          <label
+            for="find-replace-replace"
+            class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Replace</label
+          >
+          <Input
+            id="find-replace-replace"
+            bind:value={replaceText}
+            placeholder="e.g. &quot;"
+            class="h-9"
+          />
         </div>
       </div>
 
       <ResponsiveModal.Footer>
-        <Button variant="outline" onclick={() => (showFindReplaceModal = false)} disabled={replacingAll}>
+        <Button
+          variant="outline"
+          onclick={() => (showFindReplaceModal = false)}
+          disabled={replacingAll}
+        >
           Cancel
         </Button>
         <Button
@@ -1364,5 +1384,4 @@
       </ResponsiveModal.Footer>
     </ResponsiveModal.Content>
   </ResponsiveModal.Root>
-
 </div>

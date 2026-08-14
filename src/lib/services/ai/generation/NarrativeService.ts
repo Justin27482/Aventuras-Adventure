@@ -246,7 +246,7 @@ export interface NarrativeOptions {
   timelineFillResult?: TimelineFillResult | null
 }
 
-export interface ManualEditorPassOptions extends NarrativeOptions {}
+export type ManualEditorPassOptions = NarrativeOptions
 
 /**
  * Service for generating narrative responses.
@@ -391,7 +391,6 @@ export class NarrativeService {
         yield { content: '', done: true }
         return
       }
-
     } catch (error) {
       log('stream error', error)
       // Re-throw to let caller handle the error
@@ -589,7 +588,7 @@ export class NarrativeService {
     timelineFillResult?: TimelineFillResult | null,
   ): Promise<string | null> {
     try {
-      const { mode, ctx } = await this.buildNarrativeContext(
+      const { ctx } = await this.buildNarrativeContext(
         story,
         worldState,
         tieredContextBlock,
@@ -760,11 +759,7 @@ export class NarrativeService {
    * Build a priming user message to establish the narrator role.
    * This helps models that expect user-first conversation format.
    */
-  private buildPrimingMessage(
-    pov: string,
-    tense: string,
-    protagonistName: string,
-  ): string {
+  private buildPrimingMessage(pov: string, tense: string, protagonistName: string): string {
     return this.buildAdventurePriming(pov, tense, protagonistName)
   }
 

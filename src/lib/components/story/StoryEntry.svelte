@@ -23,7 +23,6 @@
   } from 'lucide-svelte'
   import { aiService } from '$lib/services/ai'
   import { aiTTSService } from '$lib/services/ai/utils/TTSService'
-  import { parseMarkdown } from '$lib/utils/markdown'
   import { sanitizeTextForTTS } from '$lib/utils/htmlSanitize'
   import {
     getReadingWindowStyleVars,
@@ -107,7 +106,11 @@
     if (!isLatestNarration) return 'Guided regenerate is available on the latest AI reply only'
     if (ui.isGenerating) return 'Wait for current generation to finish'
     if (ui.lastGenerationError) return 'Resolve the current generation error first'
-    if (!ui.retryBackup || !story.currentStory || ui.retryBackup.storyId !== story.currentStory.id) {
+    if (
+      !ui.retryBackup ||
+      !story.currentStory ||
+      ui.retryBackup.storyId !== story.currentStory.id
+    ) {
       return 'Generate one new turn first to initialize retry state'
     }
     return ''
@@ -991,36 +994,6 @@
 
   const Icon = $derived(icons[entry.type])
 
-  function getTextOffsetFromPoint(container: HTMLElement, event: MouseEvent): number | null {
-    const docWithCaret = document as Document & {
-      caretRangeFromPoint?: (x: number, y: number) => Range | null
-      caretPositionFromPoint?: (
-        x: number,
-        y: number,
-      ) => { offsetNode: Node; offset: number } | null
-    }
-
-    let caretRange: Range | null = null
-    if (docWithCaret.caretRangeFromPoint) {
-      caretRange = docWithCaret.caretRangeFromPoint(event.clientX, event.clientY)
-    } else if (docWithCaret.caretPositionFromPoint) {
-      const pos = docWithCaret.caretPositionFromPoint(event.clientX, event.clientY)
-      if (pos) {
-        caretRange = document.createRange()
-        caretRange.setStart(pos.offsetNode, pos.offset)
-        caretRange.collapse(true)
-      }
-    }
-
-    if (!caretRange) return null
-    if (!container.contains(caretRange.startContainer)) return null
-
-    const before = document.createRange()
-    before.selectNodeContents(container)
-    before.setEnd(caretRange.startContainer, caretRange.startOffset)
-    return before.toString().length
-  }
-
   async function placeEditorCursor(position: number) {
     await tick()
     if (!editTextarea) return
@@ -1123,7 +1096,9 @@
 
   let isGeneratingStoryImages = $state(false)
   let isApplyingEditorPass = $state(false)
-  const canManualEditorPass = $derived(entry.type !== 'user_action' && entry.content.trim().length > 0)
+  const canManualEditorPass = $derived(
+    entry.type !== 'user_action' && entry.content.trim().length > 0,
+  )
 
   async function handleManualEditorPass() {
     if (!canManualEditorPass || !story.currentStory || isApplyingEditorPass || ui.isGenerating) {
