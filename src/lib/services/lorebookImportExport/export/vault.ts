@@ -27,7 +27,6 @@ export function vaultEntryToEntryLike(vaultEntry: VaultLorebookEntry, index: num
     aliases: vaultEntry.aliases ?? [],
     state: createDefaultState(vaultEntry.type),
     adventureState: null,
-    creativeState: null,
     injection: {
       mode: vaultEntry.injectionMode,
       keywords: vaultEntry.keywords ?? [],

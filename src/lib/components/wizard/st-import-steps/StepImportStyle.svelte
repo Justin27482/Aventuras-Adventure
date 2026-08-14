@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Sword, Feather, MessageSquare, FileText } from 'lucide-svelte'
+  import { Sword, MessageSquare, FileText } from 'lucide-svelte'
   import * as Card from '$lib/components/ui/card'
   import { Label } from '$lib/components/ui/label'
   import { ScrollArea } from '$lib/components/ui/scroll-area'
@@ -113,22 +113,6 @@
           </Card.Content>
         </Card.Root>
       </button>
-
-      <Card.Root class="border-border h-full opacity-60">
-        <Card.Header>
-          <div class="flex items-center gap-4">
-            <div class="bg-muted rounded-lg p-3">
-              <Feather class="text-muted-foreground h-6 w-6" />
-            </div>
-            <Card.Title>Creative Writing</Card.Title>
-          </div>
-        </Card.Header>
-        <Card.Content>
-          <p class="text-muted-foreground text-sm">
-            Disabled in this branch. Use Aventuras-Creative for author-directed mode.
-          </p>
-        </Card.Content>
-      </Card.Root>
     </div>
   </div>
 

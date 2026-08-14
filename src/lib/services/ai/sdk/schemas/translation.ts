@@ -31,27 +31,6 @@ export const translatedUIResultSchema = z.object({
 })
 
 // ============================================================================
-// Suggestions Translation
-// ============================================================================
-
-/**
- * Schema for a translated suggestion.
- */
-export const translatedSuggestionSchema = z.object({
-  /** Translated suggestion text */
-  text: z.string().describe('Translated suggestion text'),
-  /** Suggestion type - unchanged */
-  type: z.string().optional().describe('Suggestion type - unchanged'),
-})
-
-/**
- * Schema for suggestions translation result.
- */
-export const translatedSuggestionsResultSchema = z.object({
-  suggestions: z.array(translatedSuggestionSchema).describe('Translated suggestions'),
-})
-
-// ============================================================================
 // Action Choices Translation
 // ============================================================================
 
@@ -90,8 +69,6 @@ export const translatedWizardBatchResultSchema = z.object({
 
 export type TranslatedUIItem = z.infer<typeof translatedUIItemSchema>
 export type TranslatedUIResult = z.infer<typeof translatedUIResultSchema>
-export type TranslatedSuggestion = z.infer<typeof translatedSuggestionSchema>
-export type TranslatedSuggestionsResult = z.infer<typeof translatedSuggestionsResultSchema>
 export type TranslatedActionChoice = z.infer<typeof translatedActionChoiceSchema>
 export type TranslatedActionChoicesResult = z.infer<typeof translatedActionChoicesResultSchema>
 export type TranslatedWizardBatchResult = z.infer<typeof translatedWizardBatchResultSchema>

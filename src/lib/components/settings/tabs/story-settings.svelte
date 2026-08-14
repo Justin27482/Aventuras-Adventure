@@ -96,11 +96,10 @@
 
   const storySettings = $derived(story.currentStory?.settings ?? {})
   const isAdventureStory = $derived(story.currentStory?.mode === 'adventure')
-  const isCreativeWritingStory = $derived(story.currentStory?.mode === 'creative-writing')
   const imageGenEnabled = $derived(hasRequiredCredentials())
   const DEFAULT_CLOTHING_ZONES = ['torso', 'chest', 'hips', 'legs', 'arms', 'hands', 'feet']
   const DEFAULT_MONEY_NAME = 'gold'
-  const defaultClassifierEnabled = $derived(isCreativeWritingStory ? false : true)
+  const defaultClassifierEnabled = true
   const characterClassifierEnabled = $derived(storySettings.characterClassificationEnabled ?? true)
   const locationClassifierEnabled = $derived(storySettings.locationClassificationEnabled ?? true)
   const inventoryClassifierEnabled = $derived(
@@ -201,9 +200,7 @@
 
   function loadCurrentTemplate() {
     if (debounceTimer) clearTimeout(debounceTimer)
-    const mode = story.currentStory?.mode ?? 'adventure'
-    const templateId = mode === 'creative-writing' ? 'creative-writing' : 'adventure'
-    const template = PROMPT_TEMPLATES.find((t) => t.id === templateId)
+    const template = PROMPT_TEMPLATES.find((t) => t.id === 'adventure')
     if (template) {
       customPromptDraft = template.content
       validate(template.content)

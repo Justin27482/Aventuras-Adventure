@@ -5,7 +5,6 @@
     EntryInjectionMode,
     EntryState,
     AdventureEntryState,
-    CreativeEntryState,
   } from '$lib/types'
   import { story } from '$lib/stores/story.svelte'
   import { ui } from '$lib/stores/ui.svelte'
@@ -126,10 +125,6 @@
     return { discovered: false, interactedWith: false, notes: [] }
   }
 
-  function getDefaultCreativeState(): CreativeEntryState {
-    return { arc: null, thematicRole: null, symbolism: null }
-  }
-
   function addAlias() {
     const trimmed = newAlias.trim()
     if (trimmed && !aliases.includes(trimmed)) {
@@ -188,7 +183,6 @@
         aliases,
         state: entry?.state?.type === type ? entry.state : getDefaultState(type),
         adventureState: entry?.adventureState ?? getDefaultAdventureState(),
-        creativeState: entry?.creativeState ?? getDefaultCreativeState(),
         injection: {
           mode: injectionMode,
           keywords,

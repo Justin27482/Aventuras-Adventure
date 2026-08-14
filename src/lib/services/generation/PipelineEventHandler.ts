@@ -9,12 +9,9 @@ export interface PipelineUICallbacks {
   appendStreamContent: (content: string) => void
   appendReasoningContent: (reasoning: string) => void
   setGenerationStatus: (status: string) => void
-  setSuggestionsLoading: (loading: boolean) => void
   setActionChoicesLoading: (loading: boolean) => void
-  setSuggestions: (suggestions: any[], storyId?: string) => void
   setActionChoices: (choices: any[], storyId?: string) => void
   emitResponseStreaming: (chunk: string, accumulated: string) => void
-  emitSuggestionsReady: (suggestions: Array<{ text: string; type: string }>) => void
 }
 
 export interface PipelineEventState {
@@ -22,7 +19,6 @@ export interface PipelineEventState {
   fullReasoning: () => string
   streamingEntryId: string
   visualProseMode: boolean
-  isCreativeMode: boolean
   storyId?: string
   /** Tracks which parallel phases are currently running */
   activeParallelPhases: Set<string>
@@ -33,20 +29,19 @@ export interface PipelineEventState {
  *  but are not tracked here — they run inside imagePipeline or independently. */
 const PARALLEL_PHASES = new Set(['classification', 'translation', 'post'])
 
-/** Human-readable labels shown when a single parallel phase remains.
- *  'post' is handled separately in parallelStatusMessage (creative vs adventure). */
+/** Human-readable labels shown when a single parallel phase remains. */
 const PHASE_LABELS: Record<string, string> = {
   classification: 'Updating world...',
   translation: 'Translating...',
 }
 
 /** Build the status message based on how many parallel phases are active */
-function parallelStatusMessage(activePhases: Set<string>, isCreativeMode: boolean): string {
+function parallelStatusMessage(activePhases: Set<string>): string {
   if (activePhases.size === 0) return ''
   if (activePhases.size === 1) {
     const phase = activePhases.values().next().value!
     if (phase === 'post') {
-      return isCreativeMode ? 'Generating suggestions...' : 'Generating actions...'
+      return 'Generating actions...'
     }
     return PHASE_LABELS[phase] ?? 'Processing...'
   }
@@ -64,17 +59,11 @@ export function handleEvent(
         callbacks.startStreaming(state.visualProseMode, state.streamingEntryId)
       } else if (PARALLEL_PHASES.has(event.phase)) {
         state.activeParallelPhases.add(event.phase)
-        callbacks.setGenerationStatus(
-          parallelStatusMessage(state.activeParallelPhases, state.isCreativeMode),
-        )
+        callbacks.setGenerationStatus(parallelStatusMessage(state.activeParallelPhases))
 
-        // Keep loading spinners for suggestions/actions
+        // Keep loading spinner for action choices
         if (event.phase === 'post') {
-          if (state.isCreativeMode) {
-            callbacks.setSuggestionsLoading(true)
-          } else {
-            callbacks.setActionChoicesLoading(true)
-          }
+          callbacks.setActionChoicesLoading(true)
         }
       }
       break
@@ -90,28 +79,15 @@ export function handleEvent(
     case 'phase_complete':
       if (PARALLEL_PHASES.has(event.phase)) {
         state.activeParallelPhases.delete(event.phase)
-        callbacks.setGenerationStatus(
-          parallelStatusMessage(state.activeParallelPhases, state.isCreativeMode),
-        )
+        callbacks.setGenerationStatus(parallelStatusMessage(state.activeParallelPhases))
       }
 
       if (event.phase === 'post') {
-        const postResult = event.result as
-          | { suggestions: any[] | null; actionChoices: any[] | null }
-          | undefined
-        if (postResult?.suggestions) {
-          callbacks.setSuggestions(postResult.suggestions, state.storyId)
-          callbacks.emitSuggestionsReady(
-            postResult.suggestions.map((s: any) => ({ text: s.text, type: s.type })),
-          )
-          callbacks.setSuggestionsLoading(false)
-        } else if (postResult?.actionChoices) {
+        const postResult = event.result as { actionChoices: any[] | null } | undefined
+        if (postResult?.actionChoices) {
           callbacks.setActionChoices(postResult.actionChoices, state.storyId)
-          callbacks.setActionChoicesLoading(false)
-        } else {
-          callbacks.setSuggestionsLoading(false)
-          callbacks.setActionChoicesLoading(false)
         }
+        callbacks.setActionChoicesLoading(false)
       }
       break
   }

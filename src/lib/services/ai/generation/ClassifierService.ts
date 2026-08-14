@@ -137,7 +137,6 @@ export class ClassifierService extends BaseAIService {
     })
 
     const mode = context.story.mode ?? 'adventure'
-    const isCreativeWriting = mode === 'creative-writing'
     const characterClassificationEnabled = this.getToggle(
       context.story,
       'characterClassificationEnabled',
@@ -151,7 +150,7 @@ export class ClassifierService extends BaseAIService {
     const inventoryClassificationEnabled = this.getToggle(
       context.story,
       'inventoryClassificationEnabled',
-      !isCreativeWriting,
+      true,
     )
     const storyBeatClassificationEnabled = this.getToggle(
       context.story,
@@ -175,7 +174,7 @@ export class ClassifierService extends BaseAIService {
     )
     const moneyClassificationEnabled =
       !!context.story.settings?.moneySystemEnabled &&
-      this.getToggle(context.story, 'moneyClassificationEnabled', !isCreativeWriting)
+      this.getToggle(context.story, 'moneyClassificationEnabled', true)
 
     const itemAcquisitionFallbackEnabled =
       inventoryClassificationEnabled && this.getToggle(context.story, 'itemAcquisitionFallbackEnabled', true)
@@ -251,7 +250,7 @@ export class ClassifierService extends BaseAIService {
       entityCounts: `${context.existingCharacters.length} characters, ${context.existingLocations.length} locations, ${context.existingItems.length} items`,
       currentTimeInfo,
       chatHistoryBlock,
-      inputLabel: mode === 'creative-writing' ? 'Author Direction' : 'Player Action',
+      inputLabel: 'Player Action',
       userAction: stripPicTags(context.userAction),
       narrativeResponse: stripPicTags(context.narrativeResponse),
       existingCharacters,

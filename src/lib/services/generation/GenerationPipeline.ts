@@ -183,7 +183,6 @@ export class GenerationPipeline {
           abortSignal: ctx.abortSignal,
         }),
         postGeneration: this.postPhase.execute({
-          isCreativeMode: cfg.storyMode === 'creative-writing',
           disableSuggestions: cfg.disableSuggestions,
           entries: ctx.visibleEntries,
           activeThreads: cfg.activeThreads,

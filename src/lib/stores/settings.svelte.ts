@@ -821,7 +821,6 @@ export function getDefaultExperimentalFeatures(): ExperimentalFeatures {
     smartLoraRouting: false,
     epistemicWorkflowEnabled: false,
     epistemicGateAdventureEnabled: true,
-    epistemicOutlineCreativeEnabled: true,
     epistemicDisclosureGateEnabled: true,
     directorOutliningAssistantEnabled: false,
     epistemicExecutionMode: 'quality',
@@ -2807,7 +2806,6 @@ class SettingsStore {
     // Disabling epistemic workflow cascades to disable all related sub-features.
     if (updates.epistemicWorkflowEnabled === false) {
       updates.epistemicGateAdventureEnabled = false
-      updates.epistemicOutlineCreativeEnabled = false
       updates.epistemicDisclosureGateEnabled = false
       updates.directorOutliningAssistantEnabled = false
       updates.epistemicCostOverlayEnabled = false

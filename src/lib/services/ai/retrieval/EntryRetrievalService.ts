@@ -128,11 +128,7 @@ export interface EntryRetrievalResult {
   contextBlock: string
 }
 
-export type EntryRetrievalAudience =
-  | 'player_safe'
-  | 'actor_private'
-  | 'director_only'
-  | 'creative_outline_planning'
+export type EntryRetrievalAudience = 'player_safe' | 'actor_private' | 'director_only'
 
 export interface EntryRetrievalOptions {
   storyMode?: StoryMode
@@ -504,7 +500,6 @@ export class EntryRetrievalService extends BaseAIService {
         revealedSecrets: [],
       },
       adventureState: null,
-      creativeState: null,
       injection: { mode: 'always', keywords: [], priority: 95 },
       firstMentioned: null,
       lastMentioned: null,
@@ -538,7 +533,6 @@ export class EntryRetrievalService extends BaseAIService {
         presentItems: [],
       },
       adventureState: null,
-      creativeState: null,
       injection: { mode: 'always', keywords: [], priority: 100 },
       firstMentioned: null,
       lastMentioned: null,
@@ -580,7 +574,6 @@ export class EntryRetrievalService extends BaseAIService {
         uses: [],
       },
       adventureState: null,
-      creativeState: null,
       injection: { mode: 'always', keywords: [], priority: 80 },
       firstMentioned: null,
       lastMentioned: null,
@@ -803,7 +796,7 @@ export class EntryRetrievalService extends BaseAIService {
     const modeVisible = visibilityScope === 'both' || visibilityScope === storyMode
     if (!modeVisible) return false
 
-    if (audience === 'director_only' || audience === 'creative_outline_planning') {
+    if (audience === 'director_only') {
       return true
     }
 
@@ -819,7 +812,7 @@ export class EntryRetrievalService extends BaseAIService {
   }
 
   private getAudienceDescription(entry: Entry, audience: EntryRetrievalAudience): string {
-    if (audience === 'director_only' || audience === 'creative_outline_planning') {
+    if (audience === 'director_only') {
       if (entry.hiddenInfo?.trim()) {
         return `${entry.description}\n[Hidden: ${entry.hiddenInfo}]`
       }

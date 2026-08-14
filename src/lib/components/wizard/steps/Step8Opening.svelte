@@ -384,7 +384,7 @@
       <div class="text-muted-foreground grid grid-cols-2 gap-2">
         <div>
           <strong class="text-foreground">Mode:</strong>
-          {selectedMode === 'adventure' ? 'Adventure' : 'Creative Writing'}
+          Adventure
         </div>
         <div>
           <strong class="text-foreground">Genre:</strong>

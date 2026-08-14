@@ -115,7 +115,7 @@ export class STImportWizardStore {
   importedLorebooks = $state<ImportedLorebookItem[]>([])
 
   // Step 5: Writing Style & Chat Options
-  selectedMode = $state<StoryMode>('creative-writing')
+  selectedMode = $state<StoryMode>('adventure')
   selectedGenre = $state<Genre>('custom')
   customGenre = $state('')
   selectedPOV = $state<POV>('second')

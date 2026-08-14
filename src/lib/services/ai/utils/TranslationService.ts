@@ -12,7 +12,6 @@ import { generatePlainText } from '../sdk/generate'
 import { ContextBuilder } from '$lib/services/context'
 import {
   translatedUIResultSchema,
-  translatedSuggestionsResultSchema,
   translatedActionChoicesResultSchema,
   translatedWizardBatchResultSchema,
 } from '../sdk/schemas/translation'
@@ -197,47 +196,6 @@ export class TranslationService extends BaseAIService {
     } catch (error) {
       log('UI translation failed:', error)
       return items // Return original on failure
-    }
-  }
-
-  /**
-   * Translate suggestions.
-   * Preserves the original object structure, only replacing the text field.
-   */
-  async translateSuggestions<T extends { text: string; type?: string }>(
-    suggestions: T[],
-    targetLanguage: string,
-  ): Promise<T[]> {
-    if (suggestions.length === 0) return []
-    if (targetLanguage === 'en') return suggestions
-
-    try {
-      const suggestionsJson = JSON.stringify(
-        suggestions.map((s) => ({
-          text: s.text,
-          type: s.type,
-        })),
-      )
-      const ctx = new ContextBuilder()
-      ctx.add({ targetLanguage: this.getLanguageName(targetLanguage), suggestionsJson })
-      const { system, user: prompt } = await ctx.render('translate-suggestions')
-
-      const result = await this.generate(
-        translatedSuggestionsResultSchema,
-        system,
-        prompt,
-        'translate-suggestions',
-      )
-
-      // Merge translated text back into original objects (preserves extra fields)
-      log('Translated', result.suggestions.length, 'suggestions to', targetLanguage)
-      return suggestions.map((original, index) => ({
-        ...original,
-        text: result.suggestions[index]?.text ?? original.text,
-      }))
-    } catch (error) {
-      log('Suggestions translation failed:', error)
-      return suggestions
     }
   }
 

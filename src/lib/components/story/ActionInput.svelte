@@ -21,6 +21,7 @@
     ImageIcon,
     Loader2,
     Search,
+    PenLine,
   } from 'lucide-svelte'
   import GrammarCheck from './GrammarCheck.svelte'
   import { Button } from '$lib/components/ui/button'
@@ -29,7 +30,6 @@
   import {
     emitUserInput,
     emitNarrativeResponse,
-    emitSuggestionsReady,
     emitTTSQueued,
     eventBus,
     type ResponseStreamingEvent,
@@ -115,9 +115,6 @@
     if (ui.isGenerating || isManualImageGenRunning) return true
     return !hasRequiredCredentials()
   })
-
-  // Adventure split: creative-writing mode is intentionally disabled in this repo.
-  const isCreativeMode = $derived(false)
 
   const sendKeyHint = $derived(
     isTouchDevice() ? 'Shift+Enter to send' : 'Enter to send, Shift+Enter for new line',
@@ -310,8 +307,6 @@
         }),
       isImageGenerationEnabled: (storySettings, type) =>
         aiService.isImageGenerationEnabled(storySettings, type),
-      generateSuggestions: aiService.generateSuggestions.bind(aiService),
-      translateSuggestions: aiService.translateSuggestions.bind(aiService),
       generateActionChoices: aiService.generateActionChoices.bind(aiService),
       translateActionChoices: aiService.translateActionChoices.bind(aiService),
       analyzeBackgroundChangeAndGenerateImage: (storyId, visibleEntries) =>
@@ -605,19 +600,18 @@
         fullReasoning: () => fullReasoning,
         streamingEntryId,
         visualProseMode,
-        isCreativeMode,
         storyId: currentStoryRef.id,
         activeParallelPhases: new Set(),
       }
 
-      const persistSuggestedActions = (actions: unknown[], type: 'suggestions' | 'choices') => {
+      const persistSuggestedActions = (actions: unknown[]) => {
         if (narrationEntry && actions.length > 0) {
           database
             .updateStoryEntry(narrationEntry.id, {
               suggestedActions: JSON.stringify(actions),
             })
             .catch((err) =>
-              console.warn(`[ActionInput] Failed to save suggested ${type} to entry:`, err),
+              console.warn('[ActionInput] Failed to save suggested choices to entry:', err),
             )
         }
       }
@@ -627,15 +621,10 @@
         appendStreamContent: ui.appendStreamContent.bind(ui),
         appendReasoningContent: ui.appendReasoningContent.bind(ui),
         setGenerationStatus: ui.setGenerationStatus.bind(ui),
-        setSuggestionsLoading: ui.setSuggestionsLoading.bind(ui),
         setActionChoicesLoading: ui.setActionChoicesLoading.bind(ui),
-        setSuggestions: (suggestions, storyId) => {
-          ui.setSuggestions(suggestions, storyId)
-          persistSuggestedActions(suggestions, 'suggestions')
-        },
         setActionChoices: (choices, storyId) => {
           ui.setActionChoices(choices, storyId)
-          persistSuggestedActions(choices, 'choices')
+          persistSuggestedActions(choices)
         },
         emitResponseStreaming: (chunk, accumulated) => {
           eventBus.emit<ResponseStreamingEvent>({
@@ -643,9 +632,6 @@
             chunk,
             accumulated,
           })
-        },
-        emitSuggestionsReady: (suggestions) => {
-          emitSuggestionsReady(suggestions)
         },
       }
 

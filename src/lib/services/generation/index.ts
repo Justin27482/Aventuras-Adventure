@@ -111,14 +111,6 @@ export type {
   WorldStateTranslationResult,
 } from './WorldStateTranslationService'
 
-// Suggestions refresh service
-export { SuggestionsRefreshService } from './SuggestionsRefreshService'
-export type {
-  SuggestionsRefreshDependencies,
-  SuggestionsRefreshInput,
-  SuggestionsRefreshResult,
-} from './SuggestionsRefreshService'
-
 // Pipeline event handler
 export { handleEvent } from './PipelineEventHandler'
 export type { PipelineUICallbacks, PipelineEventState } from './PipelineEventHandler'

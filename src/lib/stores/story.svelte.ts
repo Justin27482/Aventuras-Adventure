@@ -290,25 +290,15 @@ class StoryStore {
   }
 
   get pov(): 'first' | 'second' | 'third' {
-    const mode = this.currentStory?.mode ?? 'adventure'
     const stored = this.currentStory?.settings?.pov ?? null
-    // For creative-writing mode, respect the user's stored POV choice
-    // (wizard allows selecting first, second, or third person)
     if (stored) {
       return stored
-    }
-    // Default based on mode
-    if (mode === 'creative-writing') {
-      return 'third'
     }
     return 'first'
   }
 
   get tense(): 'past' | 'present' {
-    const mode = this.currentStory?.mode ?? 'adventure'
     const stored = this.currentStory?.settings?.tense ?? null
-    if (stored) return stored
-    if (mode === 'creative-writing') return 'past'
     return stored ?? 'present'
   }
 
@@ -793,11 +783,6 @@ class StoryStore {
       await ui.loadActionChoices(storyId)
     }
 
-    // Load persisted suggestions for creative-writing mode
-    if (story.mode === 'creative-writing') {
-      await ui.loadSuggestions(storyId)
-    }
-
     // Set mobile-friendly defaults (close sidebar, etc.)
     ui.setMobileDefaults()
 
@@ -1260,11 +1245,7 @@ class StoryStore {
     }
 
     // No saved actions found — clear current ones so stale actions don't persist
-    if (storyMode === 'adventure') {
-      ui.clearActionChoices(storyId)
-    } else {
-      ui.clearSuggestions(storyId)
-    }
+    ui.clearActionChoices(storyId)
     // Request auto-regeneration from the UI component
     ui.suggestionsRegenerationNeeded = true
     log('No saved suggested actions found after delete — requesting regeneration')
@@ -5991,7 +5972,7 @@ class StoryStore {
   }): Promise<Story> {
     const fallbackFilename = options?.fallbackFilename?.trim() || 'Imported Novel'
     const title = options?.title?.trim() || inferNovelTitle(fallbackFilename, 0)
-    const story = await this.createStory(title, 'novel-import', options?.genre ?? 'Novel', 'creative-writing')
+    const story = await this.createStory(title, 'novel-import', options?.genre ?? 'Novel', 'adventure')
 
     if (options?.description?.trim()) {
       const description = options.description.trim()

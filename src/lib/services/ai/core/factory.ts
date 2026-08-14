@@ -9,7 +9,6 @@ import { settings } from '$lib/stores/settings.svelte'
 import { NarrativeService } from '../generation/NarrativeService'
 import { ClassifierService } from '../generation/ClassifierService'
 import { MemoryService } from '../generation/MemoryService'
-import { SuggestionsService } from '../generation/SuggestionsService'
 import { ActionChoicesService } from '../generation/ActionChoicesService'
 import { DisclosureGateService } from '../generation/DisclosureGateService'
 import { DirectorOutliningAssistantService } from '../generation/DirectorOutliningAssistantService'
@@ -58,13 +57,6 @@ export class ServiceFactory {
    */
   createMemoryService(): MemoryService {
     return new MemoryService('memory')
-  }
-
-  /**
-   * Create a suggestions service instance.
-   */
-  createSuggestionsService(): SuggestionsService {
-    return new SuggestionsService('suggestions')
   }
 
   /**

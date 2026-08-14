@@ -612,7 +612,6 @@ class ExportService {
             aliases: entry.aliases || [],
             state: entry.state,
             adventureState: entry.adventureState,
-            creativeState: entry.creativeState,
             injection: entry.injection,
             firstMentioned: entry.firstMentioned
               ? (oldToNewId.get(entry.firstMentioned) ?? entry.firstMentioned)

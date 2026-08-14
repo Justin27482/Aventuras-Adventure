@@ -8,7 +8,7 @@
  * - streamNarrative(), generateNarrative() - NarrativeService
  * - classifyResponse() - ClassifierService
  * - analyzeForChapter(), summarizeChapter(), decideRetrieval() - MemoryService
- * - generateSuggestions() - SuggestionsService
+ * - generateActionChoices() - ActionChoicesService
  * - generateActionChoices() - ActionChoicesService
  * - runTimelineFill(), answerChapterQuestion(), answerChapterRangeQuestion() - TimelineFillService
  * - buildTieredContext(), getRelevantLorebookEntries() - EntryInjector/EntryRetrievalService
@@ -90,7 +90,6 @@ import type {
   ClassificationResult,
   ImageableScene,
   RetrievalDecision,
-  SuggestionsResult,
 } from './sdk'
 import type { TranslationResult, UITranslationItem } from './utils'
 
@@ -375,35 +374,6 @@ class AIService {
     }
 
     return classifierService.classify(context, visibleEntries, currentStoryTime)
-  }
-
-  /**
-   * Generate story direction suggestions for creative writing mode.
-   */
-  async generateSuggestions(
-    entries: StoryEntry[],
-    activeThreads: StoryBeat[],
-    lorebookEntries?: Entry[],
-    promptContext?: PromptContext,
-    latestNarrativeResponse?: string,
-    storyId?: string,
-  ): Promise<SuggestionsResult> {
-    log('generateSuggestions called', {
-      entriesCount: entries.length,
-      threadsCount: activeThreads.length,
-      hasPromptContext: !!promptContext,
-      lorebookEntriesCount: lorebookEntries?.length ?? 0,
-      latestNarrativeLength: latestNarrativeResponse?.length ?? 0,
-    })
-
-    const suggestionsService = serviceFactory.createSuggestionsService()
-    return await suggestionsService.generateSuggestions(
-      entries,
-      activeThreads,
-      lorebookEntries,
-      storyId,
-      latestNarrativeResponse,
-    )
   }
 
   /**
@@ -1365,17 +1335,6 @@ class AIService {
   ): Promise<UITranslationItem[]> {
     const service = serviceFactory.createTranslationService('ui')
     return service.translateUIElements(items, targetLanguage)
-  }
-
-  /**
-   * Translate suggestions.
-   */
-  async translateSuggestions<T extends { text: string; type?: string }>(
-    suggestions: T[],
-    targetLanguage: string,
-  ): Promise<T[]> {
-    const service = serviceFactory.createTranslationService('suggestions')
-    return service.translateSuggestions(suggestions, targetLanguage)
   }
 
   /**

@@ -15,7 +15,6 @@ import type {
   PersistentCharacterSnapshot,
 } from '$lib/types'
 import type { ActionChoice } from '$lib/services/ai/sdk/schemas/actionchoices'
-import type { Suggestion } from '$lib/services/ai/sdk/schemas/suggestions'
 import type { StyleReviewResult } from '$lib/services/ai/generation/StyleReviewerService'
 import type {
   EntryRetrievalResult,
@@ -85,12 +84,6 @@ export interface GenerationError {
 interface PersistedActionChoices {
   storyId: string
   choices: ActionChoice[]
-}
-
-// Persisted suggestions structure
-interface PersistedSuggestions {
-  storyId: string
-  suggestions: Suggestion[]
 }
 
 // Persisted activation data structure (for lorebook stickiness)
@@ -184,11 +177,7 @@ class UIStore {
   actionChoicesLoading = $state(false)
   pendingActionChoice = $state<string | null>(null)
 
-  // Creative writing suggestions (displayed after narration)
-  suggestions = $state<Suggestion[]>([])
-  suggestionsLoading = $state(false)
-
-  // Flag to request auto-regeneration of suggestions/actions after time-travel delete
+  // Flag to request auto-regeneration of actions after time-travel delete
   // when no saved actions were found on the restored entry
   suggestionsRegenerationNeeded = $state(false)
 
@@ -958,81 +947,12 @@ class UIStore {
     this.pendingActionChoice = null
   }
 
-  // Suggestions methods (creative writing mode)
-  private getSuggestionsKey(storyId: string): string {
-    return `story_suggestions:${storyId}`
-  }
-
-  setSuggestions(suggestions: Suggestion[], storyId?: string) {
-    this.suggestions = suggestions
-    // Persist to database if we have a story ID
-    if (storyId && suggestions.length > 0) {
-      const data: PersistedSuggestions = { storyId, suggestions }
-      database.setSetting(this.getSuggestionsKey(storyId), JSON.stringify(data)).catch((err) => {
-        console.warn('[UI] Failed to persist suggestions:', err)
-      })
-    }
-  }
-
-  setSuggestionsLoading(loading: boolean) {
-    this.suggestionsLoading = loading
-  }
-
-  clearSuggestions(storyId?: string) {
-    this.suggestions = []
-    // Clear persisted suggestions
-    if (storyId) {
-      database.setSetting(this.getSuggestionsKey(storyId), '').catch((err) => {
-        console.warn('[UI] Failed to clear persisted suggestions:', err)
-      })
-    } else {
-      database.setSetting('story_suggestions', '').catch((err) => {
-        console.warn('[UI] Failed to clear persisted suggestions:', err)
-      })
-    }
-  }
-
   /**
-   * Load persisted suggestions for a story.
-   * Called when a story is loaded.
-   */
-  async loadSuggestions(storyId: string) {
-    try {
-      // Reset in-memory suggestions when switching stories
-      this.suggestions = []
-      const data = await database.getSetting(this.getSuggestionsKey(storyId))
-      if (data) {
-        const parsed: PersistedSuggestions = JSON.parse(data)
-        // Only restore if it's for the same story
-        if (parsed.storyId === storyId && parsed.suggestions.length > 0) {
-          this.suggestions = parsed.suggestions
-          console.log('[UI] Restored suggestions for story:', storyId)
-          return
-        }
-      }
-
-      const legacyData = await database.getSetting('story_suggestions')
-      if (legacyData) {
-        const parsed: PersistedSuggestions = JSON.parse(legacyData)
-        if (parsed.storyId === storyId && parsed.suggestions.length > 0) {
-          this.suggestions = parsed.suggestions
-          database.setSetting(this.getSuggestionsKey(storyId), legacyData).catch((err) => {
-            console.warn('[UI] Failed to migrate legacy suggestions:', err)
-          })
-          console.log('[UI] Restored legacy suggestions for story:', storyId)
-        }
-      }
-    } catch (err) {
-      console.warn('[UI] Failed to load persisted suggestions:', err)
-    }
-  }
-
-  /**
-   * Restore action choices or suggestions from a saved entry's suggestedActions field.
-   * Used during time-travel (entry deletion) to restore the correct suggestions
+   * Restore action choices from a saved entry's suggestedActions field.
+   * Used during time-travel (entry deletion) to restore the correct action choices
    * for the new last position.
-   * @param storyMode - 'adventure' or 'creative-writing'
-   * @param savedActions - JSON string of ActionChoice[] or Suggestion[] from the entry
+   * @param storyMode - always 'adventure' in this build
+   * @param savedActions - JSON string of ActionChoice[] from the entry
    * @param storyId - story ID for persistence
    * @returns true if actions were restored, false if no saved actions existed
    */
@@ -1043,11 +963,7 @@ class UIStore {
   ): boolean {
     if (!savedActions) {
       // No saved actions — clear current ones
-      if (storyMode === 'adventure') {
-        this.actionChoices = []
-      } else {
-        this.suggestions = []
-      }
+      this.actionChoices = []
       return false
     }
 
@@ -1057,22 +973,14 @@ class UIStore {
         return false
       }
 
-      if (storyMode === 'adventure') {
-        this.actionChoices = parsed as ActionChoice[]
-        // Also persist to settings so they survive app restart
-        const data: PersistedActionChoices = { storyId, choices: parsed as ActionChoice[] }
-        database
-          .setSetting(this.getActionChoicesKey(storyId), JSON.stringify(data))
-          .catch((err) => {
-            console.warn('[UI] Failed to persist restored action choices:', err)
-          })
-      } else {
-        this.suggestions = parsed as Suggestion[]
-        const data: PersistedSuggestions = { storyId, suggestions: parsed as Suggestion[] }
-        database.setSetting(this.getSuggestionsKey(storyId), JSON.stringify(data)).catch((err) => {
-          console.warn('[UI] Failed to persist restored suggestions:', err)
+      this.actionChoices = parsed as ActionChoice[]
+      // Also persist to settings so they survive app restart
+      const data: PersistedActionChoices = { storyId, choices: parsed as ActionChoice[] }
+      database
+        .setSetting(this.getActionChoicesKey(storyId), JSON.stringify(data))
+        .catch((err) => {
+          console.warn('[UI] Failed to persist restored action choices:', err)
         })
-      }
 
       console.log('[UI] Restored suggested actions from entry for story:', storyId)
       return true
@@ -1555,7 +1463,7 @@ class UIStore {
   // Toast notification state
   toastVisible = $state(false)
   toastMessage = $state('')
-  toastType = $state<'error' | 'warning' | 'info'>('info')
+  toastType = $state<'error' | 'warning' | 'info' | 'success'>('info')
   toastHovering = $state(false)
   private toastTimeout: ReturnType<typeof setTimeout> | null = null
 
@@ -1565,7 +1473,11 @@ class UIStore {
    * @param type - The type of toast (error, warning, info)
    * @param duration - Duration in milliseconds (default: 4000, errors use 8000)
    */
-  showToast(message: string, type: 'error' | 'warning' | 'info' = 'info', duration?: number) {
+  showToast(
+    message: string,
+    type: 'error' | 'warning' | 'info' | 'success' = 'info',
+    duration?: number,
+  ) {
     const capitalized = message.charAt(0).toUpperCase() + message.slice(1)
     this.toastMessage = capitalized
     this.toastType = type

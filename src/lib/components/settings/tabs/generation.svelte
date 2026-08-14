@@ -146,20 +146,6 @@
 
         <div class="flex items-start justify-between gap-4">
           <div class="space-y-1">
-            <Label>Creative Outline Planning</Label>
-            <p class="text-muted-foreground text-xs">
-              Allow director-only hidden-outline planning pass in Creative Writing mode.
-            </p>
-          </div>
-          <Switch
-            checked={settings.experimentalFeatures.epistemicOutlineCreativeEnabled}
-            disabled={!settings.experimentalFeatures.epistemicWorkflowEnabled}
-            onCheckedChange={(checked) => updateEpistemic('epistemicOutlineCreativeEnabled', checked)}
-          />
-        </div>
-
-        <div class="flex items-start justify-between gap-4">
-          <div class="space-y-1">
             <Label>Disclosure Gatekeeper</Label>
             <p class="text-muted-foreground text-xs">
               Validate reveal plausibility before final prose. Always enabled in Fast mode.

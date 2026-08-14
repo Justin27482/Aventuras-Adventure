@@ -2299,7 +2299,7 @@ class DatabaseService {
         JSON.stringify(entry.aliases),
         JSON.stringify(entry.state),
         entry.adventureState ? JSON.stringify(entry.adventureState) : null,
-        entry.creativeState ? JSON.stringify(entry.creativeState) : null,
+        null, // creative_state: creative-writing mode removed
         JSON.stringify(entry.injection),
         entry.firstMentioned,
         entry.lastMentioned,
@@ -2344,7 +2344,7 @@ class DatabaseService {
         JSON.stringify(entry.aliases),
         JSON.stringify(entry.state),
         entry.adventureState ? JSON.stringify(entry.adventureState) : null,
-        entry.creativeState ? JSON.stringify(entry.creativeState) : null,
+        null, // creative_state: creative-writing mode removed
         JSON.stringify(entry.injection),
         entry.firstMentioned,
         entry.lastMentioned,
@@ -2392,10 +2392,6 @@ class DatabaseService {
     if (updates.adventureState !== undefined) {
       setClauses.push('adventure_state = ?')
       values.push(updates.adventureState ? JSON.stringify(updates.adventureState) : null)
-    }
-    if (updates.creativeState !== undefined) {
-      setClauses.push('creative_state = ?')
-      values.push(updates.creativeState ? JSON.stringify(updates.creativeState) : null)
     }
     if (updates.injection !== undefined) {
       setClauses.push('injection = ?')
@@ -3332,7 +3328,6 @@ class DatabaseService {
       aliases: row.aliases ? JSON.parse(row.aliases) : [],
       state: row.state ? JSON.parse(row.state) : { type: row.type },
       adventureState: row.adventure_state ? JSON.parse(row.adventure_state) : null,
-      creativeState: row.creative_state ? JSON.parse(row.creative_state) : null,
       injection: row.injection
         ? JSON.parse(row.injection)
         : { mode: 'keyword', keywords: [], priority: 0 },

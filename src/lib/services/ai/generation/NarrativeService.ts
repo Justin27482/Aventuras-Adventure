@@ -543,15 +543,13 @@ export class NarrativeService {
       }
       systemPrompt = rendered
     } else {
-      const templateId = mode === 'creative-writing' ? 'creative-writing' : 'adventure'
-      const { system } = await ctx.render(templateId)
+      const { system } = await ctx.render('adventure')
       systemPrompt = system
     }
 
-    // Build priming message based on mode/pov/tense
+    // Build priming message based on pov/tense
     const context = ctx.getContext()
     const primingMessage = this.buildPrimingMessage(
-      mode,
       (context.pov as string) ?? 'second',
       (context.tense as string) ?? 'present',
       (context.protagonistName as string) ?? 'the protagonist',
@@ -600,8 +598,7 @@ export class NarrativeService {
         timelineFillResult,
       )
 
-      const templateId = mode === 'creative-writing' ? 'editor-creative-writing' : 'editor-adventure'
-      const { system } = await ctx.render(templateId)
+      const { system } = await ctx.render('editor-adventure')
       return system?.trim() ? system : null
     } catch (error) {
       log('buildEditorSystemPrompt failed', error)
@@ -616,7 +613,7 @@ export class NarrativeService {
     styleReview?: StyleReviewResult | null,
     retrievedChapterContext?: string | null,
     timelineFillResult?: TimelineFillResult | null,
-  ): Promise<{ mode: 'adventure' | 'creative-writing'; ctx: ContextBuilder }> {
+  ): Promise<{ mode: 'adventure'; ctx: ContextBuilder }> {
     const mode = story?.mode ?? 'adventure'
 
     let ctx: ContextBuilder
@@ -678,7 +675,7 @@ export class NarrativeService {
    */
   private buildUserPrompt(
     entries: StoryEntry[],
-    mode: 'adventure' | 'creative-writing',
+    mode: 'adventure',
     inlineImageMode: boolean = false,
     guidedRegenerationPreviousNarration?: string,
     guidedRegenerationNudge?: string,
@@ -693,8 +690,7 @@ export class NarrativeService {
       const content = inlineImageMode ? entry.content : stripPicTags(entry.content)
 
       if (entry.type === 'user_action') {
-        const prefix = mode === 'creative-writing' ? '[DIRECTION]' : '[ACTION]'
-        historyParts.push(`${prefix} ${content}`)
+        historyParts.push(`[ACTION] ${content}`)
       } else if (entry.type === 'narration') {
         historyParts.push(`[NARRATIVE]\n${content}`)
       }
@@ -765,14 +761,10 @@ export class NarrativeService {
    * This helps models that expect user-first conversation format.
    */
   private buildPrimingMessage(
-    mode: string,
     pov: string,
     tense: string,
     protagonistName: string,
   ): string {
-    if (mode === 'creative-writing') {
-      return this.buildCreativeWritingPriming(pov, tense, protagonistName)
-    }
     return this.buildAdventurePriming(pov, tense, protagonistName)
   }
 
@@ -806,44 +798,5 @@ Your role:
 - When I say "I do X", describe the results using "you" (e.g., "I open the door" -> "You ${actionExample}...")
 
 I am the player. You narrate the world around me. Begin when I take my first action.`
-  }
-
-  private buildCreativeWritingPriming(pov: string, tense: string, protagonistName: string): string {
-    const tenseWord = tense === 'past' ? 'past' : 'present'
-
-    if (pov === 'first') {
-      return `You are a skilled fiction writer. Write in ${tenseWord} tense, first person (I/me/my).
-
-Your role:
-- Write prose based on my directions from ${protagonistName}'s internal perspective
-- Bring scenes to life with vivid detail and internal monologue
-- Write for any character I direct you to, including dialogue, actions, and thoughts
-- Maintain consistent characterization throughout
-
-I am the author directing the story. Write what I ask for.`
-    }
-
-    if (pov === 'second') {
-      return `You are a skilled fiction writer. Write in ${tenseWord} tense, second person (you/your).
-
-Your role:
-- Write prose based on my directions, addressing ${protagonistName} directly
-- Bring scenes to life with vivid detail
-- Write for any character I direct you to, including dialogue, actions, and thoughts
-- Maintain consistent characterization throughout
-
-I am the author directing the story. Write what I ask for.`
-    }
-
-    // Third person (default for creative-writing)
-    return `You are a skilled fiction writer. Write in ${tenseWord} tense, third person (they/the character name).
-
-Your role:
-- Write prose based on my directions
-- Bring scenes to life with vivid detail
-- Write for any character I direct you to, including dialogue, actions, and thoughts
-- Maintain consistent characterization throughout
-
-I am the author directing the story. Write what I ask for.`
   }
 }

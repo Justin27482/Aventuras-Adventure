@@ -19,7 +19,6 @@ export type EventType =
   | 'SentenceComplete' // Full sentence ready for TTS
   | 'NarrativeResponse' // Complete response from narrator
   | 'ClassificationComplete' // Structured analysis ready
-  | 'SuggestionsReady' // AI suggestions generated (creative mode)
   | 'StateUpdated' // Entries/world state changed
   | 'ChapterCreated' // New chapter summarized
   | 'ImageAnalysisStarted' // Started analyzing narrative for imageable scenes
@@ -76,11 +75,6 @@ export interface ClassificationCompleteEvent {
   result: any // ClassificationResult
 }
 
-export interface SuggestionsReadyEvent {
-  type: 'SuggestionsReady'
-  suggestions: { text: string; type: string }[]
-}
-
 export interface StateUpdatedEvent {
   type: 'StateUpdated'
   changes: {
@@ -112,18 +106,18 @@ export interface CheckpointRestoredEvent {
 export interface StoryLoadedEvent {
   type: 'StoryLoaded'
   storyId: string
-  mode: 'adventure' | 'creative-writing'
+  mode: 'adventure'
 }
 
 export interface StoryCreatedEvent {
   type: 'StoryCreated'
   storyId: string
-  mode: 'adventure' | 'creative-writing'
+  mode: 'adventure'
 }
 
 export interface ModeChangedEvent {
   type: 'ModeChanged'
-  mode: 'adventure' | 'creative-writing'
+  mode: 'adventure'
 }
 
 export interface SaveCompleteEvent {
@@ -201,7 +195,6 @@ export type AventuraEvent =
   | SentenceCompleteEvent
   | NarrativeResponseEvent
   | ClassificationCompleteEvent
-  | SuggestionsReadyEvent
   | StateUpdatedEvent
   | ChapterCreatedEvent
   | CheckpointCreatedEvent
@@ -358,15 +351,11 @@ export function emitChapterCreated(
   eventBus.emit<ChapterCreatedEvent>({ type: 'ChapterCreated', chapterId, chapterNumber, title })
 }
 
-export function emitSuggestionsReady(suggestions: { text: string; type: string }[]): void {
-  eventBus.emit<SuggestionsReadyEvent>({ type: 'SuggestionsReady', suggestions })
-}
-
-export function emitStoryLoaded(storyId: string, mode: 'adventure' | 'creative-writing'): void {
+export function emitStoryLoaded(storyId: string, mode: 'adventure'): void {
   eventBus.emit<StoryLoadedEvent>({ type: 'StoryLoaded', storyId, mode })
 }
 
-export function emitModeChanged(mode: 'adventure' | 'creative-writing'): void {
+export function emitModeChanged(mode: 'adventure'): void {
   eventBus.emit<ModeChangedEvent>({ type: 'ModeChanged', mode })
 }
 

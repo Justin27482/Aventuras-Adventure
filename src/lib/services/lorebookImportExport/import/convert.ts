@@ -37,7 +37,6 @@ export function convertToEntries(
         aliases: original.aliases || [],
         state: original.state,
         adventureState: original.adventureState || null,
-        creativeState: original.creativeState || null,
         injection: original.injection || {
           mode: imported.injectionMode,
           keywords: imported.keywords,
@@ -134,7 +133,6 @@ export function convertToEntries(
       aliases: imported.aliases.length > 0 ? imported.aliases : imported.keywords.slice(0, 5),
       state,
       adventureState: null,
-      creativeState: null,
       injection: {
         mode: imported.injectionMode,
         keywords: imported.keywords,

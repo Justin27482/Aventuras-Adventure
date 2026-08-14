@@ -1,5 +1,6 @@
 // Core entity types for Aventura
-export type StoryMode = 'adventure' | 'creative-writing'
+// Adventure split: this app only supports adventure mode; creative-writing was removed.
+export type StoryMode = 'adventure'
 export type POV = 'first' | 'second' | 'third'
 export type Tense = 'past' | 'present'
 
@@ -605,7 +606,6 @@ export interface Entry {
 
   // Mode-specific state (optional)
   adventureState: AdventureEntryState | null
-  creativeState: CreativeEntryState | null
 
   // Injection rules
   injection: EntryInjection
@@ -721,18 +721,6 @@ export interface AdventureEntryState {
   discovered: boolean
   interactedWith: boolean
   notes: string[] // Player notes
-}
-
-// Creative writing mode specific state
-export interface CreativeEntryState {
-  arc: {
-    want: string | null // External goal (for characters)
-    need: string | null // Internal growth
-    flaw: string | null // What holds them back
-    currentState: string | null
-  } | null
-  thematicRole: string | null
-  symbolism: string | null
 }
 
 // Entry preview for listings (lighter than full Entry)
@@ -1137,8 +1125,6 @@ export interface ExperimentalFeatures {
   epistemicWorkflowEnabled: boolean
   /** Enable Adventure-mode epistemic gating stages */
   epistemicGateAdventureEnabled: boolean
-  /** Enable Creative-mode outline planning stage */
-  epistemicOutlineCreativeEnabled: boolean
   /** Enable deterministic disclosure gatekeeper */
   epistemicDisclosureGateEnabled: boolean
   /** Enable Director Outlining Assistant in Creative mode */

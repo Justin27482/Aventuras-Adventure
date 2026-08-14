@@ -514,8 +514,7 @@ class ScenarioService {
     } = wizardData
     const genreLabel = genre === 'custom' && customGenre ? customGenre : genre
     const protagonistName = protagonist?.name || 'the protagonist'
-    const templateId =
-      mode === 'creative-writing' ? 'opening-generation-creative' : 'opening-generation-adventure'
+    const templateId = 'opening-generation-adventure'
 
     const tenseInstruction =
       writingStyle.tense === 'present' ? 'Use present tense.' : 'Use past tense.'
@@ -541,10 +540,7 @@ class ScenarioService {
       ? `\nAUTHOR'S GUIDANCE FOR OPENING:\n${wizardData.openingGuidance.trim()}\n`
       : ''
     const lorebookContext = this.buildOpeningLorebookContext(lorebookEntries)
-    const openingInstruction =
-      mode === 'creative-writing'
-        ? ''
-        : `\nDescribe the environment and situation. Do NOT write anything ${protagonistName} does, says, thinks, or perceives. End with a moment that invites action.`
+    const openingInstruction = `\nDescribe the environment and situation. Do NOT write anything ${protagonistName} does, says, thinks, or perceives. End with a moment that invites action.`
 
     const ctx = new ContextBuilder()
     ctx.add({
@@ -590,8 +586,7 @@ class ScenarioService {
     } = wizardData
     const genreLabel = genre === 'custom' && customGenre ? customGenre : genre
     const protagonistName = protagonist?.name || 'the protagonist'
-    const templateId =
-      mode === 'creative-writing' ? 'opening-refinement-creative' : 'opening-refinement-adventure'
+    const templateId = 'opening-refinement-adventure'
 
     const tenseInstruction =
       writingStyle.tense === 'present' ? 'Use present tense.' : 'Use past tense.'
@@ -617,10 +612,7 @@ class ScenarioService {
       ? `\nAUTHOR'S GUIDANCE FOR OPENING:\n${wizardData.openingGuidance.trim()}\n`
       : ''
     const lorebookContext = this.buildOpeningLorebookContext(lorebookEntries)
-    const openingInstruction =
-      mode === 'creative-writing'
-        ? ''
-        : `\nDescribe the environment and situation. Do NOT write anything ${protagonistName} does, says, thinks, or perceives. End with a moment that invites action.`
+    const openingInstruction = `\nDescribe the environment and situation. Do NOT write anything ${protagonistName} does, says, thinks, or perceives. End with a moment that invites action.`
 
     const locationSummary = currentOpening.initialLocation?.description
       ? `${currentOpening.initialLocation.name} - ${currentOpening.initialLocation.description}`
@@ -736,23 +728,7 @@ class ScenarioService {
       return 'Write ONLY prose. No JSON, no metadata.'
     }
 
-    let sceneInstruction: string
-    if (mode === 'creative-writing') {
-      switch (pov) {
-        case 'first':
-          sceneInstruction = `string - the opening (2-3 paragraphs of first-person narrative featuring ${protagonistName})`
-          break
-        case 'second':
-          sceneInstruction = `string - the opening (2-3 paragraphs of second-person narrative featuring ${protagonistName})`
-          break
-        case 'third':
-        default:
-          sceneInstruction = `string - the opening (2-3 paragraphs of third-person narrative featuring ${protagonistName})`
-          break
-      }
-    } else {
-      sceneInstruction = `string - the opening (2-3 paragraphs describing environment/situation, NOT ${protagonistName}'s actions)`
-    }
+    const sceneInstruction = `string - the opening (2-3 paragraphs describing environment/situation, NOT ${protagonistName}'s actions)`
 
     return `Respond with valid JSON:
 {

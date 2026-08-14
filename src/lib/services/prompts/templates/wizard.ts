@@ -204,86 +204,6 @@ PROTAGONIST: {{ protagonistName }}{{ protagonistDescription }}
 Write an immersive opening that drops the reader into the story. Remember: describe only the environment and NPCs, NOT the protagonist's actions, dialogue, or thoughts.`,
 }
 
-const openingGenerationCreativePromptTemplate: PromptTemplate = {
-  id: 'opening-generation-creative',
-  name: 'Opening Generation (Creative Writing)',
-  category: 'wizard',
-  description: 'Crafts the opening scene for creative writing mode (author directs the story)',
-  content: `You are crafting the opening scene of a {{ genreLabel }} story in collaboration with an author.
-
-<critical_understanding>
-The person reading this opening is the AUTHOR, not a character. They sit outside the story, directing what happens. The protagonist ({{ protagonistName }}) is a fictional character you write—not a stand-in for the author.
-</critical_understanding>
-
-<style>
-- POV: {{ povInstruction }}
-- {{ tenseInstruction }}
-- Tone: {{ tone }}
-- 2-3 paragraphs of literary prose
-- Concrete sensory details grounded in character perception
-- Reach past the first cliche; invisible prose serves the story better than showy prose
-</style>
-
-<what_to_write>
-Write a compelling opening that:
-- Establishes the scene through {{ povPerspective }}
-- Engages the reader with vivid, immersive prose
-- Introduces tension, stakes, or interesting elements
-- Includes other characters if appropriate, with their own actions and dialogue
-- Builds toward one crystallizing moment—the image or line the reader remembers
-- Ends at a natural narrative beat that invites the author to direct what happens next
-</what_to_write>
-
-<protagonist_as_character>
-{{ protagonistName }} is a character you control. Write their:
-- Actions and movements
-- Dialogue (if appropriate)
-- Thoughts and perceptions
-- Reactions to the environment and other characters
-
-{{ povPerspectiveInstructions }}
-</protagonist_as_character>
-
-<dialogue_craft>
-If dialogue appears:
-- Characters rarely answer directly—they deflect, interrupt, talk past each other
-- Compress rather than explain: don't spell out "A, therefore B, therefore C"
-- Interruptions cut mid-phrase, not after complete clauses
-- Status through brevity: authority figures state and act; they don't justify
-- Single-word responses can carry weight: "Evidence." "Always."
-- "Said" is invisible—use fancy tags sparingly
-- Mix clipped lines with fuller ones; vary rhythm naturally
-</dialogue_craft>
-
-<prohibited_patterns>
-Avoid cliche phrases: "like a physical blow," "ribs like a trapped bird," "heart hammering against ribs," "dust motes dancing," "silence stretched," "metallic tang," "voice dropping an octave," "for the first time in years"
-
-Banned words: ozone, orbs (for eyes), tresses, alabaster, porcelain
-
-Also avoid:
-- Purple prose, "not X but Y" constructs, telling emotions directly
-- Explanation chains: characters spelling out logical steps
-- Formal hedging: "Protocol dictates," "It would suggest"
-- Over-clipped dialogue: not every line should be a fragment
-- Melodrama: hearts shattering, waves of emotion
-- Narrative bows: tying scenes with conclusions or realizations
-</prohibited_patterns>
-
-{{ outputFormat }}`,
-  userContent: `Create the opening scene:
-
-TITLE: {{ title }}
-GENRE: {{ genreLabel }}
-SETTING: {{ settingName }} - {{ settingDescription }}
-{{ atmosphereSection }}
-PROTAGONIST: {{ protagonistName }}{{ protagonistDescription }}
-{{ supportingCharactersSection }}
-{{ povInstruction }}
-{{ guidanceSection }}{{ lorebookContext }}{{ openingInstruction }}
-
-Write an immersive opening that drops the reader into the story. Remember: the author directs the story, so write the protagonist's actions, dialogue, and thoughts as needed.`,
-}
-
 const openingRefinementAdventurePromptTemplate: PromptTemplate = {
   id: 'opening-refinement-adventure',
   name: 'Opening Refinement (Adventure)',
@@ -352,85 +272,6 @@ Also avoid:
 
 {{ outputFormat }}`,
   userContent: `Refine the opening scene using the current draft. Preserve continuity and constraints.
-
-CURRENT OPENING:
-{{ currentOpening }}
-
-TITLE: {{ title }}
-GENRE: {{ genreLabel }}
-SETTING: {{ settingName }} - {{ settingDescription }}
-{{ atmosphereSection }}
-PROTAGONIST: {{ protagonistName }}{{ protagonistDescription }}
-{{ supportingCharactersSection }}
-{{ povInstruction }}
-{{ guidanceSection }}{{ lorebookContext }}{{ openingInstruction }}`,
-}
-
-const openingRefinementCreativePromptTemplate: PromptTemplate = {
-  id: 'opening-refinement-creative',
-  name: 'Opening Refinement (Creative Writing)',
-  category: 'wizard',
-  description: 'Refines the opening scene for creative writing mode (author directs the story)',
-  content: `You are refining the opening scene of a {{ genreLabel }} story in collaboration with an author.
-
-<critical_understanding>
-The person reading this opening is the AUTHOR, not a character. They sit outside the story, directing what happens. The protagonist ({{ protagonistName }}) is a fictional character you write—not a stand-in for the author.
-</critical_understanding>
-
-<style>
-- POV: {{ povInstruction }}
-- {{ tenseInstruction }}
-- Tone: {{ tone }}
-- 2-3 paragraphs of literary prose
-- Concrete sensory details grounded in character perception
-- Reach past the first cliche; invisible prose serves the story better than showy prose
-</style>
-
-<what_to_write>
-Refine the existing opening by:
-- Enhancing clarity, rhythm, and atmosphere
-- Deepening the scene's tension or focus
-- Preserving established facts and continuity unless guidance requests change
-- Keeping the situation consistent with the current draft
-</what_to_write>
-
-<protagonist_as_character>
-{{ protagonistName }} is a character you control. Write their:
-- Actions and movements
-- Dialogue (if appropriate)
-- Thoughts and perceptions
-- Reactions to the environment and other characters
-
-{{ povPerspectiveInstructions }}
-</protagonist_as_character>
-
-<dialogue_craft>
-If dialogue appears:
-- Characters rarely answer directly—they deflect, interrupt, talk past each other
-- Compress rather than explain: don't spell out "A, therefore B, therefore C"
-- Interruptions cut mid-phrase, not after complete clauses
-- Status through brevity: authority figures state and act; they don't justify
-- Single-word responses can carry weight: "Evidence." "Always."
-- "Said" is invisible—use fancy tags sparingly
-- Mix clipped lines with fuller ones; vary rhythm naturally
-</dialogue_craft>
-
-<prohibited_patterns>
-Avoid cliche phrases: "like a physical blow," "ribs like a trapped bird," "heart hammering against ribs," "dust motes dancing," "silence stretched," "metallic tang," "voice dropping an octave," "for the first time in years"
-
-Banned words: ozone, orbs (for eyes), tresses, alabaster, porcelain
-
-Also avoid:
-- Purple prose, "not X but Y" constructs, telling emotions directly
-- Explanation chains: characters spelling out logical steps
-- Formal hedging: "Protocol dictates," "It would suggest"
-- Over-clipped dialogue: not every line should be a fragment
-- Melodrama: hearts shattering, waves of emotion
-- Narrative bows: tying scenes with conclusions or realizations
-</prohibited_patterns>
-
-{{ outputFormat }}`,
-  userContent: `Refine the opening scene using the current draft. Preserve continuity while improving prose and flow.
 
 CURRENT OPENING:
 {{ currentOpening }}
@@ -671,9 +512,7 @@ export const wizardTemplates: PromptTemplate[] = [
   characterRefinementPromptTemplate,
   supportingCharactersPromptTemplate,
   openingGenerationAdventurePromptTemplate,
-  openingGenerationCreativePromptTemplate,
   openingRefinementAdventurePromptTemplate,
-  openingRefinementCreativePromptTemplate,
   characterCardImportPromptTemplate,
   vaultCharacterImportPromptTemplate,
   stImportStyleDetectionPromptTemplate,

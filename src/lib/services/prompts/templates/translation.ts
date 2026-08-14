@@ -51,21 +51,6 @@ Translate each item in the JSON array below. For each item:
   userContent: `{{ elementsJson }}`,
 }
 
-const translateSuggestionsTemplate: PromptTemplate = {
-  id: 'translate-suggestions',
-  name: 'Translate Suggestions',
-  category: 'service',
-  description: 'Translates creative writing plot suggestions',
-  content: `You are translating plot suggestions for interactive fiction to {{ targetLanguage }}.
-
-Translate the JSON array of suggestions below. For each item:
-- Translate the "text" field (the suggestion content)
-- Keep the "type" field unchanged (action, dialogue, revelation, twist)
-- Preserve character names and proper nouns
-- Maintain the tone and creative intent`,
-  userContent: `{{ suggestionsJson }}`,
-}
-
 const translateActionChoicesTemplate: PromptTemplate = {
   id: 'translate-action-choices',
   name: 'Translate Action Choices',
@@ -108,7 +93,6 @@ export const translationTemplates: PromptTemplate[] = [
   translateNarrationTemplate,
   translateInputTemplate,
   translateUITemplate,
-  translateSuggestionsTemplate,
   translateActionChoicesTemplate,
   translateWizardContentTemplate,
 ]

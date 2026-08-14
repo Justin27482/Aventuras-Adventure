@@ -17,9 +17,7 @@ export interface TemplateGroup {
 const TEMPLATE_GROUP_MAP: Record<string, string> = {
   // Story Generation
   adventure: 'Story Generation',
-  'creative-writing': 'Story Generation',
   'editor-adventure': 'Story Generation',
-  'editor-creative-writing': 'Story Generation',
 
   // Analysis
   classifier: 'Analysis',
@@ -37,7 +35,6 @@ const TEMPLATE_GROUP_MAP: Record<string, string> = {
   'agentic-retrieval': 'Memory',
 
   // Suggestions & Actions
-  suggestions: 'Suggestions & Actions',
   'action-choices': 'Suggestions & Actions',
   'timeline-fill': 'Suggestions & Actions',
   'timeline-fill-answer': 'Suggestions & Actions',
@@ -56,7 +53,6 @@ const TEMPLATE_GROUP_MAP: Record<string, string> = {
   'translate-narration': 'Translation',
   'translate-input': 'Translation',
   'translate-ui': 'Translation',
-  'translate-suggestions': 'Translation',
   'translate-action-choices': 'Translation',
   'translate-wizard-content': 'Translation',
 
@@ -68,9 +64,7 @@ const TEMPLATE_GROUP_MAP: Record<string, string> = {
   'character-refinement': 'Wizard',
   'supporting-characters': 'Wizard',
   'opening-generation-adventure': 'Wizard',
-  'opening-generation-creative': 'Wizard',
   'opening-refinement-adventure': 'Wizard',
-  'opening-refinement-creative': 'Wizard',
   'character-card-import': 'Wizard',
   'vault-character-import': 'Wizard',
   'st-import-style-detection': 'Wizard',

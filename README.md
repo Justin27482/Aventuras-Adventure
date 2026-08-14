@@ -2,14 +2,13 @@
 
 ## Overview
 
-Aventuras is a desktop and mobile interactive fiction application offering multiple story modes (Adventure Mode, Creative Writing Mode), deep AI integration via major providers, an advanced Memory System, dynamic Lorebook, and an autonomous Lore Management Agent. The app provides a robust set of writing tools and world tracking features, ensuring contextually rich and coherent AI-generated narratives.
+Aventuras Adventure is a desktop and mobile interactive fiction application focused on Adventure Mode, deep AI integration via major providers, an advanced Memory System, dynamic Lorebook, and an autonomous Lore Management Agent. The app provides a robust set of writing tools and world tracking features, ensuring contextually rich and coherent AI-generated narratives.
 
 ## Features
 
-### Story Modes
+### Story Mode
 
 - **Adventure Mode** - Interactive fiction with multiple-choice actions and world tracking
-- **Creative Writing Mode** - Freeform collaborative writing with AI-generated suggestions
 - **POV Options** - First, second, or third person perspective
 - **Tense Control** - Past or present tense narrative style
 

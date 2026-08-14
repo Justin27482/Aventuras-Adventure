@@ -267,7 +267,6 @@
         revealedSecrets: [],
       },
       adventureState: { discovered: true, interactedWith: false, notes: [] },
-      creativeState: { arc: null, thematicRole: null, symbolism: null },
       injection: {
         mode: 'keyword',
         keywords: [character.name, ...character.traits].filter(Boolean),

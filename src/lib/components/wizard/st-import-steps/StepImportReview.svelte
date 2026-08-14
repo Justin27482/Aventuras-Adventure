@@ -337,9 +337,7 @@
     <Card.Root>
       <Card.Content class="p-3">
         <div class="flex flex-wrap gap-2">
-          <Badge variant="secondary">
-            {selectedMode === 'adventure' ? 'Adventure' : 'Creative Writing'}
-          </Badge>
+          <Badge variant="secondary">Adventure</Badge>
           <Badge variant="outline">{selectedPOV} person</Badge>
           <Badge variant="outline">{selectedTense} tense</Badge>
           {#if tone}

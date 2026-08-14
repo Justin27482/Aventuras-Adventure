@@ -223,7 +223,6 @@ ${context.narrativeResponse}
               aliases: [],
               state: createDefaultState(change.entry.type),
               adventureState: null,
-              creativeState: null,
               injection: {
                 mode: change.entry.injectionMode,
                 keywords: change.entry.keywords,

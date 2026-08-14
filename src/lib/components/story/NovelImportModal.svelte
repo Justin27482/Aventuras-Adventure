@@ -70,7 +70,7 @@
   let guidedActive = $state(false)
   let awaitingGuidedDecision = $state(false)
   let guidedAborted = $state(false)
-  let guidedStoryMode = $state<'adventure' | 'creative-writing'>('creative-writing')
+  let guidedStoryMode = $state<'adventure'>('adventure')
   let progressState = $state<{
     chapterIndex: number
     totalChapters: number
@@ -199,7 +199,7 @@
     guidedActive = false
     awaitingGuidedDecision = false
     guidedAborted = false
-    guidedStoryMode = 'creative-writing'
+    guidedStoryMode = 'adventure'
     progressState = null
     guidedProcessedCount = 0
     totalPlannedChapters = 0
@@ -511,7 +511,6 @@
       aliases: [],
       state: entryStateForType(type),
       adventureState: { discovered: true, interactedWith: false, notes: [] },
-      creativeState: { arc: null, thematicRole: null, symbolism: null },
       injection: {
         mode: 'keyword',
         keywords: [trimmedName],
@@ -761,7 +760,7 @@
           message: 'All selected chapters were processed.',
         }
         ui.showToast(
-          `Created ${result.story.mode === 'creative-writing' ? 'creative writing' : 'story'} from ${sources.length} chapter${sources.length === 1 ? '' : 's'}`,
+          `Created story from ${sources.length} chapter${sources.length === 1 ? '' : 's'}`,
           'info',
         )
       }
@@ -1435,7 +1434,7 @@
       {:else if canOpenStory}
         <Button onclick={openCreatedStory}>
           <Sparkles class="mr-2 h-4 w-4" />
-          Open {guidedStoryMode === 'creative-writing' ? 'Creative Writing' : 'Story'}
+          Open Story
         </Button>
       {:else}
         <Button onclick={handleImport} disabled={loading || files.length === 0}>

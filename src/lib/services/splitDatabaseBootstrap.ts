@@ -1,4 +1,4 @@
-type StoryMode = 'adventure' | 'creative-writing'
+type StoryMode = 'adventure'
 
 interface SplitDatabaseBootstrapResult {
   status: string

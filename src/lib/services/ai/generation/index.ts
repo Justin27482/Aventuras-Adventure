@@ -6,7 +6,6 @@
  * - NarrativeService: Core narrative generation
  * - ClassifierService: Extract world state from narrative
  * - MemoryService: Chapter summarization and memory retrieval
- * - SuggestionsService: Story direction suggestions
  * - ActionChoicesService: RPG-style action choices
  * - StyleReviewerService: Writing style analysis
  * - EntryInjector: Tiered entry injection for prompts
@@ -33,9 +32,7 @@ export {
   type RetrievalContext,
 } from './MemoryService'
 
-// Suggestions and choices - types exported from schemas
-export { SuggestionsService } from './SuggestionsService'
-
+// RPG-style action choices - types exported from schemas
 export { ActionChoicesService } from './ActionChoicesService'
 
 export { DisclosureGateService } from './DisclosureGateService'
