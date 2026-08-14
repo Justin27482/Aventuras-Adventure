@@ -981,7 +981,10 @@ export class STImportWizardStore {
         )
       }
     } catch (err) {
-      console.warn('[STImportWizard] import post-processing failed, continuing with available text', err)
+      console.warn(
+        '[STImportWizard] import post-processing failed, continuing with available text',
+        err,
+      )
       this.importProcessingStatus = `Post-processing warning: ${describeAIError(err)}`
       return current
     }

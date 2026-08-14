@@ -90,7 +90,9 @@
 {/if}
 
 <ResponsiveModal.Root open={readerOpen} onOpenChange={(open) => !open && closeNarrativeReader()}>
-  <ResponsiveModal.Content class="flex max-h-[90vh] w-[95vw] max-w-4xl flex-col gap-0 overflow-hidden p-0">
+  <ResponsiveModal.Content
+    class="flex max-h-[90vh] w-[95vw] max-w-4xl flex-col gap-0 overflow-hidden p-0"
+  >
     <ResponsiveModal.Header class="border-b px-5 py-4">
       <ResponsiveModal.Title>Chapter Narrative</ResponsiveModal.Title>
       <ResponsiveModal.Description>
@@ -100,7 +102,7 @@
 
     <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
       {#if selectedNarrativeEntry}
-        <article class="text-foreground whitespace-pre-wrap text-sm leading-relaxed">
+        <article class="text-foreground text-sm leading-relaxed whitespace-pre-wrap">
           {selectedNarrativeEntry.content}
         </article>
       {/if}

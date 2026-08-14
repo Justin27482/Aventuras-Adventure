@@ -76,7 +76,17 @@ type ClothingMetadata = {
 }
 
 const SENSITIVE_ZONES = new Set(['chest', 'breasts', 'hips', 'pussy', 'crotch', 'groin'])
-const MODERATE_ZONES = new Set(['thigh', 'thighs', 'stomach', 'belly', 'abdomen', 'back', 'torso', 'leg', 'legs'])
+const MODERATE_ZONES = new Set([
+  'thigh',
+  'thighs',
+  'stomach',
+  'belly',
+  'abdomen',
+  'back',
+  'torso',
+  'leg',
+  'legs',
+])
 const MINOR_ZONES = new Set(['arm', 'arms', 'calf', 'calves', 'hand', 'hands', 'foot', 'feet'])
 
 function getClothingMetadata(item: Item): ClothingMetadata | null {
@@ -136,7 +146,11 @@ function formatClothingState(metadata?: Record<string, any>): string {
     parts.push(`still covering ${effectiveCoveredZones.join(', ')}`)
   }
 
-  if (durability !== null && maxDurability !== null && (durability < maxDurability || exposedZones.length > 0 || unusable)) {
+  if (
+    durability !== null &&
+    maxDurability !== null &&
+    (durability < maxDurability || exposedZones.length > 0 || unusable)
+  ) {
     parts.push(`durability ${durability}/${maxDurability}`)
   }
 
@@ -622,11 +636,19 @@ export class EntryInjector extends BaseAIService {
         const priorityDelta = clothingSortPriority(a.metadata) - clothingSortPriority(b.metadata)
         if (priorityDelta !== 0) return priorityDelta
 
-        const exposedCountDelta = normalizeZones(b.metadata?.exposedZones).length - normalizeZones(a.metadata?.exposedZones).length
+        const exposedCountDelta =
+          normalizeZones(b.metadata?.exposedZones).length -
+          normalizeZones(a.metadata?.exposedZones).length
         if (exposedCountDelta !== 0) return exposedCountDelta
 
-        const aDurability = typeof a.metadata?.durability === 'number' ? a.metadata.durability : Number.MAX_SAFE_INTEGER
-        const bDurability = typeof b.metadata?.durability === 'number' ? b.metadata.durability : Number.MAX_SAFE_INTEGER
+        const aDurability =
+          typeof a.metadata?.durability === 'number'
+            ? a.metadata.durability
+            : Number.MAX_SAFE_INTEGER
+        const bDurability =
+          typeof b.metadata?.durability === 'number'
+            ? b.metadata.durability
+            : Number.MAX_SAFE_INTEGER
         if (aDurability !== bDurability) return aDurability - bDurability
 
         return a.name.localeCompare(b.name)

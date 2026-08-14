@@ -128,12 +128,18 @@
 
     <!-- Story Content -->
     {#if content.length > 0}
-      <div class="story-text prose-content streaming-content animate-fade-in" style={readingWindowStyle}>
+      <div
+        class="story-text prose-content streaming-content animate-fade-in"
+        style={readingWindowStyle}
+      >
         {@html renderedContent}<span class="streaming-cursor"></span>
       </div>
     {:else if isReasoningPhase || isThinking}
       <!-- Pending Content Indicator (while reasoning or thinking) -->
-      <div class="story-text prose-content animate-fade-in text-muted-foreground mt-1" style={readingWindowStyle}>
+      <div
+        class="story-text prose-content animate-fade-in text-muted-foreground mt-1"
+        style={readingWindowStyle}
+      >
         <span class="typing-indicator">
           <span>.</span><span>.</span><span>.</span>
         </span>

@@ -69,7 +69,12 @@ class ScenarioVaultStore {
     await database.updateVaultScenario(id, normalizedUpdates)
     this.scenarios = this.scenarios.map((s) =>
       s.id === id
-        ? { ...s, ...normalizedUpdates, npcs: normalizedUpdates.npcs ?? s.npcs, updatedAt: Date.now() }
+        ? {
+            ...s,
+            ...normalizedUpdates,
+            npcs: normalizedUpdates.npcs ?? s.npcs,
+            updatedAt: Date.now(),
+          }
         : s,
     )
     log('Updated vault scenario:', id)

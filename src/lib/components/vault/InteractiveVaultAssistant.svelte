@@ -208,7 +208,11 @@
   const assistantLorebookId = $derived.by(() => {
     if (focusedEntity?.entityType === 'lorebook') return focusedEntity.entityId
     if (vaultEditor.currentLorebookId) return vaultEditor.currentLorebookId
-    if (vaultEditor.viewMode && vaultEditor.viewEntityType === 'lorebook' && vaultEditor.viewEntityId) {
+    if (
+      vaultEditor.viewMode &&
+      vaultEditor.viewEntityType === 'lorebook' &&
+      vaultEditor.viewEntityId
+    ) {
       return vaultEditor.viewEntityId
     }
     return null
@@ -1042,21 +1046,21 @@
 
         {#if vaultEditor.pendingCount > 0}
           <div in:fade={{ duration: 150 }}>
-          <Button
-            variant="outline"
-            size="sm"
-            class="h-7 gap-1.5 border-emerald-500/30 bg-emerald-500/8 px-2.5 text-xs text-emerald-400 hover:bg-emerald-500/15"
-            onclick={handleApproveAll}
-            disabled={isGenerating}
-          >
-            <CheckCheck class="h-3.5 w-3.5" />
-            Approve All
-            <span
-              class="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300"
+            <Button
+              variant="outline"
+              size="sm"
+              class="h-7 gap-1.5 border-emerald-500/30 bg-emerald-500/8 px-2.5 text-xs text-emerald-400 hover:bg-emerald-500/15"
+              onclick={handleApproveAll}
+              disabled={isGenerating}
             >
-              {vaultEditor.pendingBreakdown}
-            </span>
-          </Button>
+              <CheckCheck class="h-3.5 w-3.5" />
+              Approve All
+              <span
+                class="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300"
+              >
+                {vaultEditor.pendingBreakdown}
+              </span>
+            </Button>
           </div>
         {/if}
       </div>
@@ -1575,7 +1579,7 @@
                       <span>{new Date(message.timestamp).toLocaleTimeString()}</span>
                       {#if message.role === 'assistant' && message.isGreeting}
                         <button
-                          class="text-surface-500 hover:text-foreground inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:bg-foreground/5"
+                          class="text-surface-500 hover:text-foreground hover:bg-foreground/5 inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors"
                           onclick={() => startEditGreeting(message)}
                           title="Edit this one-time greeting"
                           disabled={isGenerating || editingGreetingId === message.id}
@@ -1586,7 +1590,7 @@
                       {/if}
                       {#if message.role === 'assistant' && !message.isGreeting}
                         <button
-                          class="text-surface-500 hover:text-foreground inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:bg-foreground/5"
+                          class="text-surface-500 hover:text-foreground hover:bg-foreground/5 inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors"
                           onclick={() => handleBranchFromMessage(message.id)}
                           title="Create branch from this message"
                           disabled={isGenerating}

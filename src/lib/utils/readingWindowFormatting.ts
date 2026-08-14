@@ -9,9 +9,7 @@ export interface ReadingWindowFormattingTokens {
   replacements: Map<string, string>
 }
 
-export function encodeReadingWindowFormatting(
-  text: string,
-): ReadingWindowFormattingTokens {
+export function encodeReadingWindowFormatting(text: string): ReadingWindowFormattingTokens {
   const replacements = new Map<string, string>()
   let tokenIndex = 0
 
@@ -36,22 +34,28 @@ export function encodeReadingWindowFormatting(
     'reading-window-angle-bracket',
     transformed,
   )
-  transformed = transformed.replace(/"{1,2}([^"\n]+)"{1,2}|“([^”\n]+)”/g, (match, straight, curly) => {
-    const inner = straight ?? curly
-    const openingQuote = match.startsWith('“') ? '“' : '"'
-    const closingQuote = match.endsWith('”') ? '”' : '"'
-    const token = `${QUOTE_TOKEN_PREFIX}${tokenIndex++}@@`
-    replacements.set(
-      token,
-      `<span class="reading-window-format reading-window-quote">${openingQuote}${parseInlineMarkdown(inner)}${closingQuote}</span>`,
-    )
-    return token
-  })
+  transformed = transformed.replace(
+    /"{1,2}([^"\n]+)"{1,2}|“([^”\n]+)”/g,
+    (match, straight, curly) => {
+      const inner = straight ?? curly
+      const openingQuote = match.startsWith('“') ? '“' : '"'
+      const closingQuote = match.endsWith('”') ? '”' : '"'
+      const token = `${QUOTE_TOKEN_PREFIX}${tokenIndex++}@@`
+      replacements.set(
+        token,
+        `<span class="reading-window-format reading-window-quote">${openingQuote}${parseInlineMarkdown(inner)}${closingQuote}</span>`,
+      )
+      return token
+    },
+  )
 
   return { text: transformed, replacements }
 }
 
-export function restoreReadingWindowFormatting(html: string, replacements: Map<string, string>): string {
+export function restoreReadingWindowFormatting(
+  html: string,
+  replacements: Map<string, string>,
+): string {
   let output = html
   for (const [token, replacement] of Array.from(replacements.entries()).reverse()) {
     output = output.replaceAll(token, replacement)

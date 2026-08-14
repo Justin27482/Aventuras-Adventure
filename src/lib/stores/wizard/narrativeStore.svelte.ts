@@ -302,9 +302,7 @@ export class NarrativeStore {
     const selectedGreetingIndex = options?.selectedGreetingIndex ?? this.selectedGreetingIndex
 
     const selectedScene =
-      selectedGreetingIndex === 0
-        ? firstMessage
-        : alternateGreetings[selectedGreetingIndex - 1]
+      selectedGreetingIndex === 0 ? firstMessage : alternateGreetings[selectedGreetingIndex - 1]
 
     // Default location if none exists (will be populated from setting if available in orchestrator)
     this.generatedOpening = {

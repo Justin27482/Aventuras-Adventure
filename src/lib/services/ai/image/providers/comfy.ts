@@ -63,7 +63,8 @@ function normalizeLoraOptions(providerOptions?: Record<string, unknown>): ComfyL
         name: candidate.name.trim(),
         strengthModel:
           typeof candidate.strengthModel === 'number' ? candidate.strengthModel : undefined,
-        strengthClip: typeof candidate.strengthClip === 'number' ? candidate.strengthClip : undefined,
+        strengthClip:
+          typeof candidate.strengthClip === 'number' ? candidate.strengthClip : undefined,
       })
     }
   }
@@ -81,7 +82,8 @@ function normalizeLoraOptions(providerOptions?: Record<string, unknown>): ComfyL
           name: candidate.name.trim(),
           strengthModel:
             typeof candidate.strengthModel === 'number' ? candidate.strengthModel : undefined,
-          strengthClip: typeof candidate.strengthClip === 'number' ? candidate.strengthClip : undefined,
+          strengthClip:
+            typeof candidate.strengthClip === 'number' ? candidate.strengthClip : undefined,
         },
       ]
     }
@@ -694,13 +696,9 @@ export function createComfyProvider(config: ImageProviderConfig): ImageProvider 
 
         if (hasReferenceImage) {
           const referenceBlob = base64ToBlob(referenceImages[0])
-          const uploaded = await api.uploadImage(
-            referenceBlob,
-            `aventura_ref_${Date.now()}.png`,
-            {
-              override: true,
-            },
-          )
+          const uploaded = await api.uploadImage(referenceBlob, `aventura_ref_${Date.now()}.png`, {
+            override: true,
+          })
 
           if (!uploaded) {
             throw new Error('Failed to upload reference image to ComfyUI.')
@@ -833,7 +831,9 @@ export function createComfyProvider(config: ImageProviderConfig): ImageProvider 
 
       // Fallback for newer ComfyUI: sampler metadata under /object_info/KSampler
       const controller = new AbortController()
-      const timerId = config.timeoutMs ? setTimeout(() => controller.abort(), config.timeoutMs) : null
+      const timerId = config.timeoutMs
+        ? setTimeout(() => controller.abort(), config.timeoutMs)
+        : null
       try {
         const resp = await fetch(`${baseUrl}/object_info/KSampler`, { signal: controller.signal })
         if (!resp.ok) return { samplers: [], schedulers: [] }

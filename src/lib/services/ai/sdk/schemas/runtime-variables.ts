@@ -18,7 +18,6 @@ import type { RuntimeVariable, RuntimeEntityType } from '$lib/services/packs/typ
 import {
   classificationResultSchema,
   entryUpdatesSchema,
-  type EntryUpdates,
   characterUpdateSchema,
   newCharacterSchema,
   locationUpdateSchema,
@@ -28,7 +27,6 @@ import {
   storyBeatUpdateSchema,
   newStoryBeatSchema,
   sceneSchema as defaultSceneSchema,
-  sceneSchema,
 } from './classifier'
 
 // ============================================================================
@@ -189,7 +187,8 @@ export function buildExtendedClassificationSchema(
 
   const baseEntry =
     (resolvedBase as z.ZodObject<z.ZodRawShape>).shape?.entryUpdates instanceof z.ZodObject
-      ? ((resolvedBase as z.ZodObject<z.ZodRawShape>).shape.entryUpdates as z.ZodObject<z.ZodRawShape>)
+      ? ((resolvedBase as z.ZodObject<z.ZodRawShape>).shape
+          .entryUpdates as z.ZodObject<z.ZodRawShape>)
       : entryUpdatesSchema
 
   const baseScene =

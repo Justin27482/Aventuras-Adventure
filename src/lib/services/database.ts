@@ -1365,7 +1365,11 @@ class DatabaseService {
     return results.map(this.mapChapterSource)
   }
 
-  async searchChapterSources(storyId: string, query: string, limit: number = 20): Promise<ChapterSource[]> {
+  async searchChapterSources(
+    storyId: string,
+    query: string,
+    limit: number = 20,
+  ): Promise<ChapterSource[]> {
     const db = await this.getDb()
     await this.ensureChapterSourcesTable(db)
 
@@ -2470,7 +2474,9 @@ class DatabaseService {
 
   async getSecretAtom(id: string): Promise<EpistemicSecretAtom | null> {
     const db = await this.getDb()
-    const results = await db.select<any[]>('SELECT * FROM epistemic_secret_atoms WHERE id = ?', [id])
+    const results = await db.select<any[]>('SELECT * FROM epistemic_secret_atoms WHERE id = ?', [
+      id,
+    ])
     return results.length > 0 ? this.mapEpistemicSecretAtom(results[0]) : null
   }
 
@@ -2543,7 +2549,10 @@ class DatabaseService {
     }
 
     values.push(id)
-    await db.execute(`UPDATE epistemic_secret_atoms SET ${setClauses.join(', ')} WHERE id = ?`, values)
+    await db.execute(
+      `UPDATE epistemic_secret_atoms SET ${setClauses.join(', ')} WHERE id = ?`,
+      values,
+    )
   }
 
   async deleteSecretAtom(id: string): Promise<void> {
@@ -2681,10 +2690,14 @@ class DatabaseService {
     for (const [atomId, edges] of groupedByAtom) {
       const sortedByRecency = [...edges].sort((a, b) => b.updatedAt - a.updatedAt)
       const canonicalExisting = edges.find(
-        (edge) => edge.characterRefType === 'story_character' && edge.characterRefId === characterId,
+        (edge) =>
+          edge.characterRefType === 'story_character' && edge.characterRefId === characterId,
       )
 
-      const strongestPressureTags = new Map<string, EpistemicCharacterKnowledgeEdge['pressureTags'][number]>()
+      const strongestPressureTags = new Map<
+        string,
+        EpistemicCharacterKnowledgeEdge['pressureTags'][number]
+      >()
       for (const edge of edges) {
         for (const tag of edge.pressureTags) {
           const key = `${tag.type}:${tag.tag}`
@@ -2705,8 +2718,8 @@ class DatabaseService {
         knows: edges.some((edge) => edge.knows),
         confidence: Math.max(...edges.map((edge) => edge.confidence ?? 0)),
         disclosureIntent: sortedByRecency[0]?.disclosureIntent ?? 0,
-        disclosurePolicy: [...edges]
-          .sort(
+        disclosurePolicy:
+          [...edges].sort(
             (a, b) =>
               (policyRank[a.disclosurePolicy] ?? Number.MAX_SAFE_INTEGER) -
               (policyRank[b.disclosurePolicy] ?? Number.MAX_SAFE_INTEGER),
@@ -2724,7 +2737,9 @@ class DatabaseService {
           mergedFrom: edges
             .filter(
               (edge) =>
-                !(edge.characterRefType === 'story_character' && edge.characterRefId === characterId),
+                !(
+                  edge.characterRefType === 'story_character' && edge.characterRefId === characterId
+                ),
             )
             .map((edge) => ({
               id: edge.id,

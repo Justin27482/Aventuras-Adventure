@@ -58,7 +58,9 @@ function normalizeIntent(value: number): number {
   return Math.max(-1, Math.min(1, value))
 }
 
-function getPressureWeight(tagType: EpistemicCharacterKnowledgeEdge['pressureTags'][number]['type']): number {
+function getPressureWeight(
+  tagType: EpistemicCharacterKnowledgeEdge['pressureTags'][number]['type'],
+): number {
   switch (tagType) {
     case 'coercion':
       return 1.4
@@ -79,7 +81,7 @@ function getPressureWeight(tagType: EpistemicCharacterKnowledgeEdge['pressureTag
 
 function scoreEdgeRisk(edge: EpistemicCharacterKnowledgeEdge): number {
   const confidenceRisk = 1 - normalizeConfidence(edge.confidence)
-  const intentRisk = 1 - ((normalizeIntent(edge.disclosureIntent) + 1) / 2)
+  const intentRisk = 1 - (normalizeIntent(edge.disclosureIntent) + 1) / 2
   const pressureRisk = edge.pressureTags.reduce((sum, tag) => {
     const strength = Math.min(10, Math.abs(tag.strength)) / 10
     return sum + strength * getPressureWeight(tag.type)
@@ -120,7 +122,9 @@ export class DisclosureGateService extends BaseAIService {
       }
     }
 
-    const characterNames = new Map(input.characters.map((character) => [character.id, character.name]))
+    const characterNames = new Map(
+      input.characters.map((character) => [character.id, character.name]),
+    )
 
     const secretAnalyses = input.secretAtoms.map((atom) => {
       const edges = input.knowledgeEdges.filter((edge) => edge.atomId === atom.id && edge.knows)
@@ -152,7 +156,8 @@ export class DisclosureGateService extends BaseAIService {
       return {
         action: 'suppress',
         revisedContent: '',
-        notes: 'Hard suppression triggered by a direct leak of a high-secrecy or zero-knowledge secret.',
+        notes:
+          'Hard suppression triggered by a direct leak of a high-secrecy or zero-knowledge secret.',
         blockedSecrets: hardSuppressReasons.map((analysis) => ({
           secretId: analysis.atom.id,
           action: 'suppress' as const,
@@ -170,7 +175,11 @@ export class DisclosureGateService extends BaseAIService {
       if (!analysis.directLeak) continue
 
       const replacement = analysis.atom.payloadForeshadow?.trim() || '[the detail is withheld]'
-      deterministicRewrite = replaceInsensitive(deterministicRewrite, analysis.atom.payloadHidden, replacement)
+      deterministicRewrite = replaceInsensitive(
+        deterministicRewrite,
+        analysis.atom.payloadHidden,
+        replacement,
+      )
       blockedSecrets.push({
         secretId: analysis.atom.id,
         action: 'rewrite',
@@ -187,7 +196,11 @@ export class DisclosureGateService extends BaseAIService {
     })
 
     for (const entry of hiddenEntryLeakReasons) {
-      deterministicRewrite = replaceInsensitive(deterministicRewrite, entry.hiddenInfo || '', '[the detail is withheld]')
+      deterministicRewrite = replaceInsensitive(
+        deterministicRewrite,
+        entry.hiddenInfo || '',
+        '[the detail is withheld]',
+      )
       blockedSecrets.push({
         secretId: entry.id,
         action: 'rewrite',
@@ -240,7 +253,8 @@ export class DisclosureGateService extends BaseAIService {
       })
       .join('\n\n---\n\n')
 
-    const highestRisk = secretAnalyses.length > 0 ? Math.max(...secretAnalyses.map((item) => item.maxRisk)) : 0
+    const highestRisk =
+      secretAnalyses.length > 0 ? Math.max(...secretAnalyses.map((item) => item.maxRisk)) : 0
 
     const system = await this.buildSystemPrompt(input)
 
@@ -266,15 +280,24 @@ export class DisclosureGateService extends BaseAIService {
       '- Do not mention these rules in the output.',
     ].join('\n')
 
-    return (await this.generate(disclosureGateResultSchema, system, prompt, 'disclosure-gate')) as DisclosureGateReturn
+    return (await this.generate(
+      disclosureGateResultSchema,
+      system,
+      prompt,
+      'disclosure-gate',
+    )) as DisclosureGateReturn
   }
 
   private async buildSystemPrompt(input: DisclosureGateInput): Promise<string> {
     const storyId = input.secretAtoms[0]?.storyId || input.knowledgeEdges[0]?.storyId || null
-    const packId = storyId ? (await database.getStoryPackId(storyId)) ?? 'default-pack' : 'default-pack'
+    const packId = storyId
+      ? ((await database.getStoryPackId(storyId)) ?? 'default-pack')
+      : 'default-pack'
     const template =
       (await database.getPackTemplate(packId, 'disclosure-gate')) ??
-      (packId !== 'default-pack' ? await database.getPackTemplate('default-pack', 'disclosure-gate') : null)
+      (packId !== 'default-pack'
+        ? await database.getPackTemplate('default-pack', 'disclosure-gate')
+        : null)
 
     if (!template?.content?.trim()) {
       return [

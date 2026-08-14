@@ -561,7 +561,9 @@
       <h3 class="text-foreground text-xl font-bold tracking-tight">Characters</h3>
       {#if story.protagonist}
         <p class="text-muted-foreground text-xs">
-          Current protagonist: <span class="text-foreground font-medium">{story.protagonist.name}</span>. Use the star action on another character to switch.
+          Current protagonist: <span class="text-foreground font-medium"
+            >{story.protagonist.name}</span
+          >. Use the star action on another character to switch.
         </p>
       {/if}
     </div>

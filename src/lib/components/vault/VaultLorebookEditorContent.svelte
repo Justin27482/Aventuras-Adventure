@@ -1109,7 +1109,9 @@
                 </div>
                 <div class="flex items-center gap-2">
                   <div class="hidden items-center gap-2 md:flex">
-                    <div class="border-surface-700 bg-surface-800/80 flex items-center rounded-md border p-0.5">
+                    <div
+                      class="border-surface-700 bg-surface-800/80 flex items-center rounded-md border p-0.5"
+                    >
                       <span class="text-surface-500 px-1.5 text-[10px] font-medium">Width</span>
                       <button
                         class={cn(
@@ -1146,7 +1148,9 @@
                       </button>
                     </div>
 
-                    <div class="border-surface-700 bg-surface-800/80 flex items-center rounded-md border p-0.5">
+                    <div
+                      class="border-surface-700 bg-surface-800/80 flex items-center rounded-md border p-0.5"
+                    >
                       <span class="text-surface-500 px-1.5 text-[10px] font-medium">Text</span>
                       <button
                         class={cn(
@@ -1175,7 +1179,9 @@
                           onkeydown={(e) => {
                             if (e.key === 'Enter') {
                               e.preventDefault()
-                              void setEntryEditorPseudoPt(Number((e.currentTarget as HTMLInputElement).value))
+                              void setEntryEditorPseudoPt(
+                                Number((e.currentTarget as HTMLInputElement).value),
+                              )
                             }
                           }}
                         />

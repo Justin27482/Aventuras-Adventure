@@ -88,10 +88,16 @@ export class STImportAIProcessingService extends BaseAIService {
     })
 
     const { system, user } = await ctx.render('st-import-style-rewrite')
-    const result = await this.generate(stRewriteBatchSchema, system, user, 'st-import-style-rewrite', {
-      reasoningEffortOverride: 'low',
-      reasoningMaxTokensOverride: 768,
-    })
+    const result = await this.generate(
+      stRewriteBatchSchema,
+      system,
+      user,
+      'st-import-style-rewrite',
+      {
+        reasoningEffortOverride: 'low',
+        reasoningMaxTokensOverride: 768,
+      },
+    )
 
     if (!result.messages?.length) return messages
 

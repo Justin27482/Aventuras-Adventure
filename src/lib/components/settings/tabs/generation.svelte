@@ -155,7 +155,8 @@
             checked={settings.experimentalFeatures.epistemicDisclosureGateEnabled}
             disabled={!settings.experimentalFeatures.epistemicWorkflowEnabled ||
               settings.experimentalFeatures.epistemicExecutionMode === 'fast'}
-            onCheckedChange={(checked) => updateEpistemic('epistemicDisclosureGateEnabled', checked)}
+            onCheckedChange={(checked) =>
+              updateEpistemic('epistemicDisclosureGateEnabled', checked)}
           />
         </div>
 

@@ -251,7 +251,8 @@
         <Label class="text-sm font-normal">Double asterisk text</Label>
         <ColorPicker
           value={settings.uiSettings.readingWindowFormatting.doubleAsteriskText}
-          onChange={(color) => void settings.setReadingWindowFormatting({ doubleAsteriskText: color })}
+          onChange={(color) =>
+            void settings.setReadingWindowFormatting({ doubleAsteriskText: color })}
         />
       </div>
 
@@ -267,7 +268,8 @@
         <Label class="text-sm font-normal">Angle-bracket text</Label>
         <ColorPicker
           value={settings.uiSettings.readingWindowFormatting.angleBracketText}
-          onChange={(color) => void settings.setReadingWindowFormatting({ angleBracketText: color })}
+          onChange={(color) =>
+            void settings.setReadingWindowFormatting({ angleBracketText: color })}
         />
       </div>
     </div>

@@ -41,7 +41,10 @@
       .prefillFromStory(prefillFromStory)
       .catch((error) => {
         console.error('[SetupWizard] Failed to prefill from story:', error)
-        ui.showToast('Could not prefill all story data. You can still adjust values manually.', 'error')
+        ui.showToast(
+          'Could not prefill all story data. You can still adjust values manually.',
+          'error',
+        )
       })
       .then(() => {
         ui.showToast('Story settings copied into the wizard', 'info')

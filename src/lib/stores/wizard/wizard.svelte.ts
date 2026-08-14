@@ -14,13 +14,7 @@ import {
 import { TranslationService } from '$lib/services/ai/utils/TranslationService'
 import { QUICK_START_SEEDS } from '$lib/services/templates'
 import { replaceUserPlaceholders } from '$lib/components/wizard/wizardTypes'
-import type {
-  Story,
-  VaultScenario,
-  Character,
-  Entry,
-  StoryEntry,
-} from '$lib/types'
+import type { Story, VaultScenario, Character, Entry, StoryEntry } from '$lib/types'
 import { lorebookVault } from '$lib/stores/lorebookVault.svelte'
 import { descriptorsToString, stringToDescriptors } from '$lib/utils/visualDescriptors'
 import { packService } from '$lib/services/packs/pack-service'
@@ -148,7 +142,8 @@ export class WizardStore {
     // Setting seed from current location (fallback to story description)
     const locations = await database.getLocationsForBranch(sourceStory.id, branchId)
     const currentLocation = locations.find((l) => l.current) ?? locations[0]
-    const settingSeed = currentLocation?.description?.trim() || sourceStory.description?.trim() || ''
+    const settingSeed =
+      currentLocation?.description?.trim() || sourceStory.description?.trim() || ''
     this.setting.settingSeed = settingSeed
     if (settingSeed) {
       this.setting.useSettingAsIs()

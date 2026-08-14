@@ -17,7 +17,9 @@ type CharacterLike = {
 function parseAge(text: string): number | null {
   const lower = text.toLowerCase()
 
-  const explicit = lower.match(/\b(\d{1,2})(?:\s*-\s*(\d{1,2}))?\s*(?:years?\s*old|year-old|yo|y\/o|aged?)\b/)
+  const explicit = lower.match(
+    /\b(\d{1,2})(?:\s*-\s*(\d{1,2}))?\s*(?:years?\s*old|year-old|yo|y\/o|aged?)\b/,
+  )
   if (explicit) {
     const first = Number(explicit[1])
     const second = explicit[2] ? Number(explicit[2]) : null
@@ -89,7 +91,9 @@ export function selectSmartLoras(options: {
       return true
     })
     .map((entry) => {
-      const tagMatches = entry.tags.filter((tag) => combinedCorpus.includes(tag.toLowerCase())).length
+      const tagMatches = entry.tags.filter((tag) =>
+        combinedCorpus.includes(tag.toLowerCase()),
+      ).length
       const descriptionMatches = entry.description
         .toLowerCase()
         .split(/[^a-z0-9]+/)

@@ -12,7 +12,10 @@ export const directorSecretAtomDraftSchema = z.object({
 export const directorRevealPathSchema = z.object({
   summary: z.string().describe('Concise summary of the reveal pathway'),
   rationale: z.string().describe('Why this pathway is plausible or useful'),
-  pressureNotes: z.array(z.string()).default([]).describe('Relevant pressure cues or context notes'),
+  pressureNotes: z
+    .array(z.string())
+    .default([])
+    .describe('Relevant pressure cues or context notes'),
 })
 
 export const directorProposalSchema = z.object({

@@ -183,7 +183,9 @@ export function createRetrievalTools(context: RetrievalToolContext) {
       execute: async ({ query, limit }: { query: string; limit?: number }) => {
         const term = query.trim().toLowerCase()
         const filtered = chapterSources.filter((source) => {
-          const haystack = [source.title, source.sourceFilename ?? '', source.rawText].join('\n').toLowerCase()
+          const haystack = [source.title, source.sourceFilename ?? '', source.rawText]
+            .join('\n')
+            .toLowerCase()
           return haystack.includes(term)
         })
 
@@ -193,7 +195,10 @@ export function createRetrievalTools(context: RetrievalToolContext) {
             const content = source.rawText.trim()
             const hitIndex = content.toLowerCase().indexOf(term)
             const excerptStart = hitIndex >= 0 ? Math.max(0, hitIndex - 160) : 0
-            const excerptEnd = hitIndex >= 0 ? Math.min(content.length, hitIndex + 360) : Math.min(content.length, 520)
+            const excerptEnd =
+              hitIndex >= 0
+                ? Math.min(content.length, hitIndex + 360)
+                : Math.min(content.length, 520)
             const excerpt = content.slice(excerptStart, excerptEnd)
 
             return {
@@ -202,7 +207,10 @@ export function createRetrievalTools(context: RetrievalToolContext) {
               sourceFilename: source.sourceFilename,
               chapterNumber: source.chapterNumber,
               summary: source.summary,
-              excerpt: excerpt.length < content.length ? `${excerpt}${excerptEnd < content.length ? '...' : ''}` : excerpt,
+              excerpt:
+                excerpt.length < content.length
+                  ? `${excerpt}${excerptEnd < content.length ? '...' : ''}`
+                  : excerpt,
             }
           }),
         }

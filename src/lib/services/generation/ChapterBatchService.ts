@@ -181,7 +181,8 @@ export class ChapterBatchService {
         characters: classificationResult?.entryUpdates.newCharacters.map((c) => c.name) ?? [],
         locations: classificationResult?.entryUpdates.newLocations.map((l) => l.name) ?? [],
         items: classificationResult?.entryUpdates.newItems.map((item) => item.name) ?? [],
-        storyBeats: classificationResult?.entryUpdates.newStoryBeats.map((beat) => beat.title) ?? [],
+        storyBeats:
+          classificationResult?.entryUpdates.newStoryBeats.map((beat) => beat.title) ?? [],
         errors: [],
       }
 

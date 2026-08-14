@@ -227,7 +227,13 @@ export function processVisualProseStoryContent(
   entryId: string,
   regeneratingIds: Set<string> = new Set(),
 ): string {
-  return processUnified(content, images, regeneratingIds, (t) => sanitizeVisualProse(t, entryId), false)
+  return processUnified(
+    content,
+    images,
+    regeneratingIds,
+    (t) => sanitizeVisualProse(t, entryId),
+    false,
+  )
 }
 
 // Keep old functions as aliases for backward compatibility (used by StreamingEntry)

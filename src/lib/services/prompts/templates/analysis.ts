@@ -324,7 +324,8 @@ const classifierMoneyRecoveryPromptTemplate: PromptTemplate = {
   id: 'classifier-money-recovery',
   name: 'Classifier Money Recovery',
   category: 'service',
-  description: 'Secondary classifier pass for extracting missed money changes from narrative context',
+  description:
+    'Secondary classifier pass for extracting missed money changes from narrative context',
   content: `Extract only money changes from the passage. Return JSON only. If no clear money change occurred, return {"moneyUpdate": null}. Use negative delta for spending and positive delta for earnings.`,
 }
 

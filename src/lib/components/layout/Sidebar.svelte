@@ -122,9 +122,11 @@
 
         {#if story.moneyHistory.length > 0}
           <div
-            class="bg-popover text-popover-foreground pointer-events-none invisible absolute top-full left-0 z-50 mt-1 w-full max-h-56 overflow-y-auto rounded-md border p-2 opacity-0 shadow-md transition-all duration-150 group-hover:visible group-hover:pointer-events-auto group-hover:opacity-100"
+            class="bg-popover text-popover-foreground pointer-events-none invisible absolute top-full left-0 z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-md border p-2 opacity-0 shadow-md transition-all duration-150 group-hover:pointer-events-auto group-hover:visible group-hover:opacity-100"
           >
-            <p class="text-muted-foreground mb-1 text-[11px] font-semibold uppercase">Recent Changes</p>
+            <p class="text-muted-foreground mb-1 text-[11px] font-semibold uppercase">
+              Recent Changes
+            </p>
             <div class="space-y-1">
               {#each story.moneyHistory as entry (entry.id)}
                 <div class="flex items-start justify-between gap-2 rounded-sm px-1 py-0.5 text-xs">
@@ -171,7 +173,9 @@
       </Tabs.Content>
       <Tabs.Content value="inventory" class="mt-0 h-full space-y-4">
         <InventoryPanel />
-        {#if showClothingPanel} <ClothingPanel /> {/if}
+        {#if showClothingPanel}
+          <ClothingPanel />
+        {/if}
       </Tabs.Content>
       <Tabs.Content value="quests" class="mt-0 h-full space-y-4">
         <QuestPanel />

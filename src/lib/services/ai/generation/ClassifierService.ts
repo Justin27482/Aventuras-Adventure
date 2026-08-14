@@ -77,7 +77,18 @@ type InferredMoneyUpdate = {
 const llmMoneyUpdateSchema = z.object({
   delta: z.number(),
   transactionType: z
-    .enum(['purchase', 'sale', 'reward', 'loot', 'wage', 'fee', 'bribe', 'theft', 'gamble', 'other'])
+    .enum([
+      'purchase',
+      'sale',
+      'reward',
+      'loot',
+      'wage',
+      'fee',
+      'bribe',
+      'theft',
+      'gamble',
+      'other',
+    ])
     .optional(),
   reason: z.string().optional(),
   deniedPurchase: z.boolean().optional(),
@@ -113,7 +124,11 @@ export class ClassifierService extends BaseAIService {
     this.chatHistoryTruncation = chatHistoryTruncation
   }
 
-  private getToggle(story: Story, key: keyof NonNullable<Story['settings']>, defaultValue: boolean): boolean {
+  private getToggle(
+    story: Story,
+    key: keyof NonNullable<Story['settings']>,
+    defaultValue: boolean,
+  ): boolean {
     const value = story.settings?.[key]
     return typeof value === 'boolean' ? value : defaultValue
   }
@@ -177,9 +192,11 @@ export class ClassifierService extends BaseAIService {
       this.getToggle(context.story, 'moneyClassificationEnabled', true)
 
     const itemAcquisitionFallbackEnabled =
-      inventoryClassificationEnabled && this.getToggle(context.story, 'itemAcquisitionFallbackEnabled', true)
+      inventoryClassificationEnabled &&
+      this.getToggle(context.story, 'itemAcquisitionFallbackEnabled', true)
     const clothingStateFallbackEnabled =
-      inventoryClassificationEnabled && this.getToggle(context.story, 'clothingStateFallbackEnabled', true)
+      inventoryClassificationEnabled &&
+      this.getToggle(context.story, 'clothingStateFallbackEnabled', true)
     const moneyFallbackEnabled =
       moneyClassificationEnabled && this.getToggle(context.story, 'moneyFallbackEnabled', true)
     const moneyRecoveryEnabled =
@@ -267,8 +284,8 @@ export class ClassifierService extends BaseAIService {
         : '(scene classification disabled)',
       clothingSystemInstructions:
         inventoryClassificationEnabled && context.story.settings?.clothingSystemEnabled
-        ? '## Clothing System Active\nKnown clothing items may include durability and covered/exposed zones. When narration damages, tears, ruins, removes, repairs, or re-covers an existing clothing item, update that item via itemUpdates.changes.clothingState rather than creating a new item.'
-        : '',
+          ? '## Clothing System Active\nKnown clothing items may include durability and covered/exposed zones. When narration damages, tears, ruins, removes, repairs, or re-covers an existing clothing item, update that item via itemUpdates.changes.clothingState rather than creating a new item.'
+          : '',
       moneySystemInstructions: moneyClassificationEnabled
         ? `## Money System Active\nCurrency name: ${(context.story.settings?.moneyName ?? 'gold').trim() || 'gold'}\nCurrent money: ${Math.max(0, Math.floor(context.story.settings?.moneyAmount ?? 0))}\nCRITICAL: If this passage includes a transaction cue (buy/sell/pay/spend/cost/reward/loot/wage) and any explicit amount/currency, you MUST output scene.moneyUpdate.\nUse delta as net money change (negative spend, positive gain).\nFor unaffordable purchases, set deniedPurchase=true and delta=0.`
         : '',
@@ -406,7 +423,10 @@ export class ClassifierService extends BaseAIService {
     }
   }
 
-  private markMoneyExtractionMiss(result: ClassificationResult, context: ClassificationContext): void {
+  private markMoneyExtractionMiss(
+    result: ClassificationResult,
+    context: ClassificationContext,
+  ): void {
     if (!context.story.settings?.moneySystemEnabled) return
     if (result.scene.moneyUpdate) return
 
@@ -550,7 +570,13 @@ export class ClassifierService extends BaseAIService {
     narrative: string,
     userAction: string,
     existingItems: Item[],
-  ): Array<{ name: string; description?: string; quantity?: number; location?: string; equipped?: boolean }> {
+  ): Array<{
+    name: string
+    description?: string
+    quantity?: number
+    location?: string
+    equipped?: boolean
+  }> {
     const text = `${userAction}\n${narrative}`
     const lower = text.toLowerCase()
 
@@ -562,7 +588,13 @@ export class ClassifierService extends BaseAIService {
     }
 
     const existingNames = new Set(existingItems.map((i) => i.name.trim().toLowerCase()))
-    const inferred: Array<{ name: string; description?: string; quantity?: number; location?: string; equipped?: boolean }> = []
+    const inferred: Array<{
+      name: string
+      description?: string
+      quantity?: number
+      location?: string
+      equipped?: boolean
+    }> = []
     const inferredNames = new Set<string>()
 
     const parseCountWord = (raw: string): number | null => {
@@ -623,7 +655,8 @@ export class ClassifierService extends BaseAIService {
 
     // Pattern B: explanatory references after acquisition ("The rope is...", "The dagger...")
     if (inferred.length < 8) {
-      const explPattern = /\bthe\s+([a-z][a-z0-9' -]{2,60}?)\s+(?:is|are|was|were|catches|rests)\b/gim
+      const explPattern =
+        /\bthe\s+([a-z][a-z0-9' -]{2,60}?)\s+(?:is|are|was|were|catches|rests)\b/gim
       for (const match of narrative.matchAll(explPattern)) {
         addCandidate(match[1])
         if (inferred.length >= 8) break
@@ -703,7 +736,8 @@ export class ClassifierService extends BaseAIService {
 
     const damageCue =
       /\b(torn|ripped|shredded|frayed|split|damaged|ruined|destroyed|snapped|slashed|cut open|falls away|torn off|ripped off|stripped)\b/i
-    const repairCue = /\b(repair|repaired|mend|mended|sew|sewn|stitch|stitched|patch|patched|fixed)\b/i
+    const repairCue =
+      /\b(repair|repaired|mend|mended|sew|sewn|stitch|stitched|patch|patched|fixed)\b/i
 
     if (!damageCue.test(text) && !repairCue.test(text)) {
       return []
@@ -717,8 +751,12 @@ export class ClassifierService extends BaseAIService {
 
     if (clothingItems.length === 0) return []
 
-    const inferSeverity = (): InferredClothingState['clothingState']['damageSeverity'] | undefined => {
-      if (/\b(destroyed|ruined|torn off|ripped off|falls away|shredded to|in tatters)\b/i.test(text)) {
+    const inferSeverity = ():
+      | InferredClothingState['clothingState']['damageSeverity']
+      | undefined => {
+      if (
+        /\b(destroyed|ruined|torn off|ripped off|falls away|shredded to|in tatters)\b/i.test(text)
+      ) {
         return 'destroyed'
       }
       if (/\b(shredded|ripped open|torn open|slashed through|split wide)\b/i.test(text)) {
@@ -810,7 +848,8 @@ export class ClassifierService extends BaseAIService {
     const existing = result.scene.moneyUpdate
     const hasMeaningfulClassifierMoneyUpdate =
       !!existing &&
-      ((Number.isFinite(existing.delta) && Math.abs(existing.delta) > 0) || !!existing.deniedPurchase)
+      ((Number.isFinite(existing.delta) && Math.abs(existing.delta) > 0) ||
+        !!existing.deniedPurchase)
     if (hasMeaningfulClassifierMoneyUpdate) return
 
     const currencyName = (context.story.settings.moneyName ?? 'gold').trim() || 'gold'
@@ -880,11 +919,7 @@ export class ClassifierService extends BaseAIService {
         ninety: 90,
       }
 
-      const tokens = raw
-        .toLowerCase()
-        .replace(/-/g, ' ')
-        .split(/\s+/)
-        .filter(Boolean)
+      const tokens = raw.toLowerCase().replace(/-/g, ' ').split(/\s+/).filter(Boolean)
 
       if (tokens.length === 0) return null
 
@@ -1012,45 +1047,61 @@ export class ClassifierService extends BaseAIService {
 
     // Fallback to phrase-level patterns when amount-window matching failed.
     if (spent === 0) {
-      for (const m of lower.matchAll(/\b(?:pay|paid|spent|cost(?:s)?|buy|bought|purchase(?:d)?)\s+(?:for\s+)?(\d+(?:\.\d+)?)\b/g)) {
+      for (const m of lower.matchAll(
+        /\b(?:pay|paid|spent|cost(?:s)?|buy|bought|purchase(?:d)?)\s+(?:for\s+)?(\d+(?:\.\d+)?)\b/g,
+      )) {
         spent += Number(m[1])
       }
 
       // Word-number variant: "paid fifty", "spent twenty".
-      for (const m of lower.matchAll(/\b(?:pay|paid|spent|cost(?:s)?|buy|bought|purchase(?:d)?)\s+(?:for\s+)?((?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|and|-|\s)+)\b/g)) {
+      for (const m of lower.matchAll(
+        /\b(?:pay|paid|spent|cost(?:s)?|buy|bought|purchase(?:d)?)\s+(?:for\s+)?((?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|and|-|\s)+)\b/g,
+      )) {
         const parsed = parseAmountToken(m[1])
         if (parsed && parsed > 0) spent += parsed
       }
 
       // Handles phrasing like "purchased two sewing kits for 50 gold".
-      for (const m of lower.matchAll(/\b(?:buy|bought|purchase(?:d)?|ordered?|acquire(?:d)?)\b[\s\S]{0,80}?\bfor\s+(\d+(?:\.\d+)?)\b/g)) {
+      for (const m of lower.matchAll(
+        /\b(?:buy|bought|purchase(?:d)?|ordered?|acquire(?:d)?)\b[\s\S]{0,80}?\bfor\s+(\d+(?:\.\d+)?)\b/g,
+      )) {
         spent += Number(m[1])
       }
 
       // Word-number variant: "purchased ... for fifty gold".
-      for (const m of lower.matchAll(/\b(?:buy|bought|purchase(?:d)?|ordered?|acquire(?:d)?)\b[\s\S]{0,80}?\bfor\s+((?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|and|-|\s)+)\b/g)) {
+      for (const m of lower.matchAll(
+        /\b(?:buy|bought|purchase(?:d)?|ordered?|acquire(?:d)?)\b[\s\S]{0,80}?\bfor\s+((?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|and|-|\s)+)\b/g,
+      )) {
         const parsed = parseAmountToken(m[1])
         if (parsed && parsed > 0) spent += parsed
       }
 
       // Handles phrasing like "it cost 50 gold" / "price was 50".
-      for (const m of lower.matchAll(/\b(?:cost(?:s|ing)?|price(?:d)?\s+(?:at|was)|total(?:ed)?)\s+(\d+(?:\.\d+)?)\b/g)) {
+      for (const m of lower.matchAll(
+        /\b(?:cost(?:s|ing)?|price(?:d)?\s+(?:at|was)|total(?:ed)?)\s+(\d+(?:\.\d+)?)\b/g,
+      )) {
         spent += Number(m[1])
       }
 
       // Word-number variant: "it cost fifty gold" / "price was fifty".
-      for (const m of lower.matchAll(/\b(?:cost(?:s|ing)?|price(?:d)?\s+(?:at|was)|total(?:ed)?)\s+((?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|and|-|\s)+)\b/g)) {
+      for (const m of lower.matchAll(
+        /\b(?:cost(?:s|ing)?|price(?:d)?\s+(?:at|was)|total(?:ed)?)\s+((?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|and|-|\s)+)\b/g,
+      )) {
         const parsed = parseAmountToken(m[1])
         if (parsed && parsed > 0) spent += parsed
       }
     }
     if (earned === 0) {
-      for (const m of lower.matchAll(/\b(?:sell|sold|earned|gain(?:ed)?|found|loot(?:ed)?|reward(?:ed)?|paid\s+you)\s+(\d+(?:\.\d+)?)\b/g)) {
+      for (const m of lower.matchAll(
+        /\b(?:sell|sold|earned|gain(?:ed)?|found|loot(?:ed)?|reward(?:ed)?|paid\s+you)\s+(\d+(?:\.\d+)?)\b/g,
+      )) {
         earned += Number(m[1])
       }
 
       // Word-number variant: "earned fifty", "rewarded forty".
-      for (const m of lower.matchAll(/\b(?:sell|sold|earned|gain(?:ed)?|found|loot(?:ed)?|reward(?:ed)?|paid\s+you)\s+((?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|and|-|\s)+)\b/g)) {
+      for (const m of lower.matchAll(
+        /\b(?:sell|sold|earned|gain(?:ed)?|found|loot(?:ed)?|reward(?:ed)?|paid\s+you)\s+((?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|and|-|\s)+)\b/g,
+      )) {
         const parsed = parseAmountToken(m[1])
         if (parsed && parsed > 0) earned += parsed
       }

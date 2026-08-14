@@ -105,7 +105,7 @@
     <Textarea
       bind:value={data.description}
       oninput={handleInput}
-      class="min-h-[200px] font-mono !text-[length:var(--text-base)] md:!text-[length:var(--text-base)] leading-relaxed"
+      class="min-h-[200px] font-mono !text-[length:var(--text-base)] leading-relaxed md:!text-[length:var(--text-base)]"
       placeholder="Enter the lore content here..."
     />
   </div>

@@ -184,7 +184,9 @@
       <Card.Root>
         <Card.Content class="space-y-2 p-3">
           {#if isDetectingStyle}
-            <p class="text-muted-foreground text-sm">Detecting POV and tense from imported chat...</p>
+            <p class="text-muted-foreground text-sm">
+              Detecting POV and tense from imported chat...
+            </p>
           {:else if styleDetectionError}
             <p class="text-destructive text-sm">Detection failed: {styleDetectionError}</p>
           {:else if detectedPOV && detectedTense}

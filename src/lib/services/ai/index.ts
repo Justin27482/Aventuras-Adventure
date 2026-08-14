@@ -51,7 +51,6 @@ import type {
   POV,
   ReasoningEffort,
   Story,
-  StoryBeat,
   StoryEntry,
   StoryMode,
   StorySettings,
@@ -491,7 +490,10 @@ class AIService {
    */
   async estimateChapterTimeline(summary: string): Promise<TimeTracker> {
     const text = summary.trim()
-    const sentenceCount = Math.max(1, text.split(/[.!?]+/).filter((part) => part.trim().length > 0).length)
+    const sentenceCount = Math.max(
+      1,
+      text.split(/[.!?]+/).filter((part) => part.trim().length > 0).length,
+    )
     const estimatedMinutes = Math.max(5, Math.ceil(text.length / 80) + sentenceCount * 2)
     const hours = Math.floor(estimatedMinutes / 60)
 

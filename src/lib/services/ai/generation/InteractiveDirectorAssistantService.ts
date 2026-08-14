@@ -88,7 +88,9 @@ export class InteractiveDirectorAssistantService extends BaseAIService {
 
   private buildDirectorTools(context: DirectorInteractiveContext) {
     const createdArtifacts = new Map<string, DirectorProposalArtifact>()
-    const lorebookEntries = JSON.parse(JSON.stringify(context.worldState.lorebookEntries)) as Entry[]
+    const lorebookEntries = JSON.parse(
+      JSON.stringify(context.worldState.lorebookEntries),
+    ) as Entry[]
     const chapters = JSON.parse(JSON.stringify(context.chapters)) as Chapter[]
     const chapterSources = JSON.parse(JSON.stringify(context.chapterSources)) as ChapterSource[]
     const storyEntries = JSON.parse(JSON.stringify(context.storyEntries)) as StoryEntry[]
@@ -108,10 +110,20 @@ export class InteractiveDirectorAssistantService extends BaseAIService {
           type: z
             .string()
             .optional()
-            .describe('Optional entry type filter such as character, location, item, concept, event.'),
+            .describe(
+              'Optional entry type filter such as character, location, item, concept, event.',
+            ),
           limit: z.number().optional().default(10).describe('Maximum entries to return.'),
         }),
-        execute: async ({ query, type, limit }: { query?: string; type?: string; limit?: number }) => {
+        execute: async ({
+          query,
+          type,
+          limit,
+        }: {
+          query?: string
+          type?: string
+          limit?: number
+        }) => {
           let filtered = lorebookEntries
 
           if (type?.trim()) {
@@ -258,14 +270,13 @@ export class InteractiveDirectorAssistantService extends BaseAIService {
               plotThreads: chapter.plotThreads,
               emotionalTone: chapter.emotionalTone,
             },
-            entries:
-              includeEntries
-                ? chapterEntries.slice(0, entryLimit ?? 24).map((entry) => ({
-                    type: entry.type,
-                    content: entry.content,
-                    createdAt: entry.createdAt,
-                  }))
-                : undefined,
+            entries: includeEntries
+              ? chapterEntries.slice(0, entryLimit ?? 24).map((entry) => ({
+                  type: entry.type,
+                  content: entry.content,
+                  createdAt: entry.createdAt,
+                }))
+              : undefined,
             entryCount: chapterEntries.length,
           }
         },
@@ -347,7 +358,10 @@ export class InteractiveDirectorAssistantService extends BaseAIService {
               const content = source.rawText.trim()
               const hitIndex = content.toLowerCase().indexOf(term)
               const excerptStart = hitIndex >= 0 ? Math.max(0, hitIndex - 180) : 0
-              const excerptEnd = hitIndex >= 0 ? Math.min(content.length, hitIndex + 420) : Math.min(content.length, 560)
+              const excerptEnd =
+                hitIndex >= 0
+                  ? Math.min(content.length, hitIndex + 420)
+                  : Math.min(content.length, 560)
               const excerpt = content.slice(excerptStart, excerptEnd)
               return {
                 id: source.id,
@@ -355,7 +369,10 @@ export class InteractiveDirectorAssistantService extends BaseAIService {
                 sourceFilename: source.sourceFilename,
                 chapterNumber: source.chapterNumber,
                 summary: source.summary,
-                excerpt: excerpt.length < content.length ? `${excerpt}${excerptEnd < content.length ? '...' : ''}` : excerpt,
+                excerpt:
+                  excerpt.length < content.length
+                    ? `${excerpt}${excerptEnd < content.length ? '...' : ''}`
+                    : excerpt,
               }
             }),
           }

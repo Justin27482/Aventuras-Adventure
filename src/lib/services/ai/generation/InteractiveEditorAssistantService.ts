@@ -151,16 +151,11 @@ export class InteractiveEditorAssistantService extends BaseAIService {
     return id
   }
 
-  async loadConversation(
-    conversationId: string,
-  ): Promise<
-    | {
-        chatMessages: EditorChatMessage[]
-        pendingEdits: EditorProposedEdit[]
-        selectedTargetEntryId: string | null
-      }
-    | null
-  > {
+  async loadConversation(conversationId: string): Promise<{
+    chatMessages: EditorChatMessage[]
+    pendingEdits: EditorProposedEdit[]
+    selectedTargetEntryId: string | null
+  } | null> {
     const conversation = await database.loadEditorConversation(conversationId)
     if (!conversation) {
       return null
@@ -196,7 +191,9 @@ export class InteractiveEditorAssistantService extends BaseAIService {
 
   private buildTools(context: EditorInteractiveContext) {
     const edits = new Map<string, EditorProposedEdit>()
-    const lorebookEntries = JSON.parse(JSON.stringify(context.worldState.lorebookEntries)) as Entry[]
+    const lorebookEntries = JSON.parse(
+      JSON.stringify(context.worldState.lorebookEntries),
+    ) as Entry[]
     const chapters = JSON.parse(JSON.stringify(context.chapters)) as Chapter[]
     const storyEntries = JSON.parse(JSON.stringify(context.storyEntries)) as StoryEntry[]
     const chapterEntriesByNumber = JSON.parse(
@@ -212,7 +209,15 @@ export class InteractiveEditorAssistantService extends BaseAIService {
           type: z.string().optional(),
           limit: z.number().optional().default(10),
         }),
-        execute: async ({ query, type, limit }: { query?: string; type?: string; limit?: number }) => {
+        execute: async ({
+          query,
+          type,
+          limit,
+        }: {
+          query?: string
+          type?: string
+          limit?: number
+        }) => {
           let filtered = lorebookEntries
 
           if (type?.trim()) {
@@ -343,15 +348,14 @@ export class InteractiveEditorAssistantService extends BaseAIService {
               plotThreads: chapter.plotThreads,
               emotionalTone: chapter.emotionalTone,
             },
-            entries:
-              includeEntries
-                ? chapterEntries.slice(0, entryLimit ?? 24).map((entry) => ({
-                    id: entry.id,
-                    type: entry.type,
-                    content: entry.content,
-                    createdAt: entry.createdAt,
-                  }))
-                : undefined,
+            entries: includeEntries
+              ? chapterEntries.slice(0, entryLimit ?? 24).map((entry) => ({
+                  id: entry.id,
+                  type: entry.type,
+                  content: entry.content,
+                  createdAt: entry.createdAt,
+                }))
+              : undefined,
             entryCount: chapterEntries.length,
           }
         },
@@ -384,7 +388,8 @@ export class InteractiveEditorAssistantService extends BaseAIService {
       }),
 
       read_recent_story_text: tool({
-        description: 'Read the most recent story entries for immediate scene-level editing context.',
+        description:
+          'Read the most recent story entries for immediate scene-level editing context.',
         inputSchema: z.object({
           count: z.number().optional().default(12),
           includeSystem: z.boolean().optional().default(false),

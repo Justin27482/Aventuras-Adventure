@@ -13,7 +13,10 @@
 
 <div class="space-y-4">
   <p class="text-muted-foreground">How do you want to experience your story?</p>
-  <button class="group w-full text-left focus:outline-none" onclick={() => onModeChange('adventure')}>
+  <button
+    class="group w-full text-left focus:outline-none"
+    onclick={() => onModeChange('adventure')}
+  >
     <Card.Root
       class="border-border hover:border-primary hover:shadow-primary/5 h-full transition-all duration-200 hover:shadow-md {selectedMode ===
       'adventure'

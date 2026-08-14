@@ -8,7 +8,17 @@
   import { Autocomplete } from '$lib/components/ui/autocomplete'
   import { Slider } from '$lib/components/ui/slider'
   import { Switch } from '$lib/components/ui/switch'
-  import { RotateCcw, Info, Plus, Copy, Eye, EyeOff, ChevronRight, Check, Trash2 } from 'lucide-svelte'
+  import {
+    RotateCcw,
+    Info,
+    Plus,
+    Copy,
+    Eye,
+    EyeOff,
+    ChevronRight,
+    Check,
+    Trash2,
+  } from 'lucide-svelte'
   import { Textarea } from '$lib/components/ui/textarea'
   import {
     listImageModels,
@@ -28,7 +38,12 @@
   } from '$lib/services/ai/image/providers/comfy'
   import type { ComfyCustomWorkflow } from '$lib/services/ai/image/providers/types'
   import ImageModelSelect from '$lib/components/settings/ImageModelSelect.svelte'
-  import type { ImageProfile, ImageProviderType, APIProfile, SmartLoraCatalogEntry } from '$lib/types'
+  import type {
+    ImageProfile,
+    ImageProviderType,
+    APIProfile,
+    SmartLoraCatalogEntry,
+  } from '$lib/types'
   import * as Tabs from '$lib/components/ui/tabs'
   import * as Alert from '$lib/components/ui/alert'
   import { Card, CardContent } from '$lib/components/ui/card'
@@ -83,11 +98,14 @@
     return sizes
   })()
 
-  const modelFamilySizePresets: Record<Exclude<BaseModelFamily, 'auto'>, {
-    story: string[]
-    portrait: string[]
-    background: string[]
-  }> = {
+  const modelFamilySizePresets: Record<
+    Exclude<BaseModelFamily, 'auto'>,
+    {
+      story: string[]
+      portrait: string[]
+      background: string[]
+    }
+  > = {
     sd15: {
       story: ['512x512', '512x768', '768x512', '640x832', '832x640', '704x704'],
       portrait: ['512x768', '576x864', '640x960', '704x1056'],
@@ -629,9 +647,7 @@
   function addSelectedEmbeddingToNegativePrompt() {
     const name = selectedEmbeddingName.trim()
     if (!name) return
-    profileNegativePrompt = profileNegativePrompt
-      ? `${profileNegativePrompt}, ${name}`
-      : name
+    profileNegativePrompt = profileNegativePrompt ? `${profileNegativePrompt}, ${name}` : name
     selectedEmbeddingName = ''
   }
 
@@ -862,11 +878,7 @@
       profileWeightDtype = (opts.weightDtype as string) || 'default'
       availableClips = []
       availableVaes = []
-      const rawLoras = Array.isArray(opts.loras)
-        ? opts.loras
-        : opts.lora
-          ? [opts.lora]
-          : []
+      const rawLoras = Array.isArray(opts.loras) ? opts.loras : opts.lora ? [opts.lora] : []
       profileLoras = rawLoras
         .filter((item: unknown) => item && typeof item === 'object')
         .map((item: any) => ({
@@ -918,7 +930,9 @@
     if (!editingProfileId || isNewProfile) return
 
     const catalog = settings.serviceSpecificSettings.imageGeneration.smartLoraCatalog
-    const exists = catalog.some((entry) => entry.profileId === editingProfileId && entry.loraName === loraName)
+    const exists = catalog.some(
+      (entry) => entry.profileId === editingProfileId && entry.loraName === loraName,
+    )
     if (exists) return
 
     settings.serviceSpecificSettings.imageGeneration.smartLoraCatalog = [
@@ -942,7 +956,9 @@
 
   async function removeFromSmartLoraCatalog(id: string) {
     settings.serviceSpecificSettings.imageGeneration.smartLoraCatalog =
-      settings.serviceSpecificSettings.imageGeneration.smartLoraCatalog.filter((entry) => entry.id !== id)
+      settings.serviceSpecificSettings.imageGeneration.smartLoraCatalog.filter(
+        (entry) => entry.id !== id,
+      )
     await settings.saveServiceSpecificSettings()
   }
 
@@ -1307,7 +1323,9 @@
                     <div class="flex items-center justify-between gap-2">
                       <Label>Regular Image Size</Label>
                       {#if standardFamilyInfo}
-                        <span class="text-muted-foreground bg-muted rounded px-2 py-0.5 text-[11px]">
+                        <span
+                          class="text-muted-foreground bg-muted rounded px-2 py-0.5 text-[11px]"
+                        >
                           {standardFamilyInfo.source === 'override' ? 'Overridden' : 'Auto'}: {getFamilyLabel(
                             standardFamilyInfo.family,
                           )}
@@ -1364,7 +1382,9 @@
                     <div class="flex items-center justify-between gap-2">
                       <Label>Reference Image Size</Label>
                       {#if referenceFamilyInfo}
-                        <span class="text-muted-foreground bg-muted rounded px-2 py-0.5 text-[11px]">
+                        <span
+                          class="text-muted-foreground bg-muted rounded px-2 py-0.5 text-[11px]"
+                        >
                           {referenceFamilyInfo.source === 'override' ? 'Overridden' : 'Auto'}: {getFamilyLabel(
                             referenceFamilyInfo.family,
                           )}
@@ -1813,8 +1833,8 @@
           placeholder="Auto-detect from selected model"
         />
         <p class="text-muted-foreground mt-1 text-xs">
-          Optional override used for model-specific size presets (SD1.5, SD Turbo, SDXL, Pony,
-          IL, Flux).
+          Optional override used for model-specific size presets (SD1.5, SD Turbo, SDXL, Pony, IL,
+          Flux).
         </p>
       </div>
     {/snippet}
@@ -2141,7 +2161,12 @@
                   placeholder="Select LoRA..."
                 />
               </div>
-              <Button type="button" variant="outline" onclick={addSelectedLora} disabled={!selectedLoraName.trim()}>
+              <Button
+                type="button"
+                variant="outline"
+                onclick={addSelectedLora}
+                disabled={!selectedLoraName.trim()}
+              >
                 <Plus class="h-4 w-4" />
               </Button>
             </div>
@@ -2173,7 +2198,12 @@
                 <div class="bg-muted/40 rounded-md border p-3">
                   <div class="mb-2 flex items-center justify-between">
                     <p class="text-sm font-medium">{lora.name}</p>
-                    <Button type="button" variant="ghost" size="sm" onclick={() => removeLora(lora.id)}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onclick={() => removeLora(lora.id)}
+                    >
                       <Trash2 class="h-4 w-4" />
                     </Button>
                   </div>
@@ -2196,11 +2226,14 @@
             <div class="flex items-center justify-between">
               <Label>Smart LoRA Catalog (Labs)</Label>
               <span class="text-muted-foreground text-xs">
-                {settings.experimentalFeatures.smartLoraRouting ? 'Enabled in Labs' : 'Disabled in Labs'}
+                {settings.experimentalFeatures.smartLoraRouting
+                  ? 'Enabled in Labs'
+                  : 'Disabled in Labs'}
               </span>
             </div>
             <p class="text-muted-foreground text-xs">
-              Configure what each LoRA does and optional age rules for automatic Vault Assistant routing.
+              Configure what each LoRA does and optional age rules for automatic Vault Assistant
+              routing.
             </p>
 
             <div class="space-y-1.5">
@@ -2319,7 +2352,8 @@
                         <Input
                           value={getTagsText(entry)}
                           placeholder="teen, young adult, school"
-                          onblur={(e) => setTagsText(entry, (e.currentTarget as HTMLInputElement).value)}
+                          onblur={(e) =>
+                            setTagsText(entry, (e.currentTarget as HTMLInputElement).value)}
                         />
                       </div>
                       <div class="space-y-1.5">

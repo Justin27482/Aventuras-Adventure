@@ -262,7 +262,9 @@
       </div>
     </div>
 
-    <div class="mb-5 grid grid-cols-1 gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_auto] sm:items-end">
+    <div
+      class="mb-5 grid grid-cols-1 gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_auto] sm:items-end"
+    >
       <div class="grid grid-cols-1 gap-2 sm:grid-cols-[220px_1fr]">
         <div class="space-y-1">
           <p class="text-muted-foreground text-xs font-medium">View</p>
@@ -327,20 +329,41 @@
         onAction={openSetupWizard}
         class="pb-20"
       />
-    {:else}
-      {#if folderFilter === 'all'}
-        <div class="space-y-6">
-          {#each groupedStories.folders as group (group.folder.id)}
-            <section class="space-y-3">
-              <div class="flex items-center gap-2">
-                <FolderOpen class="text-muted-foreground h-4 w-4" />
-                <h2 class="text-foreground text-sm font-semibold tracking-wide uppercase">
-                  {group.folder.name}
-                </h2>
-                <span class="text-muted-foreground text-xs">{group.stories.length}</span>
-              </div>
+    {:else if folderFilter === 'all'}
+      <div class="space-y-6">
+        {#each groupedStories.folders as group (group.folder.id)}
+          <section class="space-y-3">
+            <div class="flex items-center gap-2">
+              <FolderOpen class="text-muted-foreground h-4 w-4" />
+              <h2 class="text-foreground text-sm font-semibold tracking-wide uppercase">
+                {group.folder.name}
+              </h2>
+              <span class="text-muted-foreground text-xs">{group.stories.length}</span>
+            </div>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {#each group.stories as s (s.id)}
+                <StoryCard
+                  story={s}
+                  folders={story.storyFolders}
+                  onOpen={openStory}
+                  onDelete={deleteStory}
+                  onDuplicate={duplicateStoryToWizard}
+                  onAssignFolder={assignStoryFolder}
+                />
+              {/each}
+            </div>
+          </section>
+        {/each}
+
+        {#if groupedStories.unfiled.length > 0 || groupedStories.folders.length === 0}
+          <section class="space-y-3">
+            <div class="flex items-center gap-2">
+              <h2 class="text-foreground text-sm font-semibold tracking-wide uppercase">Unfiled</h2>
+              <span class="text-muted-foreground text-xs">{groupedStories.unfiled.length}</span>
+            </div>
+            {#if groupedStories.unfiled.length > 0}
               <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {#each group.stories as s (s.id)}
+                {#each groupedStories.unfiled as s (s.id)}
                   <StoryCard
                     story={s}
                     folders={story.storyFolders}
@@ -351,55 +374,30 @@
                   />
                 {/each}
               </div>
-            </section>
-          {/each}
-
-          {#if groupedStories.unfiled.length > 0 || groupedStories.folders.length === 0}
-            <section class="space-y-3">
-              <div class="flex items-center gap-2">
-                <h2 class="text-foreground text-sm font-semibold tracking-wide uppercase">
-                  Unfiled
-                </h2>
-                <span class="text-muted-foreground text-xs">{groupedStories.unfiled.length}</span>
-              </div>
-              {#if groupedStories.unfiled.length > 0}
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {#each groupedStories.unfiled as s (s.id)}
-                    <StoryCard
-                      story={s}
-                      folders={story.storyFolders}
-                      onOpen={openStory}
-                      onDelete={deleteStory}
-                      onDuplicate={duplicateStoryToWizard}
-                      onAssignFolder={assignStoryFolder}
-                    />
-                  {/each}
-                </div>
-              {/if}
-            </section>
-          {/if}
-        </div>
-      {:else if filteredStories.length === 0}
-        <EmptyState
-          icon={FolderOpen}
-          title="No stories in this view"
-          description="Move stories into this folder from the card dropdown."
-          class="pb-20"
-        />
-      {:else}
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {#each filteredStories as s (s.id)}
-            <StoryCard
-              story={s}
-              folders={story.storyFolders}
-              onOpen={openStory}
-              onDelete={deleteStory}
-              onDuplicate={duplicateStoryToWizard}
-              onAssignFolder={assignStoryFolder}
-            />
-          {/each}
-        </div>
-      {/if}
+            {/if}
+          </section>
+        {/if}
+      </div>
+    {:else if filteredStories.length === 0}
+      <EmptyState
+        icon={FolderOpen}
+        title="No stories in this view"
+        description="Move stories into this folder from the card dropdown."
+        class="pb-20"
+      />
+    {:else}
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {#each filteredStories as s (s.id)}
+          <StoryCard
+            story={s}
+            folders={story.storyFolders}
+            onOpen={openStory}
+            onDelete={deleteStory}
+            onDuplicate={duplicateStoryToWizard}
+            onAssignFolder={assignStoryFolder}
+          />
+        {/each}
+      </div>
     {/if}
   </div>
 

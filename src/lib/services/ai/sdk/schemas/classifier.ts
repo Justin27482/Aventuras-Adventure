@@ -196,7 +196,18 @@ const moneyUpdateSchema = z.object({
     .number()
     .describe('Net money change: positive for earning/selling, negative for spending/losing'),
   transactionType: z
-    .enum(['purchase', 'sale', 'reward', 'loot', 'wage', 'fee', 'bribe', 'theft', 'gamble', 'other'])
+    .enum([
+      'purchase',
+      'sale',
+      'reward',
+      'loot',
+      'wage',
+      'fee',
+      'bribe',
+      'theft',
+      'gamble',
+      'other',
+    ])
     .describe('Best matching category for this money change')
     .optional(),
   reason: z.string().describe('Short explanation of why money changed').optional(),
@@ -249,7 +260,9 @@ export interface ClassificationSchemaOptions {
  * Build a classifier result schema with subprocess fields removed when disabled.
  * This keeps JSON schema requests aligned with active classifier toggles.
  */
-export function buildClassificationResultSchema(options: ClassificationSchemaOptions): z.ZodTypeAny {
+export function buildClassificationResultSchema(
+  options: ClassificationSchemaOptions,
+): z.ZodTypeAny {
   let entry: z.AnyZodObject = entryUpdatesSchema
   let scene: z.AnyZodObject = sceneSchema
 

@@ -137,11 +137,14 @@
     {/if}
 
     {#if isMainProfileOpenRouter}
-      <div class="mt-2 flex flex-row items-center justify-between rounded-lg border border-surface-700 bg-surface-900/40 px-3 py-2">
+      <div
+        class="border-surface-700 bg-surface-900/40 mt-2 flex flex-row items-center justify-between rounded-lg border px-3 py-2"
+      >
         <div class="space-y-0.5">
           <Label>OpenRouter Context Compression</Label>
           <p class="text-muted-foreground text-xs">
-            Enable OpenRouter plugin-based prompt compression to reduce context size on large requests.
+            Enable OpenRouter plugin-based prompt compression to reduce context size on large
+            requests.
           </p>
         </div>
         <Switch

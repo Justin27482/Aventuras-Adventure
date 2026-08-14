@@ -201,7 +201,9 @@ export class EntryRetrievalService extends BaseAIService {
       audience,
     })
 
-    const visibleEntries = entries.filter((entry) => this.isEntryVisibleForAudience(entry, storyMode, audience))
+    const visibleEntries = entries.filter((entry) =>
+      this.isEntryVisibleForAudience(entry, storyMode, audience),
+    )
 
     // Build search content from user input and recent story
     const recentContent = recentStoryEntries
@@ -211,7 +213,12 @@ export class EntryRetrievalService extends BaseAIService {
     const searchContent = `${userInput} ${recentContent}`.toLowerCase()
 
     // Tier 1: Live-tracked entities + always-inject + sticky entries
-    const tier1 = this.getTier1Entries(visibleEntries, liveState, activationTracker, currentPosition)
+    const tier1 = this.getTier1Entries(
+      visibleEntries,
+      liveState,
+      activationTracker,
+      currentPosition,
+    )
     log(
       'Tier 1 entries (always active):',
       tier1.length,

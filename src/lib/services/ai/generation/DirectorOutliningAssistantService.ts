@@ -1,4 +1,3 @@
-import { z } from 'zod'
 import { createLogger } from '$lib/log'
 import { database } from '$lib/services/database'
 import { templateEngine } from '$lib/services/templates/engine'
@@ -12,10 +11,7 @@ import type {
   Location,
   Item,
 } from '$lib/types'
-import {
-  directorProposalSchema,
-  type DirectorProposal,
-} from '../sdk/schemas/director'
+import { directorProposalSchema, type DirectorProposal } from '../sdk/schemas/director'
 
 const log = createLogger('DirectorOutliningAssistant')
 
@@ -38,7 +34,9 @@ export class DirectorOutliningAssistantService extends BaseAIService {
     super(serviceId)
   }
 
-  async generateProposal(context: DirectorOutliningAssistantContext): Promise<DirectorProposalArtifact> {
+  async generateProposal(
+    context: DirectorOutliningAssistantContext,
+  ): Promise<DirectorProposalArtifact> {
     const storyMode = context.story.mode
     const recentEntryBlock = context.recentEntries.length
       ? context.recentEntries.map((entry) => `- ${entry}`).join('\n')
@@ -74,7 +72,12 @@ export class DirectorOutliningAssistantService extends BaseAIService {
       '- Prefer foreshadowing over direct disclosure when possible.',
     ].join('\n')
 
-    const result = await this.generate(directorProposalSchema, system, prompt, 'director-outlining-assistant')
+    const result = await this.generate(
+      directorProposalSchema,
+      system,
+      prompt,
+      'director-outlining-assistant',
+    )
 
     const now = Date.now()
     const artifact: DirectorProposalArtifact = {
@@ -96,7 +99,10 @@ export class DirectorOutliningAssistantService extends BaseAIService {
       await database.addDirectorProposalArtifact(artifact)
       log('Generated director proposal', { storyId: context.story.id, artifactId: artifact.id })
     } else {
-      log('Generated director proposal preview', { storyId: context.story.id, artifactId: artifact.id })
+      log('Generated director proposal preview', {
+        storyId: context.story.id,
+        artifactId: artifact.id,
+      })
     }
     return artifact
   }

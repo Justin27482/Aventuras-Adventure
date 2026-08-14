@@ -51,7 +51,9 @@
             (character.description?.toLowerCase().includes(query) ?? false) ||
             character.tags.some((tag) => tag.toLowerCase().includes(query))
 
-          return commonMatch || character.traits.some((trait) => trait.toLowerCase().includes(query))
+          return (
+            commonMatch || character.traits.some((trait) => trait.toLowerCase().includes(query))
+          )
         })
       : items
 
@@ -174,9 +176,11 @@
                 {@const selected = isSelected(character.id)}
                 <button
                   type="button"
-                  class={`group bg-card hover:border-primary/50 flex min-h-48 flex-col rounded-xl border p-4 text-left transition-all ${selected
-                    ? 'border-primary bg-primary/5 ring-primary ring-1'
-                    : 'border-muted shadow-sm'} ${focusedCharacter?.id === character.id ? 'border-primary/60' : ''}`}
+                  class={`group bg-card hover:border-primary/50 flex min-h-48 flex-col rounded-xl border p-4 text-left transition-all ${
+                    selected
+                      ? 'border-primary bg-primary/5 ring-primary ring-1'
+                      : 'border-muted shadow-sm'
+                  } ${focusedCharacter?.id === character.id ? 'border-primary/60' : ''}`}
                   onclick={() => toggleSelection(character)}
                 >
                   <div class="mb-3 flex items-start justify-between gap-2">
@@ -213,7 +217,9 @@
                       {#if character.traits.length > 0}
                         <div class="flex flex-wrap gap-1">
                           {#each character.traits.slice(0, 4) as trait (trait)}
-                            <span class="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px]">
+                            <span
+                              class="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px]"
+                            >
                               {trait}
                             </span>
                           {/each}
@@ -321,7 +327,8 @@
 
               {#if focusedCharacter.metadata?.linkedLorebookId}
                 <div class="bg-muted/40 text-muted-foreground rounded-md border px-3 py-2 text-xs">
-                  This vault character has a linked lorebook. It is not imported automatically by this modal.
+                  This vault character has a linked lorebook. It is not imported automatically by
+                  this modal.
                 </div>
               {/if}
             </div>
@@ -333,7 +340,8 @@
 
           {#if selectedCharacters.length > 0}
             <div class="bg-muted/20 rounded-md border px-3 py-2 text-xs">
-              {selectedCharacters.length} character{selectedCharacters.length === 1 ? '' : 's'} selected for import.
+              {selectedCharacters.length} character{selectedCharacters.length === 1 ? '' : 's'} selected
+              for import.
             </div>
           {/if}
 
@@ -347,7 +355,9 @@
     <ResponsiveModal.Footer class="border-t px-6 py-3">
       <div class="flex w-full flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div class="w-full lg:max-w-xs">
-          <Label for="import-character-relationship" class="mb-1.5 block text-sm">Relationship</Label>
+          <Label for="import-character-relationship" class="mb-1.5 block text-sm"
+            >Relationship</Label
+          >
           <Input
             id="import-character-relationship"
             bind:value={relationship}
@@ -365,7 +375,7 @@
             {#if importing}
               <Loader2 class="h-4 w-4 animate-spin" />
               Importing...
-          {:else}
+            {:else}
               Add Character{selectedCharacters.length === 1 ? '' : 's'}
             {/if}
           </Button>

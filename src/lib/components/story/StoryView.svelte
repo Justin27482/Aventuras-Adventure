@@ -299,7 +299,6 @@
     if (raw.startsWith('data:')) return `url(${raw})`
     return `url(data:image/png;base64,${raw})`
   })
-
 </script>
 
 <div class="relative flex h-full flex-col overflow-hidden">

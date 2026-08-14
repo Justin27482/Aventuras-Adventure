@@ -976,11 +976,9 @@ class UIStore {
       this.actionChoices = parsed as ActionChoice[]
       // Also persist to settings so they survive app restart
       const data: PersistedActionChoices = { storyId, choices: parsed as ActionChoice[] }
-      database
-        .setSetting(this.getActionChoicesKey(storyId), JSON.stringify(data))
-        .catch((err) => {
-          console.warn('[UI] Failed to persist restored action choices:', err)
-        })
+      database.setSetting(this.getActionChoicesKey(storyId), JSON.stringify(data)).catch((err) => {
+        console.warn('[UI] Failed to persist restored action choices:', err)
+      })
 
       console.log('[UI] Restored suggested actions from entry for story:', storyId)
       return true
@@ -1006,7 +1004,9 @@ class UIStore {
   }
 
   // Retry last message callback management (for edit-and-retry feature)
-  setRetryLastMessageCallback(callback: ((options?: RetryLastMessageOptions) => Promise<void>) | null) {
+  setRetryLastMessageCallback(
+    callback: ((options?: RetryLastMessageOptions) => Promise<void>) | null,
+  ) {
     this.retryLastMessageCallback = callback
   }
 
