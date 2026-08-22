@@ -72,8 +72,8 @@
   <div class="space-y-1">
     <h3 class="text-lg font-medium">Character Portraits</h3>
     <p class="text-muted-foreground text-sm">
-      Upload or generate visual representations for your cast. Portraits allow characters to appear
-      in story illustrations.
+      Upload or generate visual representations for your party. Portraits allow characters to appear
+      in campaign illustrations.
     </p>
   </div>
 
@@ -138,7 +138,7 @@
           <div class="min-w-0 flex-1">
             <div class="flex items-center justify-between">
               <h4 class="truncate font-medium">{protagonist.name}</h4>
-              <Badge variant="default" class="h-5 px-1.5 text-[10px]">Protagonist</Badge>
+              <Badge variant="default" class="h-5 px-1.5 text-[10px]">Lead Character</Badge>
             </div>
 
             <div class="mb-2 space-y-1.5">
@@ -212,7 +212,7 @@
         class="text-muted-foreground flex flex-col items-center justify-center p-6 text-center"
       >
         <User class="mb-2 h-8 w-8 opacity-50" />
-        <p class="text-sm">No protagonist created. Go back to create one.</p>
+        <p class="text-sm">No lead character created. Go back to create one.</p>
       </Card.Content>
     </Card.Root>
   {/if}
@@ -223,7 +223,7 @@
       <div class="flex items-center gap-2 pb-1">
         <Separator class="flex-1" />
         <h4 class="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-          Supporting Cast
+          Party Members
         </h4>
         <Separator class="flex-1" />
       </div>

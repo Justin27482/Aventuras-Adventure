@@ -27,7 +27,7 @@
         ? 'Selected model is unreachable — change model or wait for recovery.'
         : isProfileInvalid
           ? 'Some API profiles need to be reconfigured before you can use AI features.'
-          : 'Some AI services are missing a model. Story generation is blocked until all are configured.',
+          : 'Some AI services are missing a model. Campaign generation is blocked until all are configured.',
   )
 
   function handleFix() {

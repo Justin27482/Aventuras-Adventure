@@ -3,6 +3,7 @@
   import { settings } from '$lib/stores/settings.svelte'
   import { ui } from '$lib/stores/ui.svelte'
   import { characterVault } from '$lib/stores/characterVault.svelte'
+  import { slide } from 'svelte/transition'
   import {
     Plus,
     User,
@@ -19,6 +20,7 @@
     UserPlus,
     Save,
     BookOpen,
+    Sparkles,
   } from 'lucide-svelte'
   import type { Character } from '$lib/types'
   import type { RuntimeVariable, RuntimeVarsMap } from '$lib/services/packs/types'
@@ -27,6 +29,7 @@
     getProviderDisplayName,
     generatePortrait as sdkGeneratePortrait,
   } from '$lib/services/ai/image'
+  import { scenarioService } from '$lib/services/ai/wizard'
   import { database } from '$lib/services/database'
   import RuntimeVariableDisplay from './RuntimeVariableDisplay.svelte'
   import { ContextBuilder } from '$lib/services/context'
@@ -41,6 +44,7 @@
   import CharacterVaultImportModal from './CharacterVaultImportModal.svelte'
   import * as Avatar from '$lib/components/ui/avatar'
   import * as ToggleGroup from '$lib/components/ui/toggle-group'
+  import * as Tooltip from '$lib/components/ui/tooltip'
   import { Label } from '$lib/components/ui/label'
   import { cn } from '$lib/utils/cn'
   import IconRow from '$lib/components/ui/icon-row.svelte'
@@ -50,6 +54,10 @@
   let newName = $state('')
   let newDescription = $state('')
   let newRelationship = $state('')
+  let newTraits = $state('')
+  let showCharacterAiOptions = $state(false)
+  let characterGuidance = $state('')
+  let isGeneratingCharacter = $state(false)
   let editingId = $state<string | null>(null)
   let editName = $state('')
   let editDescription = $state('')
@@ -182,15 +190,62 @@
 
   async function addCharacter() {
     if (!newName.trim()) return
+    const traits = newTraits
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean)
     await story.addCharacter(
       newName.trim(),
       newDescription.trim() || undefined,
       newRelationship.trim() || undefined,
+      traits.length > 0 ? traits : undefined,
     )
     newName = ''
     newDescription = ''
     newRelationship = ''
+    newTraits = ''
+    characterGuidance = ''
+    showCharacterAiOptions = false
     showAddForm = false
+  }
+
+  // Uses the same character-elaboration model as the wizard so mid-campaign additions
+  // get equally rich results; there's no wizard ExpandedSetting here, so setting is null.
+  async function generateCharacterWithAI() {
+    if (isGeneratingCharacter) return
+    isGeneratingCharacter = true
+    try {
+      const genre = story.currentStory?.genre?.trim() || undefined
+      const result = await scenarioService.elaborateCharacter(
+        {
+          name: newName.trim() || undefined,
+          description: newDescription.trim() || undefined,
+          traits: newTraits.trim()
+            ? newTraits
+                .split(',')
+                .map((t) => t.trim())
+                .filter(Boolean)
+            : undefined,
+        },
+        null,
+        'custom',
+        genre,
+        settings.servicePresetAssignments['wizard:characterElaboration'],
+        characterGuidance.trim() || undefined,
+      )
+      newName = result.name
+      newDescription = [result.description, result.background, result.motivation]
+        .filter((part) => part?.trim())
+        .join('\n\n')
+      newTraits = result.traits.join(', ')
+    } catch (error) {
+      ui.showToast(
+        error instanceof Error ? error.message : 'Failed to generate character',
+        'error',
+      )
+    } finally {
+      isGeneratingCharacter = false
+    }
   }
 
   async function importCharacterFromVault(
@@ -606,7 +661,58 @@
           class="min-h-15 resize-none text-sm"
           rows={2}
         />
+        <Input
+          type="text"
+          bind:value={newTraits}
+          placeholder="Traits (comma separated, optional)"
+          class="h-8 text-sm"
+        />
       </div>
+
+      <div class="mt-3">
+        <Button
+          variant="outline"
+          size="sm"
+          class="text-muted-foreground h-7 gap-2"
+          onclick={() => (showCharacterAiOptions = !showCharacterAiOptions)}
+        >
+          <Sparkles class="h-3.5 w-3.5" />
+          {showCharacterAiOptions ? 'Hide AI Options' : 'Generate with AI'}
+          <ChevronDown
+            class="h-3 w-3 transition-transform {showCharacterAiOptions ? 'rotate-180' : ''}"
+          />
+        </Button>
+      </div>
+
+      {#if showCharacterAiOptions}
+        <div
+          class="text-card-foreground bg-muted/10 mt-2 space-y-2 rounded-lg border p-2"
+          transition:slide={{ duration: 150 }}
+        >
+          <Textarea
+            bind:value={characterGuidance}
+            placeholder="Guidance for AI (optional) - role in the party, personality, background..."
+            class="min-h-12 resize-none text-sm"
+            rows={2}
+            disabled={isGeneratingCharacter}
+          />
+          <Button
+            size="sm"
+            class="h-7 gap-2"
+            onclick={generateCharacterWithAI}
+            disabled={isGeneratingCharacter}
+          >
+            {#if isGeneratingCharacter}
+              <Loader2 class="h-3.5 w-3.5 animate-spin" />
+              Generating...
+            {:else}
+              <Sparkles class="h-3.5 w-3.5" />
+              Generate Character
+            {/if}
+          </Button>
+        </div>
+      {/if}
+
       <div class="mt-3 flex justify-end gap-2">
         <Button variant="text" size="sm" class="h-7" onclick={() => (showAddForm = false)}>
           Cancel
@@ -1055,20 +1161,27 @@
             <div class="mt-2 flex items-center justify-between">
               <div class="-ml-1.5 flex items-center">
                 {#if hasDetails(character)}
-                  <Button
-                    variant="text"
-                    size="icon"
-                    class="text-muted-foreground hover:text-foreground h-6 w-6"
-                    onclick={() => toggleCollapse(character.id)}
-                    title={isCollapsed ? 'Show details' : 'Hide details'}
-                  >
-                    <ChevronDown
-                      class={cn(
-                        'h-4 w-4 transition-transform duration-200',
-                        !isCollapsed ? 'rotate-180' : '',
-                      )}
-                    />
-                  </Button>
+                  <Tooltip.Root>
+                    <Tooltip.Trigger>
+                      {#snippet child({ props })}
+                        <Button
+                          {...props}
+                          variant="text"
+                          size="icon"
+                          class="text-muted-foreground hover:text-foreground h-6 w-6"
+                          onclick={() => toggleCollapse(character.id)}
+                        >
+                          <ChevronDown
+                            class={cn(
+                              'h-4 w-4 transition-transform duration-200',
+                              !isCollapsed ? 'rotate-180' : '',
+                            )}
+                          />
+                        </Button>
+                      {/snippet}
+                    </Tooltip.Trigger>
+                    <Tooltip.Content>{isCollapsed ? 'Show details' : 'Hide details'}</Tooltip.Content>
+                  </Tooltip.Root>
                 {/if}
               </div>
 
@@ -1078,53 +1191,81 @@
                 showDelete={!isProtagonist}
               >
                 {#if !isProtagonist}
-                  <Button
-                    variant="text"
-                    size="icon"
-                    class="text-muted-foreground h-6 w-6 hover:text-amber-500"
-                    onclick={() => beginSwap(character)}
-                    title="Make protagonist"
-                  >
-                    <Star class="h-3.5 w-3.5" />
-                  </Button>
+                  <Tooltip.Root>
+                    <Tooltip.Trigger>
+                      {#snippet child({ props })}
+                        <Button
+                          {...props}
+                          variant="text"
+                          size="icon"
+                          class="text-muted-foreground h-6 w-6 hover:text-amber-500"
+                          onclick={() => beginSwap(character)}
+                        >
+                          <Star class="h-3.5 w-3.5" />
+                        </Button>
+                      {/snippet}
+                    </Tooltip.Trigger>
+                    <Tooltip.Content>Make protagonist</Tooltip.Content>
+                  </Tooltip.Root>
                 {/if}
-                <Button
-                  variant="text"
-                  size="icon"
-                  class="text-muted-foreground hover:text-foreground h-6 w-6"
-                  onclick={() => startEdit(character)}
-                  title="Edit"
-                >
-                  <Pencil class="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="text"
-                  size="icon"
-                  class={cn(
-                    'h-6 w-6',
-                    savedToLorebookId === character.id
-                      ? 'text-green-500'
-                      : 'text-muted-foreground hover:text-sky-500',
-                  )}
-                  onclick={() => addCharacterToLorebook(character)}
-                  title="Add to lorebook"
-                >
-                  <BookOpen class="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="text"
-                  size="icon"
-                  class={cn(
-                    'h-6 w-6',
-                    savedToVaultId === character.id
-                      ? 'text-green-500'
-                      : 'text-muted-foreground hover:text-primary',
-                  )}
-                  onclick={() => saveCharacterToVault(character)}
-                  title="Save to vault"
-                >
-                  <Archive class="h-3.5 w-3.5" />
-                </Button>
+                <Tooltip.Root>
+                  <Tooltip.Trigger>
+                    {#snippet child({ props })}
+                      <Button
+                        {...props}
+                        variant="text"
+                        size="icon"
+                        class="text-muted-foreground hover:text-foreground h-6 w-6"
+                        onclick={() => startEdit(character)}
+                      >
+                        <Pencil class="h-3.5 w-3.5" />
+                      </Button>
+                    {/snippet}
+                  </Tooltip.Trigger>
+                  <Tooltip.Content>Edit character</Tooltip.Content>
+                </Tooltip.Root>
+                <Tooltip.Root>
+                  <Tooltip.Trigger>
+                    {#snippet child({ props })}
+                      <Button
+                        {...props}
+                        variant="text"
+                        size="icon"
+                        class={cn(
+                          'h-6 w-6',
+                          savedToLorebookId === character.id
+                            ? 'text-green-500'
+                            : 'text-muted-foreground hover:text-sky-500',
+                        )}
+                        onclick={() => addCharacterToLorebook(character)}
+                      >
+                        <BookOpen class="h-3.5 w-3.5" />
+                      </Button>
+                    {/snippet}
+                  </Tooltip.Trigger>
+                  <Tooltip.Content>Add to lorebook</Tooltip.Content>
+                </Tooltip.Root>
+                <Tooltip.Root>
+                  <Tooltip.Trigger>
+                    {#snippet child({ props })}
+                      <Button
+                        {...props}
+                        variant="text"
+                        size="icon"
+                        class={cn(
+                          'h-6 w-6',
+                          savedToVaultId === character.id
+                            ? 'text-green-500'
+                            : 'text-muted-foreground hover:text-primary',
+                        )}
+                        onclick={() => saveCharacterToVault(character)}
+                      >
+                        <Archive class="h-3.5 w-3.5" />
+                      </Button>
+                    {/snippet}
+                  </Tooltip.Trigger>
+                  <Tooltip.Content>Save to vault</Tooltip.Content>
+                </Tooltip.Root>
               </IconRow>
             </div>
           {/if}

@@ -169,7 +169,7 @@ ${context.narrativeResponse}
                 `Chapter ${ch.number}${ch.title ? `: ${ch.title}` : ''} - ${ch.summary.slice(0, 200)}...`,
             )
             .join('\n')
-        : 'No chapters available. Use list_chapters and query_chapter tools to explore story history.'
+        : 'No sessions available. Use list_sessions and query_session tools to explore campaign history.'
 
     // Render prompts through unified pipeline
     const ctx = new ContextBuilder()

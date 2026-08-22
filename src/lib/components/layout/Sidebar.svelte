@@ -26,6 +26,7 @@
   import { DESKTOP_BREAKPOINT, MAX_SIDEBAR_WIDTH, MAX_SIDEBAR_RATIO } from '$lib/constants/layout'
 
   import * as Tabs from '$lib/components/ui/tabs'
+  import * as Tooltip from '$lib/components/ui/tooltip'
   import { Button } from '$lib/components/ui/button'
 
   const tabs = [
@@ -152,13 +153,20 @@
     <div class="border-border bg-muted/60 flex-shrink-0 border-b px-0">
       <Tabs.List class="flex h-auto w-full justify-start rounded-none bg-transparent p-0">
         {#each tabs as tab (tab.id)}
-          <Tabs.Trigger
-            value={tab.id}
-            class="data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-muted/30 hover:bg-muted/20 text-muted-foreground flex-1 rounded-none border-b-2 border-transparent bg-transparent py-3 transition-colors"
-            title={tab.label}
-          >
-            <tab.icon class="h-4 w-4" />
-          </Tabs.Trigger>
+          <Tooltip.Root>
+            <Tooltip.Trigger>
+              {#snippet child({ props })}
+                <Tabs.Trigger
+                  {...props}
+                  value={tab.id}
+                  class="data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-muted/30 hover:bg-muted/20 text-muted-foreground flex-1 rounded-none border-b-2 border-transparent bg-transparent py-3 transition-colors"
+                >
+                  <tab.icon class="h-4 w-4" />
+                </Tabs.Trigger>
+              {/snippet}
+            </Tooltip.Trigger>
+            <Tooltip.Content>{tab.label}</Tooltip.Content>
+          </Tooltip.Root>
         {/each}
       </Tabs.List>
     </div>
@@ -193,42 +201,63 @@
   <div
     class="bottom-context-nav border-border bg-muted flex flex-shrink-0 items-center gap-1 border-t p-2"
   >
-    <Button
-      variant="ghost"
-      class="text-muted-foreground hover:bg-muted/40 hover:text-foreground h-auto min-h-12 flex-1 flex-col gap-1 py-2 text-xs {ui.activePanel ===
-      'story'
-        ? '!bg-primary/10 !text-primary'
-        : ''}"
-      onclick={() => ui.setActivePanel('story')}
-      title="Story"
-    >
-      <BookOpen class="h-4 w-4" />
-      <span>Story</span>
-    </Button>
-    <Button
-      variant="ghost"
-      class="text-muted-foreground hover:bg-muted/40 hover:text-foreground h-auto min-h-12 flex-1 flex-col gap-1 py-2 text-xs {ui.activePanel ===
-      'lorebook'
-        ? '!bg-primary/10 !text-primary'
-        : ''}"
-      onclick={() => ui.setActivePanel('lorebook')}
-      title="Lorebook"
-    >
-      <BookMarked class="h-4 w-4" />
-      <span>Lorebook</span>
-    </Button>
-    <Button
-      variant="ghost"
-      class="text-muted-foreground hover:bg-muted/40 hover:text-foreground h-auto min-h-12 flex-1 flex-col gap-1 py-2 text-xs {ui.activePanel ===
-      'memory'
-        ? '!bg-primary/10 !text-primary'
-        : ''}"
-      onclick={() => ui.setActivePanel('memory')}
-      title="Memory"
-    >
-      <Brain class="h-4 w-4" />
-      <span>Memory</span>
-    </Button>
+    <Tooltip.Root>
+      <Tooltip.Trigger>
+        {#snippet child({ props })}
+          <Button
+            {...props}
+            variant="ghost"
+            class="text-muted-foreground hover:bg-muted/40 hover:text-foreground h-auto min-h-12 flex-1 flex-col gap-1 py-2 text-xs {ui.activePanel ===
+            'story'
+              ? '!bg-primary/10 !text-primary'
+              : ''}"
+            onclick={() => ui.setActivePanel('story')}
+          >
+            <BookOpen class="h-4 w-4" />
+            <span>Campaign</span>
+          </Button>
+        {/snippet}
+      </Tooltip.Trigger>
+      <Tooltip.Content>Campaign story and notes</Tooltip.Content>
+    </Tooltip.Root>
+    <Tooltip.Root>
+      <Tooltip.Trigger>
+        {#snippet child({ props })}
+          <Button
+            {...props}
+            variant="ghost"
+            class="text-muted-foreground hover:bg-muted/40 hover:text-foreground h-auto min-h-12 flex-1 flex-col gap-1 py-2 text-xs {ui.activePanel ===
+            'lorebook'
+              ? '!bg-primary/10 !text-primary'
+              : ''}"
+            onclick={() => ui.setActivePanel('lorebook')}
+          >
+            <BookMarked class="h-4 w-4" />
+            <span>Lorebook</span>
+          </Button>
+        {/snippet}
+      </Tooltip.Trigger>
+      <Tooltip.Content>Lore and world information</Tooltip.Content>
+    </Tooltip.Root>
+    <Tooltip.Root>
+      <Tooltip.Trigger>
+        {#snippet child({ props })}
+          <Button
+            {...props}
+            variant="ghost"
+            class="text-muted-foreground hover:bg-muted/40 hover:text-foreground h-auto min-h-12 flex-1 flex-col gap-1 py-2 text-xs {ui.activePanel ===
+            'memory'
+              ? '!bg-primary/10 !text-primary'
+              : ''}"
+            onclick={() => ui.setActivePanel('memory')}
+          >
+            <Brain class="h-4 w-4" />
+            <span>Memory</span>
+          </Button>
+        {/snippet}
+      </Tooltip.Trigger>
+      <Tooltip.Content>Character and story memory</Tooltip.Content>
+    </Tooltip.Root>
   </div>
 </aside>
 

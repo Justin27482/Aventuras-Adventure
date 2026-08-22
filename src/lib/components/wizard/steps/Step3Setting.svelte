@@ -231,7 +231,7 @@
       placeholder="e.g. Dark Fantasy, Cyberpunk Noir, etc."
     />
     <p class="text-muted-foreground text-[0.8rem]">
-      A short tag describing the style/tone of your story.
+      A short tag describing the style and tone of your campaign.
     </p>
   </div>
 

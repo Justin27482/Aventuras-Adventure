@@ -26,6 +26,8 @@
   import { cn } from '$lib/utils/cn'
   import { database } from '$lib/services/database'
   import RuntimeVariableDisplay from './RuntimeVariableDisplay.svelte'
+  import ItemOwnershipFields from './ItemOwnershipFields.svelte'
+  import { campaign } from '$lib/stores/campaign.svelte'
 
   let showAddForm = $state(false)
   let newName = $state('')
@@ -36,6 +38,9 @@
   let editDescription = $state('')
   let editQuantity = $state(1)
   let editEquipped = $state(false)
+  let editOwnerCharacterId = $state<string | null>(null)
+  let editSlotKey = $state('')
+  let editContainerItemId = $state<string | null>(null)
   let droppingItemId = $state<string | null>(null)
   let dropLocationId = $state<string>('')
 
@@ -96,6 +101,9 @@
     editDescription = item.description ?? ''
     editQuantity = item.quantity
     editEquipped = item.equipped
+    editOwnerCharacterId = item.ownerCharacterId ?? null
+    editSlotKey = item.slotKey ?? ''
+    editContainerItemId = item.containerItemId ?? null
     // Reset other modes
     droppingItemId = null
     // Initialize runtime vars from entity metadata
@@ -109,6 +117,9 @@
     editDescription = ''
     editQuantity = 1
     editEquipped = false
+    editOwnerCharacterId = null
+    editSlotKey = ''
+    editContainerItemId = null
     editRuntimeVars = {}
   }
 
@@ -130,6 +141,14 @@
           },
         }
       : item.metadata
+
+    if (campaign.current) {
+      await campaign.setItemOwnership(item, {
+        ownerCharacterId: editOwnerCharacterId,
+        slotKey: editSlotKey.trim() || null,
+        containerItemId: editContainerItemId,
+      })
+    }
 
     await story.updateItem(item.id, {
       name,
@@ -287,6 +306,16 @@
                   Equipped
                 </Label>
               </div>
+
+              <ItemOwnershipFields
+                {item}
+                ownerCharacterId={editOwnerCharacterId}
+                slotKey={editSlotKey}
+                containerItemId={editContainerItemId}
+                onOwnerChange={(value) => (editOwnerCharacterId = value)}
+                onSlotChange={(value) => (editSlotKey = value)}
+                onContainerChange={(value) => (editContainerItemId = value)}
+              />
 
               <div class="space-y-1">
                 <Label class="text-xs">Description</Label>
@@ -532,6 +561,16 @@
                   Equipped
                 </Label>
               </div>
+
+              <ItemOwnershipFields
+                {item}
+                ownerCharacterId={editOwnerCharacterId}
+                slotKey={editSlotKey}
+                containerItemId={editContainerItemId}
+                onOwnerChange={(value) => (editOwnerCharacterId = value)}
+                onSlotChange={(value) => (editSlotKey = value)}
+                onContainerChange={(value) => (editContainerItemId = value)}
+              />
 
               <div class="space-y-1">
                 <Label class="text-xs">Description</Label>
@@ -780,6 +819,16 @@
 
               <!-- No Equipped checkbox for world items usually, but keeping it consistent with function logic -->
               <!-- The saveEdit function handles forcing equipped=false for non-inventory items -->
+
+              <ItemOwnershipFields
+                {item}
+                ownerCharacterId={editOwnerCharacterId}
+                slotKey={editSlotKey}
+                containerItemId={editContainerItemId}
+                onOwnerChange={(value) => (editOwnerCharacterId = value)}
+                onSlotChange={(value) => (editSlotKey = value)}
+                onContainerChange={(value) => (editContainerItemId = value)}
+              />
 
               <div class="space-y-1">
                 <Label class="text-xs">Description</Label>

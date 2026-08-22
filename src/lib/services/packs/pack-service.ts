@@ -272,14 +272,41 @@ class PackService {
 
     for (const pack of allPacks) {
       if (pack.id === 'default-pack') continue
+      await this.backfillTemplatesForPack(pack.id, defaultByTemplateId)
+    }
+  }
 
-      const packTemplates = await database.getPackTemplates(pack.id)
-      const packTemplateIds = new Set(packTemplates.map((t) => t.templateId))
+  /**
+   * Ensure a single pack has every template the code baseline defines, copying
+   * from PROMPT_TEMPLATES for any that are missing. Safe to call repeatedly.
+   * Used when opening a campaign so packs created/edited between app sessions
+   * (or before a template was introduced) are never missing prompts at runtime.
+   */
+  async ensurePackTemplatesComplete(packId: string): Promise<void> {
+    if (!packId || packId === 'default-pack') return
 
-      for (const [templateId, content] of defaultByTemplateId) {
-        if (!packTemplateIds.has(templateId)) {
-          await database.setPackTemplateContent(pack.id, templateId, content)
-        }
+    const baselineByTemplateId = new Map<string, string>()
+    for (const template of PROMPT_TEMPLATES) {
+      baselineByTemplateId.set(template.id, template.content)
+      if (template.userContent) {
+        baselineByTemplateId.set(`${template.id}-user`, template.userContent)
+      }
+    }
+
+    await this.backfillTemplatesForPack(packId, baselineByTemplateId)
+  }
+
+  /** Copy any templateId in the baseline missing from the given pack. */
+  private async backfillTemplatesForPack(
+    packId: string,
+    baselineByTemplateId: Map<string, string>,
+  ): Promise<void> {
+    const packTemplates = await database.getPackTemplates(packId)
+    const packTemplateIds = new Set(packTemplates.map((t) => t.templateId))
+
+    for (const [templateId, content] of baselineByTemplateId) {
+      if (!packTemplateIds.has(templateId)) {
+        await database.setPackTemplateContent(packId, templateId, content)
       }
     }
   }

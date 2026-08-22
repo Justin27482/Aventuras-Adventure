@@ -14,8 +14,8 @@
 
   let { onConfirm, onClose }: Props = $props()
 
-  // Get entries available for chapter creation
-  // These are entries after the last chapter
+  // Get entries available for session creation.
+  // These are entries after the last stored session.
   const availableEntries = $derived(() => {
     const lastChapterEndIndex = story.lastChapterEndIndex
     return story.entries.slice(lastChapterEndIndex)
@@ -44,9 +44,9 @@
 <ResponsiveModal.Root open={true} onOpenChange={(open) => !open && onClose()}>
   <ResponsiveModal.Content class="flex max-h-[85vh] max-w-lg flex-col gap-0 p-0">
     <ResponsiveModal.Header class="border-b px-4 py-4">
-      <ResponsiveModal.Title>Create Chapter</ResponsiveModal.Title>
+      <ResponsiveModal.Title>Create Session</ResponsiveModal.Title>
       <ResponsiveModal.Description>
-        Select where to end this chapter. All entries up to and including the selected entry will be
+        Select where to end this session. All entries up to and including the selected entry will be
         summarized.
       </ResponsiveModal.Description>
     </ResponsiveModal.Header>
@@ -54,7 +54,7 @@
     <div class="min-h-0 flex-1">
       {#if entries.length === 0}
         <div class="text-muted-foreground flex h-40 items-center justify-center">
-          No entries available for chapter creation.
+          No entries available for session creation.
         </div>
       {:else}
         <ScrollArea class="h-[50vh] p-4">
@@ -86,7 +86,7 @@
         </ScrollArea>
 
         <div class="text-muted-foreground bg-muted/20 border-t px-4 py-2 text-xs">
-          Chapter will include {selectedIndex + 1} of {entries.length} entries
+          Session will include {selectedIndex + 1} of {entries.length} entries
         </div>
       {/if}
     </div>
@@ -97,7 +97,7 @@
         {#if ui.memoryLoading}
           Creating...
         {:else}
-          Create Chapter
+          Create Session
         {/if}
       </Button>
     </ResponsiveModal.Footer>

@@ -103,8 +103,8 @@
           />
 
           <p class="text-muted-foreground text-xs">
-            Recent messages protected from being included in chapter summaries. Higher values keep
-            more context visible but create smaller chapters.
+            Recent messages protected from being included in session summaries. Higher values keep
+            more context visible but create smaller sessions.
           </p>
         </div>
       </CardContent>

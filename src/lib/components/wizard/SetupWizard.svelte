@@ -11,7 +11,6 @@
 
   // Step components
   import {
-    Step1Mode,
     StepPackSelection,
     Step2Lorebook,
     Step3Setting,
@@ -89,20 +88,19 @@
 
   // Step Titles
   const stepTitles = [
-    'Choose Your Mode',
     'Prompt Pack',
     'World & Setting',
     'Create Your Character',
-    'Supporting Cast (Optional)',
+    'Party Members (Optional)',
     'Import Lorebook (Optional)',
     'Character Portraits (Optional)',
     'Writing Style',
     'Generate Opening',
   ]
 
-  // Load packs when entering step 2
+  // Load packs when entering the first step.
   $effect(() => {
-    if (wizard.currentStep === 2) {
+    if (wizard.currentStep === 1) {
       wizard.loadPacks()
     }
   })
@@ -119,7 +117,7 @@
     <div class="flex flex-col border-b p-4 pb-4">
       <div class="mb-4 flex items-center justify-between">
         <div>
-          <ResponsiveModal.Title class="text-xl">Create New Story</ResponsiveModal.Title>
+          <ResponsiveModal.Title class="text-xl">Create New Campaign</ResponsiveModal.Title>
           <ResponsiveModal.Description>
             Step {wizard.currentStep} of {wizard.totalSteps}: {stepTitles[wizard.currentStep - 1]}
           </ResponsiveModal.Description>
@@ -152,11 +150,6 @@
     <!-- Content -->
     <div class="min-h-0 flex-1 overflow-y-auto p-4">
       {#if wizard.currentStep === 1}
-        <Step1Mode
-          selectedMode={wizard.narrative.selectedMode}
-          onModeChange={(mode) => (wizard.narrative.selectedMode = mode)}
-        />
-      {:else if wizard.currentStep === 2}
         <StepPackSelection
           availablePacks={wizard.availablePacks}
           selectedPackId={wizard.selectedPackId}
@@ -165,7 +158,7 @@
           onSelectPack={(packId) => wizard.selectPack(packId)}
           onVariableChange={(name, value) => wizard.setVariableValue(name, value)}
         />
-      {:else if wizard.currentStep === 3}
+      {:else if wizard.currentStep === 2}
         <Step3Setting
           settingSeed={wizard.setting.settingSeed}
           expandedSetting={wizard.setting.expandedSettingDisplay}
@@ -226,7 +219,7 @@
             onClose()
           }}
         />
-      {:else if wizard.currentStep === 4}
+      {:else if wizard.currentStep === 3}
         <Step4Characters
           selectedMode={wizard.narrative.selectedMode}
           expandedSetting={wizard.setting.expandedSettingDisplay}
@@ -288,7 +281,7 @@
             onClose()
           }}
         />
-      {:else if wizard.currentStep === 5}
+      {:else if wizard.currentStep === 4}
         <Step5SupportingCast
           protagonist={wizard.character.protagonistDisplay}
           supportingCharacters={wizard.character.supportingCharactersDisplay}
@@ -348,7 +341,7 @@
             onClose()
           }}
         />
-      {:else if wizard.currentStep === 6}
+      {:else if wizard.currentStep === 5}
         <Step2Lorebook
           importedLorebooks={wizard.narrative.importedLorebooks}
           importError={wizard.narrative.importError}
@@ -362,7 +355,7 @@
             onClose()
           }}
         />
-      {:else if wizard.currentStep === 7}
+      {:else if wizard.currentStep === 6}
         <Step6Portraits
           protagonist={wizard.character.protagonist}
           supportingCharacters={wizard.character.supportingCharacters}
@@ -398,7 +391,7 @@
           onSupportingPortraitUpload={(e, name) =>
             wizard.image.handleSupportingCharacterPortraitUpload(e, name)}
         />
-      {:else if wizard.currentStep === 8}
+      {:else if wizard.currentStep === 7}
         <Step7WritingStyle
           selectedPOV={wizard.narrative.selectedPOV}
           selectedTense={wizard.narrative.selectedTense}
@@ -416,7 +409,7 @@
           onBackgroundImagesEnabledChange={(v) => (wizard.narrative.backgroundImagesEnabled = v)}
           onReferenceModeChange={(v) => (wizard.narrative.referenceMode = v)}
         />
-      {:else if wizard.currentStep === 9}
+      {:else if wizard.currentStep === 8}
         <Step8Opening
           storyTitle={wizard.narrative.storyTitle}
           openingGuidance={wizard.narrative.openingGuidance}
@@ -489,7 +482,7 @@
               !wizard.character.cardImportedFirstMessage)}
         >
           <Play class="h-4 w-4" />
-          Begin Story
+          Begin Campaign
         </Button>
       {:else}
         <Button

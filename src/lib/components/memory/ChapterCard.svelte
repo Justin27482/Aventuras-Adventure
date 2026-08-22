@@ -90,9 +90,9 @@
 
   async function handleDelete() {
     const confirmed = await ask(
-      `Are you sure you want to delete Chapter ${chapter.number}${chapter.title ? `: ${chapter.title}` : ''}? The story entries will remain, but the summary will be lost.`,
+      `Are you sure you want to delete Session ${chapter.number}${chapter.title ? `: ${chapter.title}` : ''}? The campaign entries will remain, but the summary will be lost.`,
       {
-        title: 'Delete Chapter',
+        title: 'Delete Session',
         kind: 'warning',
       },
     )
@@ -107,7 +107,7 @@
     <div class="min-w-0 flex-1">
       <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
         <span class="text-foreground shrink-0 text-sm font-medium">
-          Chapter {chapter.number}
+          Session {chapter.number}
         </span>
         {#if chapter.title}
           <span class="text-muted-foreground hidden text-sm sm:inline">—</span>
@@ -150,7 +150,7 @@
           size="icon"
           class="text-muted-foreground h-7 w-7 hover:text-red-500"
           onclick={handleDelete}
-          title="Delete chapter"
+          title="Delete session"
         >
           <Trash2 class="h-3.5 w-3.5" />
         </Button>

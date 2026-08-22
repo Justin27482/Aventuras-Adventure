@@ -6,6 +6,7 @@ import { generationTemplates } from './generation'
 import { wizardTemplates } from './wizard'
 import { translationTemplates } from './translation'
 import { imageTemplates } from './image'
+import { agencyTemplates } from './agency'
 
 export const PROMPT_TEMPLATES: PromptTemplate[] = [
   ...storyTemplates,
@@ -15,4 +16,5 @@ export const PROMPT_TEMPLATES: PromptTemplate[] = [
   ...wizardTemplates,
   ...translationTemplates,
   ...imageTemplates,
+  ...agencyTemplates,
 ]

@@ -441,7 +441,7 @@ function createLorebookEntryTools(context: LorebookEntryToolContext) {
 export type LorebookEntryTools = ReturnType<typeof createLorebookEntryTools>
 
 /**
- * Chapter info for lore management context.
+ * Session info for lore management context.
  */
 export interface ChapterInfo {
   number: number
@@ -451,37 +451,37 @@ export interface ChapterInfo {
   characters?: string[]
 }
 export interface StoryToolContext {
-  /** Available chapters for querying */
+  /** Available sessions for querying */
   chapters?: ChapterInfo[]
-  /** Callback to query a chapter with a question */
+  /** Callback to query a session with a question */
   queryChapter?: (chapterNumber: number, question: string) => Promise<string>
 }
 
 /**
  * Story and Session Tools
  *
- * Includes chapter querying and session completion tools.
+ * Includes session querying and session completion tools.
  */
 function createStoryTools(context: StoryToolContext) {
   const { chapters, queryChapter } = context
 
   return {
     /**
-     * List available chapters for querying.
+    * List available sessions for querying.
      */
-    list_chapters: tool({
+    list_sessions: tool({
       description:
-        'List all available chapters with their summaries. Use this to understand the story timeline before making lore updates.',
+        'List all available sessions with their summaries. Use this to understand the campaign timeline before making lore updates.',
       inputSchema: z.object({
-        limit: z.number().optional().default(20).describe('Maximum chapters to return'),
+        limit: z.number().optional().default(20).describe('Maximum sessions to return'),
       }),
       execute: async ({ limit }: { limit?: number }) => {
         if (!chapters || chapters.length === 0) {
-          return { chapters: [], total: 0, message: 'No chapters available' }
+          return { sessions: [], total: 0, message: 'No sessions available' }
         }
         const limitedChapters = chapters.slice(0, limit ?? 20)
         return {
-          chapters: limitedChapters.map((ch) => ({
+          sessions: limitedChapters.map((ch) => ({
             number: ch.number,
             title: ch.title,
             summary: ch.summary.slice(0, 500) + (ch.summary.length > 500 ? '...' : ''),
@@ -494,29 +494,29 @@ function createStoryTools(context: StoryToolContext) {
     }),
 
     /**
-     * Ask a question about a specific chapter.
+    * Ask a question about a specific session.
      */
-    query_chapter: tool({
+    query_session: tool({
       description:
-        'Ask a specific question about a chapter to understand story events for lore updates. Ask targeted questions like "What did [character] do?" or "What was revealed about [item]?"',
+        'Ask a specific question about a session to understand campaign events for lore updates. Ask targeted questions like "What did [character] do?" or "What was revealed about [item]?"',
       inputSchema: z.object({
-        chapterNumber: z.number().describe('The chapter number to query'),
-        question: z.string().describe('A specific question about the chapter content'),
+        sessionNumber: z.number().describe('The session number to query'),
+        question: z.string().describe('A specific question about the session content'),
       }),
-      execute: async ({ chapterNumber, question }: { chapterNumber: number; question: string }) => {
+      execute: async ({ sessionNumber, question }: { sessionNumber: number; question: string }) => {
         if (!chapters || chapters.length === 0) {
-          return { found: false, error: 'No chapters available' }
+          return { found: false, error: 'No sessions available' }
         }
 
-        const chapter = chapters.find((ch) => ch.number === chapterNumber)
+        const chapter = chapters.find((ch) => ch.number === sessionNumber)
         if (!chapter) {
-          return { found: false, error: `Chapter ${chapterNumber} not found` }
+          return { found: false, error: `Session ${sessionNumber} not found` }
         }
 
         let answer: string | undefined
         if (queryChapter) {
           try {
-            answer = await queryChapter(chapterNumber, question)
+            answer = await queryChapter(sessionNumber, question)
           } catch {
             // Query failed, return summary only
           }
@@ -524,7 +524,7 @@ function createStoryTools(context: StoryToolContext) {
 
         return {
           found: true,
-          chapter: {
+          session: {
             number: chapter.number,
             title: chapter.title,
             summary: chapter.summary,

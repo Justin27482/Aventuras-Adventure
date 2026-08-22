@@ -358,7 +358,67 @@ pub fn run() {
             description: "director_assistant_artifacts",
             sql: include_str!("../migrations/039_director_assistant_artifacts.sql"),
             kind: MigrationKind::Up,
-        }
+        },
+        Migration {
+            version: 40,
+            description: "campaign_foundation",
+            sql: include_str!("../migrations/040_campaign_foundation.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 41,
+            description: "campaign_agency_sessions",
+            sql: include_str!("../migrations/041_campaign_agency_sessions.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 42,
+            description: "item_ownership_stash",
+            sql: include_str!("../migrations/042_item_ownership_stash.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 43,
+            description: "companion_combat_policy",
+            sql: include_str!("../migrations/043_companion_combat_policy.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 44,
+            description: "editor_assistant_conversations",
+            sql: include_str!("../migrations/044_editor_assistant_conversations.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 45,
+            description: "chapter_sources",
+            sql: include_str!("../migrations/045_chapter_sources.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 46,
+            description: "ruleset_foundation",
+            sql: include_str!("../migrations/046_ruleset_foundation.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 47,
+            description: "roll_ledger",
+            sql: include_str!("../migrations/047_roll_ledger.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 48,
+            description: "character_sheets",
+            sql: include_str!("../migrations/048_character_sheets.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 49,
+            description: "scene_turn_state",
+            sql: include_str!("../migrations/049_scene_turn_state.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     let mut builder = tauri::Builder::default();

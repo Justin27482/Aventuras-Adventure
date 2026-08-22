@@ -2,15 +2,28 @@
   import { story } from '$lib/stores/story.svelte'
   import { ui } from '$lib/stores/ui.svelte'
   import { settings, STORY_WIDTH_OPTIONS } from '$lib/stores/settings.svelte'
-  import { Loader2, BookOpen, ChevronDown, ChevronUp } from 'lucide-svelte'
+  import { Loader2, BookOpen, ChevronDown, ChevronUp, Sparkles } from 'lucide-svelte'
+  import { PenLine } from 'lucide-svelte'
   import { tick, untrack } from 'svelte'
-  import { fade } from 'svelte/transition'
+  import { fade, slide } from 'svelte/transition'
   import StoryEntry from './StoryEntry.svelte'
   import StreamingEntry from './StreamingEntry.svelte'
   import ActionInput from './ActionInput.svelte'
   import ActionChoices from './ActionChoices.svelte'
   import { Button } from '$lib/components/ui/button'
   import EmptyState from '$lib/components/ui/empty-state/empty-state.svelte'
+  import * as Dialog from '$lib/components/ui/dialog'
+  import { Textarea } from '$lib/components/ui/textarea'
+  import { Label } from '$lib/components/ui/label'
+  import { scenarioService, type WizardData } from '$lib/services/ai/wizard'
+  import type { GeneratedCharacter, GeneratedProtagonist } from '$lib/services/ai/sdk'
+
+  let showOpeningEditor = $state(false)
+  let openingDraft = $state('')
+  let isSavingOpening = $state(false)
+  let showOpeningAiOptions = $state(false)
+  let openingGuidance = $state('')
+  let isGeneratingOpening = $state(false)
 
   const storyMaxWidthStyle = $derived.by(() => {
     const maxWidth =
@@ -299,6 +312,99 @@
     if (raw.startsWith('data:')) return `url(${raw})`
     return `url(data:image/png;base64,${raw})`
   })
+
+  function openOpeningEditor() {
+    openingDraft = ''
+    openingGuidance = ''
+    showOpeningAiOptions = false
+    showOpeningEditor = true
+  }
+
+  async function saveOpeningScene() {
+    const opening = openingDraft.trim()
+    if (!opening || isSavingOpening) return
+
+    isSavingOpening = true
+    try {
+      await story.addEntry('narration', opening, { source: 'wizard' })
+      showOpeningEditor = false
+      ui.showToast('Opening scene added to the campaign', 'info')
+    } catch (error) {
+      ui.showToast(error instanceof Error ? error.message : 'Failed to save opening scene', 'error')
+    } finally {
+      isSavingOpening = false
+    }
+  }
+
+  // Builds the AI generation context from whatever the campaign already has on
+  // hand (title, settings, roster) since campaign screens have no wizard setting data.
+  function buildOpeningWizardData(): WizardData {
+    const currentStory = story.currentStory
+    if (!currentStory) throw new Error('No story loaded')
+
+    const protagonistCharacter = story.characters.find((c) => c.relationship === 'self')
+    const protagonist: GeneratedProtagonist | undefined = protagonistCharacter
+      ? {
+          name: protagonistCharacter.name,
+          description: protagonistCharacter.description ?? '',
+          background: '',
+          motivation: '',
+          traits: protagonistCharacter.traits,
+        }
+      : undefined
+
+    const characters: GeneratedCharacter[] = story.characters
+      .filter((c) => c.relationship !== 'self')
+      .map((c) => ({
+        name: c.name,
+        role: c.relationship || 'companion',
+        description: c.description ?? '',
+        relationship: c.relationship || 'companion',
+        traits: c.traits,
+      }))
+
+    const currentLocation = story.locations.find((l) => l.current)
+    const settingSeed =
+      currentStory.description ||
+      currentLocation?.description ||
+      `A campaign titled "${currentStory.title}".`
+
+    return {
+      mode: currentStory.mode,
+      genre: 'custom',
+      customGenre: currentStory.genre ?? 'adventure',
+      settingSeed,
+      protagonist,
+      characters,
+      writingStyle: {
+        pov: currentStory.settings?.pov ?? 'second',
+        tense: currentStory.settings?.tense ?? 'present',
+        tone: currentStory.settings?.tone ?? '',
+      },
+      title: currentStory.title,
+      openingGuidance: openingGuidance.trim() || undefined,
+    }
+  }
+
+  async function generateOpeningWithAI() {
+    if (isGeneratingOpening) return
+    isGeneratingOpening = true
+    try {
+      const wizardData = buildOpeningWizardData()
+      const result = await scenarioService.generateOpening(
+        wizardData,
+        settings.servicePresetAssignments['wizard:openingGeneration'],
+      )
+      openingDraft = result.scene
+    } catch (error) {
+      ui.showToast(
+        error instanceof Error ? error.message : 'Failed to generate opening scene',
+        'error',
+      )
+    } finally {
+      isGeneratingOpening = false
+    }
+  }
 </script>
 
 <div class="relative flex h-full flex-col overflow-hidden">
@@ -336,9 +442,16 @@
         <EmptyState
           icon={BookOpen}
           title="Your adventure begins here..."
-          description="Type an action below to start your story."
+          description="Set an opening scene from your campaign setup, or type an action below to begin."
           class="py-12 sm:py-20"
-        />
+        >
+          <div class="flex flex-wrap justify-center gap-2">
+            <Button variant="default" class="gap-2" onclick={openOpeningEditor}>
+              <PenLine class="h-4 w-4" />
+              Set Opening Scene
+            </Button>
+          </div>
+        </EmptyState>
       {:else}
         <!-- Show collapsed entries indicator if there are hidden entries at top -->
         {#if displayedEntries.hiddenAtTop > 0}
@@ -444,6 +557,88 @@
       </div>
     {/if}
   </div>
+
+  <Dialog.Root bind:open={showOpeningEditor}>
+    <Dialog.Content class="max-w-2xl">
+      <Dialog.Header>
+        <Dialog.Title>Set Opening Scene</Dialog.Title>
+        <Dialog.Description>
+          Add the initial narration that should appear as the campaign's first message. This uses
+          the same narration entry format as the Campaign wizard.
+        </Dialog.Description>
+      </Dialog.Header>
+
+      <Textarea
+        bind:value={openingDraft}
+        class="min-h-48 resize-y"
+        placeholder="Describe the opening situation, setting, and what the party encounters..."
+        autofocus
+        disabled={isGeneratingOpening}
+      />
+
+      <div class="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          class="text-muted-foreground gap-2"
+          onclick={() => (showOpeningAiOptions = !showOpeningAiOptions)}
+          disabled={isGeneratingOpening}
+        >
+          <Sparkles class="h-3.5 w-3.5" />
+          {showOpeningAiOptions ? 'Hide AI Options' : 'Generate with AI'}
+          <ChevronDown
+            class="h-3 w-3 transition-transform {showOpeningAiOptions ? 'rotate-180' : ''}"
+          />
+        </Button>
+      </div>
+
+      {#if showOpeningAiOptions}
+        <div
+          class="text-card-foreground bg-muted/10 space-y-3 rounded-lg border px-3 pt-3 pb-3 shadow-sm"
+          transition:slide={{ duration: 150 }}
+        >
+          <div class="space-y-1.5">
+            <Label>Guidance for AI (optional)</Label>
+            <Textarea
+              bind:value={openingGuidance}
+              placeholder="Any specific direction for the opening scene..."
+              class="min-h-16 resize-y text-sm"
+              rows={2}
+              disabled={isGeneratingOpening}
+            />
+          </div>
+          <Button
+            size="sm"
+            class="gap-2"
+            onclick={generateOpeningWithAI}
+            disabled={isGeneratingOpening}
+          >
+            {#if isGeneratingOpening}
+              <Loader2 class="h-3.5 w-3.5 animate-spin" />
+              Generating...
+            {:else}
+              <Sparkles class="h-3.5 w-3.5" />
+              Generate Opening Scene
+            {/if}
+          </Button>
+        </div>
+      {/if}
+
+      <Dialog.Footer>
+        <Button variant="outline" onclick={() => (showOpeningEditor = false)} disabled={isSavingOpening}>
+          Cancel
+        </Button>
+        <Button onclick={saveOpeningScene} disabled={!openingDraft.trim() || isSavingOpening}>
+          {#if isSavingOpening}
+            <Loader2 class="mr-2 h-4 w-4 animate-spin" />
+            Saving...
+          {:else}
+            Save Opening
+          {/if}
+        </Button>
+      </Dialog.Footer>
+    </Dialog.Content>
+  </Dialog.Root>
 
   <!-- Action input area -->
   <div

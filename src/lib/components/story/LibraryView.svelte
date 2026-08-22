@@ -39,6 +39,11 @@
   let showImportMenu = $state(false)
   let newFolderName = $state('')
   let folderFilter = $state<'all' | 'unfiled' | string>('all')
+  let libraryView = $state<'campaigns' | 'archive'>('campaigns')
+
+  function isActiveCampaign(candidate: Story): boolean {
+    return candidate.templateId === 'wizard-generated'
+  }
 
   // Load stories on mount
   $effect(() => {
@@ -47,9 +52,12 @@
   })
 
   const filteredStories = $derived.by(() => {
-    if (folderFilter === 'all') return story.allStories
-    if (folderFilter === 'unfiled') return story.allStories.filter((s) => !s.folderId)
-    return story.allStories.filter((s) => s.folderId === folderFilter)
+    const sourceStories = story.allStories.filter((candidate) =>
+      libraryView === 'campaigns' ? isActiveCampaign(candidate) : !isActiveCampaign(candidate),
+    )
+    if (folderFilter === 'all') return sourceStories
+    if (folderFilter === 'unfiled') return sourceStories.filter((s) => !s.folderId)
+    return sourceStories.filter((s) => s.folderId === folderFilter)
   })
 
   const groupedStories = $derived.by(() => {
@@ -63,11 +71,11 @@
     const folders = story.storyFolders
       .map((folder) => ({
         folder,
-        stories: story.allStories.filter((s) => s.folderId === folder.id),
+        stories: filteredStories.filter((s) => s.folderId === folder.id),
       }))
       .filter((group) => group.stories.length > 0)
 
-    const unfiled = story.allStories.filter((s) => !s.folderId)
+    const unfiled = filteredStories.filter((s) => !s.folderId)
     return { folders, unfiled }
   })
 
@@ -91,16 +99,24 @@
 
   async function openStory(storyId: string) {
     ui.resetScrollBreak()
-    await story.loadStory(storyId)
-    ui.setActivePanel('story')
+    try {
+      await story.loadStory(storyId)
+      ui.setActivePanel('story')
+    } catch (error) {
+      console.error('[LibraryView] Failed to open story:', error)
+      ui.showToast(
+        error instanceof Error ? error.message : 'Failed to open campaign',
+        'error',
+      )
+    }
   }
 
   async function deleteStory(storyId: string, event: MouseEvent) {
     event.stopPropagation()
     const confirmed = await ask(
-      'Are you sure you want to delete this story? This action cannot be undone.',
+      'Are you sure you want to delete this campaign? This action cannot be undone.',
       {
-        title: 'Delete Story',
+        title: 'Delete Campaign',
         kind: 'warning',
       },
     )
@@ -137,7 +153,7 @@
     const folder = story.storyFolders.find((f) => f.id === folderFilter)
     if (!folder) return
     const confirmed = await ask(
-      `Delete folder "${folder.name}"? Stories in it will remain in the library and become unfiled.`,
+      `Delete folder "${folder.name}"? Campaigns in it will remain in the library and become unfiled.`,
       {
         title: 'Delete Folder',
         kind: 'warning',
@@ -156,7 +172,7 @@
     try {
       await story.assignStoryToFolder(storyId, folderId)
     } catch (error) {
-      ui.showToast(error instanceof Error ? error.message : 'Failed to move story', 'error')
+      ui.showToast(error instanceof Error ? error.message : 'Failed to move campaign', 'error')
       throw error
     }
   }
@@ -196,10 +212,10 @@
     <div class="mb-6 flex flex-row items-start justify-between gap-3 sm:mb-8 sm:gap-4">
       <div class="mr-2 min-w-0 flex-1">
         <h1 class="text-foreground truncate pb-1 text-xl font-bold tracking-tight sm:text-3xl">
-          Story Library
+          Campaign Library
         </h1>
         <p class="text-muted-foreground -mt-1 truncate text-sm sm:text-base">
-          Your adventures await...
+          Your campaigns await...
         </p>
       </div>
       <div class="flex shrink-0 items-center gap-1.5 sm:gap-2">
@@ -207,7 +223,7 @@
           icon={RefreshCw}
           label="Sync"
           variant="outline"
-          title="Sync stories between devices"
+          title="Sync campaigns between devices"
           onclick={() => ui.openSyncModal()}
         />
         <Button
@@ -233,11 +249,11 @@
           <DropdownMenu.Content align="end">
             <DropdownMenu.Item onclick={triggerImport}>
               <Upload class="text-muted-foreground h-4 w-4" />
-              Story (.avt/.json)
+              Campaign (.avt/.json)
             </DropdownMenu.Item>
             <DropdownMenu.Item onclick={() => ui.openNovelImport()}>
               <FileText class="text-muted-foreground h-4 w-4" />
-              Novel Chapters (new story)
+              Novel Chapters (new campaign)
             </DropdownMenu.Item>
             <DropdownMenu.Item onclick={openSTImportWizard}>
               <MessageSquareShare class="text-muted-foreground h-4 w-4" />
@@ -255,8 +271,8 @@
         <Button
           variant="default"
           icon={Plus}
-          label="New Story"
-          title="New Story"
+          label="New Campaign"
+          title="New Campaign"
           onclick={openSetupWizard}
         />
       </div>
@@ -265,13 +281,25 @@
     <div
       class="mb-5 grid grid-cols-1 gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_auto] sm:items-end"
     >
-      <div class="grid grid-cols-1 gap-2 sm:grid-cols-[220px_1fr]">
+      <div class="grid grid-cols-1 gap-2 sm:grid-cols-[220px_220px_1fr]">
+        <div class="space-y-1">
+          <p class="text-muted-foreground text-xs font-medium">Library</p>
+          <Select.Root type="single" bind:value={libraryView}>
+            <Select.Trigger class="h-9 text-sm">
+              {libraryView === 'campaigns' ? 'Active Campaigns' : 'Legacy Archive'}
+            </Select.Trigger>
+            <Select.Content>
+              <Select.Item value="campaigns" label="Active Campaigns" />
+              <Select.Item value="archive" label="Legacy Archive" />
+            </Select.Content>
+          </Select.Root>
+        </div>
         <div class="space-y-1">
           <p class="text-muted-foreground text-xs font-medium">View</p>
           <Select.Root type="single" bind:value={folderFilter}>
             <Select.Trigger class="h-9 text-sm">
               {#if folderFilter === 'all'}
-                All stories
+                All campaigns
               {:else if folderFilter === 'unfiled'}
                 Unfiled
               {:else}
@@ -279,7 +307,7 @@
               {/if}
             </Select.Trigger>
             <Select.Content>
-              <Select.Item value="all" label="All stories" />
+              <Select.Item value="all" label="All campaigns" />
               <Select.Item value="unfiled" label="Unfiled" />
               {#each story.storyFolders as folder (folder.id)}
                 <Select.Item value={folder.id} label={folder.name} />
@@ -319,14 +347,18 @@
       </div>
     </div>
 
-    <!-- Stories grid -->
-    {#if story.allStories.length === 0}
+    <!-- Campaign grid -->
+    {#if filteredStories.length === 0}
       <EmptyState
-        icon={BookOpen}
-        title="No stories yet"
-        description="Create your first adventure to get started."
-        actionLabel="Create Story"
-        onAction={openSetupWizard}
+        icon={libraryView === 'campaigns' ? BookOpen : Archive}
+        title={libraryView === 'campaigns' ? 'No active campaigns yet' : 'Legacy archive is empty'}
+        description={
+          libraryView === 'campaigns'
+            ? 'Create your first campaign to get started.'
+            : 'Older story content remains separate from the active Campaign Engine.'
+        }
+        actionLabel={libraryView === 'campaigns' ? 'Create Campaign' : undefined}
+        onAction={libraryView === 'campaigns' ? openSetupWizard : undefined}
         class="pb-20"
       />
     {:else if folderFilter === 'all'}
@@ -381,8 +413,8 @@
     {:else if filteredStories.length === 0}
       <EmptyState
         icon={FolderOpen}
-        title="No stories in this view"
-        description="Move stories into this folder from the card dropdown."
+        title="No campaigns in this view"
+        description="Move campaigns into this folder from the card dropdown."
         class="pb-20"
       />
     {:else}
@@ -414,7 +446,7 @@
         d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"
       />
     </svg>
-    <span class="hidden sm:inline">Official Aventuras Discord</span>
+    <span class="hidden sm:inline">Campaign Engine community</span>
   </a>
 </div>
 

@@ -6,7 +6,14 @@
  * Uses the Vercel AI SDK streamText with tools for real-time responses.
  */
 
-import type { VaultCharacter, VaultLorebook, VaultLorebookEntry, VaultScenario } from '$lib/types'
+import type {
+  Chapter,
+  StoryEntry,
+  VaultCharacter,
+  VaultLorebook,
+  VaultLorebookEntry,
+  VaultScenario,
+} from '$lib/types'
 import { tool, type ModelMessage, type ToolSet } from 'ai'
 import { z } from 'zod'
 import { settings } from '$lib/stores/settings.svelte'
@@ -44,7 +51,13 @@ const log = createLogger('InteractiveVault')
 // Dynamic Tool Loading
 // ============================================================================
 
-export type ToolCategory = 'characters' | 'scenarios' | 'lorebooks' | 'images' | 'fandom'
+export type ToolCategory =
+  | 'characters'
+  | 'scenarios'
+  | 'lorebooks'
+  | 'sessions'
+  | 'images'
+  | 'fandom'
 
 export const TOOL_CATEGORIES: Record<ToolCategory, string[]> = {
   characters: [
@@ -77,13 +90,21 @@ export const TOOL_CATEGORIES: Record<ToolCategory, string[]> = {
     'link_character_to_lorebook',
     'create_lorebook_entry_from_character',
   ],
+  sessions: ['list_sessions', 'read_session'],
   images: ['generate_standard_image', 'generate_portrait', 'set_portrait'],
   fandom: ['search_fandom', 'get_fandom_article_info', 'fetch_fandom_section'],
 }
 
 export const ALWAYS_ACTIVE_TOOLS = ['load_toolset', 'show_entity']
 
-const toolCategorySchema = z.enum(['characters', 'scenarios', 'lorebooks', 'images', 'fandom'])
+const toolCategorySchema = z.enum([
+  'characters',
+  'scenarios',
+  'lorebooks',
+  'sessions',
+  'images',
+  'fandom',
+])
 
 export function getActiveToolNames(loaded: Set<ToolCategory>): string[] {
   return [...ALWAYS_ACTIVE_TOOLS, ...[...loaded].flatMap((c) => TOOL_CATEGORIES[c])]
@@ -98,6 +119,8 @@ export interface VaultState {
   characters: () => VaultCharacter[]
   lorebooks: () => VaultLorebook[]
   scenarios: () => VaultScenario[]
+  sessions?: () => Chapter[]
+  getSessionEntries?: (session: Chapter) => StoryEntry[]
   /** Current lorebook entries for entry-level tools (optional, scoped to active lorebook) */
   activeLorebookId?: string
   activeEntries?: VaultLorebookEntry[]
@@ -242,6 +265,9 @@ export class InteractiveVaultService extends BaseAIService {
       .replace(/\{\{\s*scenarioCount\s*\}\}/g, String(vaultSummary.scenarioCount))
     this.systemPrompt = content
 
+    this.systemPrompt +=
+      '\n\n## Campaign History\nWhen an active campaign is available, you can review its past sessions and narrative entries. Load the `sessions` tool category, then use `list_sessions` and `read_session` before claiming you cannot access campaign history. Do not confuse campaign sessions with this assistant conversation history.'
+
     if (focusedEntity) {
       this.systemPrompt += `\n\n## Active Context\nThe user opened this assistant from the ${focusedEntity.entityType} editor for "${focusedEntity.entityName}" (ID: \`${focusedEntity.entityId}\`). The \`${focusedEntity.entityType}s\` toolset is pre-loaded. When the user refers to "this character", "this lorebook", "this scenario", or uses pronouns referencing an entity without naming it, assume they mean this one.`
     }
@@ -292,6 +318,54 @@ export class InteractiveVaultService extends BaseAIService {
     const deferredEvents: StreamEvent[] = []
 
     // --- Compose all tool sets ---
+
+    const sessions = vaultState.sessions?.() ?? []
+    const sessionTools = {
+      list_sessions: tool({
+        description:
+          'List past campaign sessions with summaries. Use this to review campaign history before changing vault content.',
+        inputSchema: z.object({
+          limit: z.number().optional().default(20).describe('Maximum sessions to return'),
+        }),
+        execute: async ({ limit }: { limit?: number }) => ({
+          sessions: sessions.slice(0, limit ?? 20).map((session) => ({
+            number: session.number,
+            title: session.title,
+            summary: session.summary,
+            keywords: session.keywords,
+            characters: session.characters,
+          })),
+          total: sessions.length,
+        }),
+      }),
+      read_session: tool({
+        description:
+          'Read a past campaign session summary and its narrative entries for detailed event context.',
+        inputSchema: z.object({
+          sessionNumber: z.number().describe('Session number to read'),
+          includeEntries: z.boolean().optional().default(true),
+          entryLimit: z.number().optional().default(30),
+        }),
+        execute: async ({ sessionNumber, includeEntries, entryLimit }) => {
+          const session = sessions.find((candidate) => candidate.number === sessionNumber)
+          if (!session) return { found: false, error: `Session ${sessionNumber} not found` }
+          const entries = includeEntries
+            ? (vaultState.getSessionEntries?.(session) ?? []).slice(0, entryLimit ?? 30)
+            : []
+          return {
+            found: true,
+            session: {
+              number: session.number,
+              title: session.title,
+              summary: session.summary,
+              keywords: session.keywords,
+              characters: session.characters,
+              entries: entries.map((entry) => ({ type: entry.type, content: entry.content })),
+            },
+          }
+        },
+      }),
+    }
 
     // Character tools
     const characterContext: CharacterToolContext = {
@@ -476,7 +550,7 @@ export class InteractiveVaultService extends BaseAIService {
     const loadToolsetTool = {
       load_toolset: tool({
         description:
-          'Load tool categories to enable their tools. This REPLACES the current set — include all categories you need. Available: characters, scenarios, lorebooks, images, fandom.',
+          'Load tool categories to enable their tools. This REPLACES the current set — include all categories you need. Available: characters, scenarios, lorebooks, sessions, images, fandom.',
         inputSchema: z.object({
           categories: z
             .array(toolCategorySchema)
@@ -509,6 +583,7 @@ export class InteractiveVaultService extends BaseAIService {
       ...characterTools,
       ...scenarioTools,
       ...lorebookTools,
+      ...sessionTools,
       ...vaultLinkingTools,
       ...fandomTools,
       ...viewerTools,

@@ -94,7 +94,7 @@
     class="flex max-h-[90vh] w-[95vw] max-w-4xl flex-col gap-0 overflow-hidden p-0"
   >
     <ResponsiveModal.Header class="border-b px-5 py-4">
-      <ResponsiveModal.Title>Chapter Narrative</ResponsiveModal.Title>
+      <ResponsiveModal.Title>Session Narrative</ResponsiveModal.Title>
       <ResponsiveModal.Description>
         Full narrative text for entry #{(selectedNarrativeEntry?.position ?? 0) + 1}
       </ResponsiveModal.Description>

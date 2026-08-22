@@ -25,3 +25,4 @@ export { createFandomTools, type FandomToolContext, type FandomTools } from './f
 export { createRetrievalTools, type RetrievalToolContext, type RetrievalTools } from './retrieval'
 export { createViewerTools, type ViewerToolContext, type ViewerTools } from './viewer'
 export { createImageTools, type ImageToolContext, type ImageTools } from './image'
+export { createMechanicsTools } from './mechanics'

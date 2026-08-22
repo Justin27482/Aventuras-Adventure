@@ -17,6 +17,7 @@
     Settings as SettingsIcon,
     FlaskConical,
     BookOpen,
+    Swords,
   } from 'lucide-svelte'
 
   import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
@@ -36,6 +37,7 @@
   import AdvancedSettings from './AdvancedSettings.svelte'
   import ExperimentalSettings from './ExperimentalSettings.svelte'
   import StorySettingsTab from './tabs/story-settings.svelte'
+  import CampaignSettingsTab from './tabs/campaign.svelte'
 
   const baseTabs = [
     { id: 'api' as const, label: 'API', icon: Key },
@@ -49,7 +51,14 @@
 
   const storyTab = { id: 'story-settings' as const, label: 'Story', icon: BookOpen }
 
-  let tabs = $derived(story.currentStory ? [storyTab, ...baseTabs] : baseTabs)
+  const campaignTab = { id: 'campaign-settings' as const, label: 'Campaign', icon: Swords }
+  let tabs = $derived(
+    story.currentStory?.templateId === 'wizard-generated'
+      ? [campaignTab, storyTab, ...baseTabs]
+      : story.currentStory
+        ? [storyTab, ...baseTabs]
+        : baseTabs,
+  )
   let activeTab = $derived(tabs.find((t) => t.id === ui.settingsTab) ?? tabs[0])
 
   // Fall back to 'api' if story tab is active but story is unloaded
@@ -189,7 +198,7 @@
             >Settings</ResponsiveModal.Title
           >
           <p class="text-muted-foreground hidden text-sm md:block">
-            Configure your Aventuras experience
+            Configure your Campaign Engine workspace
           </p>
         </div>
       </div>
@@ -249,6 +258,8 @@
             >
               {#if activeTab.id === 'story-settings'}
                 <StorySettingsTab />
+              {:else if activeTab.id === 'campaign-settings'}
+                <CampaignSettingsTab />
               {:else if activeTab.id === 'api'}
                 <ApiConnectionTab />
               {:else if activeTab.id === 'generation'}
@@ -332,7 +343,7 @@
       <Dialog.Title>{manualBodyEditorTitle}</Dialog.Title>
       <Dialog.Description>
         Edit the manual request body. This overrides request parameters; messages and tools are
-        managed by Aventuras.
+        managed by Campaign Engine.
       </Dialog.Description>
     </Dialog.Header>
 

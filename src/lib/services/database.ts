@@ -33,6 +33,25 @@ import type {
   DirectorProposalArtifact,
   EpistemicCharacterRefType,
   EpistemicIdentityRef,
+  Campaign,
+  CampaignSettings,
+  CampaignPartyMember,
+  ActorControlProfile,
+  CampaignSession,
+  SceneTurnState,
+  SessionPartyMember,
+  Ruleset,
+  RulesetStat,
+  RulesetSkill,
+  RulesetCheckRule,
+  RulesetCondition,
+  RulesetSlot,
+  RulesetAbility,
+  RulesetLevel,
+  RulesetResource,
+  CharacterSheet,
+  RollLedgerEntry,
+  RollStats,
 } from '$lib/types'
 import type {
   PresetPack,
@@ -360,6 +379,596 @@ class DatabaseService {
     const db = await this.getDb()
     const results = await db.select<any[]>('SELECT * FROM stories WHERE id = ?', [id])
     return results.length > 0 ? this.mapStory(results[0]) : null
+  }
+
+  async getCampaignByStoryId(storyId: string): Promise<Campaign | null> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>('SELECT * FROM campaigns WHERE story_id = ?', [storyId])
+    return rows.length > 0 ? this.mapCampaign(rows[0]) : null
+  }
+
+  async upsertCampaign(campaign: Campaign): Promise<void> {
+    const db = await this.getDb()
+    await db.execute(
+      `INSERT INTO campaigns (id, story_id, title, description, ruleset_id, spotlight_character_id, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         title = excluded.title,
+         description = excluded.description,
+         ruleset_id = excluded.ruleset_id,
+         spotlight_character_id = excluded.spotlight_character_id,
+         status = excluded.status,
+         updated_at = excluded.updated_at`,
+      [
+        campaign.id,
+        campaign.storyId,
+        campaign.title,
+        campaign.description,
+        campaign.rulesetId,
+        campaign.spotlightCharacterId,
+        campaign.status,
+        campaign.createdAt,
+        campaign.updatedAt,
+      ],
+    )
+  }
+
+  async updateCampaignSpotlight(campaignId: string, characterId: string | null): Promise<void> {
+    const db = await this.getDb()
+    await db.execute(
+      'UPDATE campaigns SET spotlight_character_id = ?, updated_at = ? WHERE id = ?',
+      [characterId, Date.now(), campaignId],
+    )
+  }
+
+  async getCampaignSettings(campaignId: string): Promise<CampaignSettings | null> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>('SELECT * FROM campaign_settings WHERE campaign_id = ?', [campaignId])
+    return rows.length > 0 ? this.mapCampaignSettings(rows[0]) : null
+  }
+
+  async upsertCampaignSettings(settings: CampaignSettings): Promise<void> {
+    const db = await this.getDb()
+    await db.execute(
+      `INSERT INTO campaign_settings (campaign_id, default_party_size, max_party_size, scene_mode, turn_order_mode, dice_enforcement, nsfw_intensity, world_charter, companion_combat_policy, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(campaign_id) DO UPDATE SET
+         default_party_size = excluded.default_party_size,
+         max_party_size = excluded.max_party_size,
+         scene_mode = excluded.scene_mode,
+         turn_order_mode = excluded.turn_order_mode,
+         dice_enforcement = excluded.dice_enforcement,
+         nsfw_intensity = excluded.nsfw_intensity,
+         world_charter = excluded.world_charter,
+        companion_combat_policy = excluded.companion_combat_policy,
+         updated_at = excluded.updated_at`,
+      [settings.campaignId, settings.defaultPartySize, settings.maxPartySize, settings.sceneMode, settings.turnOrderMode, settings.diceEnforcement, settings.nsfwIntensity, settings.worldCharter, settings.companionCombatPolicy, settings.createdAt, settings.updatedAt],
+    )
+  }
+
+  async getSceneTurnState(campaignId: string, entryId: string | null = null): Promise<SceneTurnState | null> {
+    const db = await this.getDb()
+    const rows = entryId === null
+      ? await db.select<any[]>('SELECT * FROM scene_turn_states WHERE campaign_id = ? AND entry_id IS NULL', [campaignId])
+      : await db.select<any[]>('SELECT * FROM scene_turn_states WHERE campaign_id = ? AND entry_id = ?', [campaignId, entryId])
+    return rows.length > 0 ? this.mapSceneTurnState(rows[0]) : null
+  }
+
+  async upsertSceneTurnState(state: SceneTurnState): Promise<void> {
+    const db = await this.getDb()
+    await db.execute(
+      `INSERT INTO scene_turn_states (id, campaign_id, entry_id, scene_mode, turn_order_mode, active_actor_id, actor_order, turn_number, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(campaign_id, entry_id) DO UPDATE SET
+         scene_mode = excluded.scene_mode,
+         turn_order_mode = excluded.turn_order_mode,
+         active_actor_id = excluded.active_actor_id,
+         actor_order = excluded.actor_order,
+         turn_number = excluded.turn_number,
+         updated_at = excluded.updated_at`,
+      [state.id, state.campaignId, state.entryId, state.sceneMode, state.turnOrderMode,
+        state.activeActorId, JSON.stringify(state.actorOrder), state.turnNumber, state.createdAt, state.updatedAt],
+    )
+  }
+
+  async getCampaignPartyMembers(campaignId: string): Promise<CampaignPartyMember[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>(
+      'SELECT * FROM party_members WHERE campaign_id = ? ORDER BY display_order ASC, joined_at ASC',
+      [campaignId],
+    )
+    return rows.map(this.mapCampaignPartyMember)
+  }
+
+  async getActorControlProfiles(campaignId: string): Promise<ActorControlProfile[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>(
+      'SELECT * FROM actor_control_profiles WHERE campaign_id = ?',
+      [campaignId],
+    )
+    return rows.map(this.mapActorControlProfile)
+  }
+
+  async upsertCampaignPartyMember(member: CampaignPartyMember): Promise<void> {
+    const db = await this.getDb()
+    await db.execute(
+      `INSERT INTO party_members (id, campaign_id, character_id, display_order, joined_at, left_at, eligibility_status, actor_category, active, narrative_control_mode, combat_control_mode)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(campaign_id, character_id) DO UPDATE SET
+         display_order = excluded.display_order,
+         left_at = excluded.left_at,
+         eligibility_status = excluded.eligibility_status,
+         actor_category = excluded.actor_category,
+         active = excluded.active,
+         narrative_control_mode = excluded.narrative_control_mode,
+         combat_control_mode = excluded.combat_control_mode`,
+      [
+        member.id,
+        member.campaignId,
+        member.characterId,
+        member.displayOrder,
+        member.joinedAt,
+        member.leftAt,
+        member.eligibilityStatus,
+        member.actorCategory,
+        member.active ? 1 : 0,
+        member.narrativeControlMode,
+        member.combatControlMode,
+      ],
+    )
+  }
+
+  async getCampaignSessions(campaignId: string): Promise<CampaignSession[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>(
+      'SELECT * FROM campaign_sessions WHERE campaign_id = ? ORDER BY session_number DESC',
+      [campaignId],
+    )
+    return rows.map(this.mapCampaignSession)
+  }
+
+  async createCampaignSession(session: CampaignSession): Promise<void> {
+    const db = await this.getDb()
+    await db.execute(
+      `INSERT INTO campaign_sessions (id, campaign_id, session_number, title, primary_character_id, narrative_control_policy, combat_control_policy, status, started_at, ended_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        session.id,
+        session.campaignId,
+        session.sessionNumber,
+        session.title,
+        session.primaryCharacterId,
+        session.narrativeControlPolicy,
+        session.combatControlPolicy,
+        session.status,
+        session.startedAt,
+        session.endedAt,
+      ],
+    )
+  }
+
+  async endCampaignSession(sessionId: string, status: 'completed' | 'abandoned' = 'completed'):
+    Promise<void> {
+    const db = await this.getDb()
+    await db.execute(
+      'UPDATE campaign_sessions SET status = ?, ended_at = ? WHERE id = ? AND status = ?',
+      [status, Date.now(), sessionId, 'active'],
+    )
+  }
+
+  async addSessionPartyMember(member: SessionPartyMember): Promise<void> {
+    const db = await this.getDb()
+    await db.execute(
+      `INSERT INTO session_party_members (id, session_id, character_id, party_order, actor_category, narrative_control_mode, combat_control_mode, joined_at, left_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        member.id,
+        member.sessionId,
+        member.characterId,
+        member.partyOrder,
+        member.actorCategory,
+        member.narrativeControlMode,
+        member.combatControlMode,
+        member.joinedAt,
+        member.leftAt,
+      ],
+    )
+  }
+
+  async getSessionPartyMembers(sessionId: string): Promise<SessionPartyMember[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>(
+      'SELECT * FROM session_party_members WHERE session_id = ? ORDER BY party_order ASC',
+      [sessionId],
+    )
+    return rows.map(this.mapSessionPartyMember)
+  }
+
+  // ===== Ruleset Operations (Phase 2) =====
+
+  async getAllRulesets(): Promise<Ruleset[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>('SELECT * FROM rulesets ORDER BY name ASC')
+    return rows.map(this.mapRuleset)
+  }
+
+  async getRuleset(id: string): Promise<Ruleset | null> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>('SELECT * FROM rulesets WHERE id = ?', [id])
+    return rows.length > 0 ? this.mapRuleset(rows[0]) : null
+  }
+
+  async upsertRuleset(ruleset: Ruleset): Promise<void> {
+    const db = await this.getDb()
+    await db.execute(
+      `INSERT INTO rulesets (id, name, description, is_builtin, dice_system, default_check_rule_key, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         name = excluded.name,
+         description = excluded.description,
+         is_builtin = excluded.is_builtin,
+         dice_system = excluded.dice_system,
+         default_check_rule_key = excluded.default_check_rule_key,
+         updated_at = excluded.updated_at`,
+      [
+        ruleset.id,
+        ruleset.name,
+        ruleset.description,
+        ruleset.isBuiltin ? 1 : 0,
+        ruleset.diceSystem,
+        ruleset.defaultCheckRuleKey,
+        ruleset.createdAt,
+        ruleset.updatedAt,
+      ],
+    )
+  }
+
+  async getRulesetStats(rulesetId: string): Promise<RulesetStat[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>(
+      'SELECT * FROM ruleset_stats WHERE ruleset_id = ? ORDER BY sort_order ASC',
+      [rulesetId],
+    )
+    return rows.map(this.mapRulesetStat)
+  }
+
+  async upsertRulesetStat(stat: RulesetStat): Promise<void> {
+    const db = await this.getDb()
+    await db.execute(
+      `INSERT INTO ruleset_stats (id, ruleset_id, key, label, default_value, min_value, max_value, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(ruleset_id, key) DO UPDATE SET
+         label = excluded.label,
+         default_value = excluded.default_value,
+         min_value = excluded.min_value,
+         max_value = excluded.max_value,
+         sort_order = excluded.sort_order`,
+      [
+        stat.id,
+        stat.rulesetId,
+        stat.key,
+        stat.label,
+        stat.defaultValue,
+        stat.minValue,
+        stat.maxValue,
+        stat.sortOrder,
+      ],
+    )
+  }
+
+  async getRulesetSkills(rulesetId: string): Promise<RulesetSkill[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>(
+      'SELECT * FROM ruleset_skills WHERE ruleset_id = ? ORDER BY sort_order ASC',
+      [rulesetId],
+    )
+    return rows.map(this.mapRulesetSkill)
+  }
+
+  async upsertRulesetSkill(skill: RulesetSkill): Promise<void> {
+    const db = await this.getDb()
+    await db.execute(
+      `INSERT INTO ruleset_skills (id, ruleset_id, key, label, governing_stat_key, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(ruleset_id, key) DO UPDATE SET
+         label = excluded.label,
+         governing_stat_key = excluded.governing_stat_key,
+         sort_order = excluded.sort_order`,
+      [skill.id, skill.rulesetId, skill.key, skill.label, skill.governingStatKey, skill.sortOrder],
+    )
+  }
+
+  async getRulesetCheckRules(rulesetId: string): Promise<RulesetCheckRule[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>(
+      'SELECT * FROM ruleset_check_rules WHERE ruleset_id = ? ORDER BY sort_order ASC',
+      [rulesetId],
+    )
+    return rows.map(this.mapRulesetCheckRule)
+  }
+
+  async upsertRulesetCheckRule(rule: RulesetCheckRule): Promise<void> {
+    const db = await this.getDb()
+    await db.execute(
+      `INSERT INTO ruleset_check_rules (id, ruleset_id, key, label, notation, critical_success_threshold, critical_failure_threshold, outcome_bands, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(ruleset_id, key) DO UPDATE SET
+         label = excluded.label,
+         notation = excluded.notation,
+         critical_success_threshold = excluded.critical_success_threshold,
+         critical_failure_threshold = excluded.critical_failure_threshold,
+         outcome_bands = excluded.outcome_bands,
+         sort_order = excluded.sort_order`,
+      [
+        rule.id,
+        rule.rulesetId,
+        rule.key,
+        rule.label,
+        rule.notation,
+        rule.criticalSuccessThreshold,
+        rule.criticalFailureThreshold,
+        JSON.stringify(rule.outcomeBands),
+        rule.sortOrder,
+      ],
+    )
+  }
+
+  async getRulesetConditions(rulesetId: string): Promise<RulesetCondition[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>(
+      'SELECT * FROM ruleset_conditions WHERE ruleset_id = ? ORDER BY sort_order ASC',
+      [rulesetId],
+    )
+    return rows.map(this.mapRulesetCondition)
+  }
+
+  async upsertRulesetCondition(condition: RulesetCondition): Promise<void> {
+    const db = await this.getDb()
+    await db.execute(
+      `INSERT INTO ruleset_conditions (id, ruleset_id, key, label, description, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(ruleset_id, key) DO UPDATE SET
+         label = excluded.label,
+         description = excluded.description,
+         sort_order = excluded.sort_order`,
+      [
+        condition.id,
+        condition.rulesetId,
+        condition.key,
+        condition.label,
+        condition.description,
+        condition.sortOrder,
+      ],
+    )
+  }
+
+  async getRulesetSlots(rulesetId: string): Promise<RulesetSlot[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>(
+      'SELECT * FROM ruleset_slots WHERE ruleset_id = ? ORDER BY sort_order ASC',
+      [rulesetId],
+    )
+    return rows.map(this.mapRulesetSlot)
+  }
+
+  async upsertRulesetSlot(slot: RulesetSlot): Promise<void> {
+    const db = await this.getDb()
+    await db.execute(
+      `INSERT INTO ruleset_slots (id, ruleset_id, key, label, sort_order)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(ruleset_id, key) DO UPDATE SET
+         label = excluded.label,
+         sort_order = excluded.sort_order`,
+      [slot.id, slot.rulesetId, slot.key, slot.label, slot.sortOrder],
+    )
+  }
+
+  async getRulesetAbilities(rulesetId: string): Promise<RulesetAbility[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>(
+      'SELECT * FROM ruleset_abilities WHERE ruleset_id = ? ORDER BY sort_order ASC',
+      [rulesetId],
+    )
+    return rows.map(this.mapRulesetAbility)
+  }
+
+  async upsertRulesetAbility(ability: RulesetAbility): Promise<void> {
+    const db = await this.getDb()
+    await db.execute(
+      `INSERT INTO ruleset_abilities (id, ruleset_id, key, label, description, resource_key, resource_cost, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(ruleset_id, key) DO UPDATE SET
+         label = excluded.label,
+         description = excluded.description,
+         resource_key = excluded.resource_key,
+         resource_cost = excluded.resource_cost,
+         sort_order = excluded.sort_order`,
+      [
+        ability.id,
+        ability.rulesetId,
+        ability.key,
+        ability.label,
+        ability.description,
+        ability.resourceKey,
+        ability.resourceCost,
+        ability.sortOrder,
+      ],
+    )
+  }
+
+  async getRulesetLevels(rulesetId: string): Promise<RulesetLevel[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>(
+      'SELECT * FROM ruleset_levels WHERE ruleset_id = ? ORDER BY level ASC',
+      [rulesetId],
+    )
+    return rows.map(this.mapRulesetLevel)
+  }
+
+  async upsertRulesetLevel(level: RulesetLevel): Promise<void> {
+    const db = await this.getDb()
+    await db.execute(
+      `INSERT INTO ruleset_levels (id, ruleset_id, level, label, xp_threshold, stat_bonuses)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(ruleset_id, level) DO UPDATE SET
+         label = excluded.label,
+         xp_threshold = excluded.xp_threshold,
+         stat_bonuses = excluded.stat_bonuses`,
+      [
+        level.id,
+        level.rulesetId,
+        level.level,
+        level.label,
+        level.xpThreshold,
+        level.statBonuses ? JSON.stringify(level.statBonuses) : null,
+      ],
+    )
+  }
+
+  async getRulesetResources(rulesetId: string): Promise<RulesetResource[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>(
+      'SELECT * FROM ruleset_resources WHERE ruleset_id = ? ORDER BY sort_order ASC',
+      [rulesetId],
+    )
+    return rows.map(this.mapRulesetResource)
+  }
+
+  async upsertRulesetResource(resource: RulesetResource): Promise<void> {
+    const db = await this.getDb()
+    await db.execute(
+      `INSERT INTO ruleset_resources (id, ruleset_id, key, label, max_formula, min_value, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(ruleset_id, key) DO UPDATE SET
+         label = excluded.label,
+         max_formula = excluded.max_formula,
+         min_value = excluded.min_value,
+         sort_order = excluded.sort_order`,
+      [
+        resource.id,
+        resource.rulesetId,
+        resource.key,
+        resource.label,
+        resource.maxFormula,
+        resource.minValue,
+        resource.sortOrder,
+      ],
+    )
+  }
+
+  // ===== Character Sheet Operations (Phase 3) =====
+
+  async getCharacterSheet(characterId: string): Promise<CharacterSheet | null> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>('SELECT * FROM character_sheets WHERE character_id = ?', [
+      characterId,
+    ])
+    return rows.length > 0 ? this.mapCharacterSheet(rows[0]) : null
+  }
+
+  async upsertCharacterSheet(sheet: CharacterSheet): Promise<void> {
+    const db = await this.getDb()
+    await db.execute(
+      `INSERT INTO character_sheets (character_id, ruleset_id, stat_values, resource_values, condition_states, level, xp, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(character_id) DO UPDATE SET
+         ruleset_id = excluded.ruleset_id,
+         stat_values = excluded.stat_values,
+         resource_values = excluded.resource_values,
+         condition_states = excluded.condition_states,
+         level = excluded.level,
+         xp = excluded.xp,
+         updated_at = excluded.updated_at`,
+      [
+        sheet.characterId,
+        sheet.rulesetId,
+        JSON.stringify(sheet.statValues),
+        JSON.stringify(sheet.resourceValues),
+        JSON.stringify(sheet.conditionStates),
+        sheet.level,
+        sheet.xp,
+        sheet.createdAt,
+        sheet.updatedAt,
+      ],
+    )
+  }
+
+  // ===== Roll Ledger Operations (Phase 2) =====
+
+  async addRollLedgerEntry(entry: RollLedgerEntry): Promise<void> {
+    const db = await this.getDb()
+    await db.execute(
+      `INSERT INTO roll_ledger (id, campaign_id, session_id, actor_id, notation, seed, rolls, modifier, total, dc, outcome, reason, visibility, bias_applied, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        entry.id,
+        entry.campaignId,
+        entry.sessionId,
+        entry.actorId,
+        entry.notation,
+        entry.seed,
+        JSON.stringify(entry.rolls),
+        entry.modifier,
+        entry.total,
+        entry.dc,
+        entry.outcome,
+        entry.reason,
+        entry.visibility,
+        entry.biasApplied ? JSON.stringify(entry.biasApplied) : null,
+        entry.createdAt,
+      ],
+    )
+  }
+
+  async getRollLedger(
+    campaignId: string,
+    options?: { sessionId?: string; actorId?: string; limit?: number },
+  ): Promise<RollLedgerEntry[]> {
+    const db = await this.getDb()
+    const clauses = ['campaign_id = ?']
+    const params: unknown[] = [campaignId]
+    if (options?.sessionId) {
+      clauses.push('session_id = ?')
+      params.push(options.sessionId)
+    }
+    if (options?.actorId) {
+      clauses.push('actor_id = ?')
+      params.push(options.actorId)
+    }
+    let query = `SELECT * FROM roll_ledger WHERE ${clauses.join(' AND ')} ORDER BY created_at DESC`
+    if (options?.limit) {
+      query += ' LIMIT ?'
+      params.push(options.limit)
+    }
+    const rows = await db.select<any[]>(query, params)
+    return rows.map(this.mapRollLedgerEntry)
+  }
+
+  /** Aggregate roll stats for a campaign (optionally scoped to one actor). */
+  async getRollStats(campaignId: string, actorId?: string): Promise<RollStats> {
+    const db = await this.getDb()
+    const clauses = ['campaign_id = ?']
+    const params: unknown[] = [campaignId]
+    if (actorId) {
+      clauses.push('actor_id = ?')
+      params.push(actorId)
+    }
+    const rows = await db.select<any[]>(
+      `SELECT COUNT(*) as count, AVG(total) as average, MIN(total) as min, MAX(total) as max,
+              SUM(CASE WHEN outcome = 'critical_success' THEN 1 ELSE 0 END) as critical_successes,
+              SUM(CASE WHEN outcome = 'critical_failure' THEN 1 ELSE 0 END) as critical_failures
+       FROM roll_ledger WHERE ${clauses.join(' AND ')}`,
+      params,
+    )
+    const row = rows[0]
+    return {
+      count: row?.count ?? 0,
+      average: row?.average ?? 0,
+      min: row?.min ?? 0,
+      max: row?.max ?? 0,
+      criticalSuccesses: row?.critical_successes ?? 0,
+      criticalFailures: row?.critical_failures ?? 0,
+    }
   }
 
   async createStory(story: Omit<Story, 'createdAt' | 'updatedAt'>): Promise<Story> {
@@ -1155,8 +1764,8 @@ class DatabaseService {
   async addItem(item: Item): Promise<void> {
     const db = await this.getDb()
     await db.execute(
-      `INSERT INTO items (id, story_id, name, description, quantity, equipped, location, metadata, branch_id, overrides_id, deleted)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO items (id, story_id, name, description, quantity, equipped, location, metadata, branch_id, overrides_id, deleted, owner_character_id, slot_key, container_item_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         item.id,
         item.storyId,
@@ -1169,6 +1778,9 @@ class DatabaseService {
         item.branchId || null,
         item.overridesId || null,
         item.deleted ? 1 : 0,
+        item.ownerCharacterId ?? null,
+        item.slotKey ?? null,
+        item.containerItemId ?? null,
       ],
     )
   }
@@ -1197,6 +1809,18 @@ class DatabaseService {
     if (updates.location !== undefined) {
       setClauses.push('location = ?')
       values.push(updates.location)
+    }
+    if (updates.ownerCharacterId !== undefined) {
+      setClauses.push('owner_character_id = ?')
+      values.push(updates.ownerCharacterId || null)
+    }
+    if (updates.slotKey !== undefined) {
+      setClauses.push('slot_key = ?')
+      values.push(updates.slotKey || null)
+    }
+    if (updates.containerItemId !== undefined) {
+      setClauses.push('container_item_id = ?')
+      values.push(updates.containerItemId || null)
     }
     if (updates.metadata !== undefined) {
       setClauses.push('metadata = ?')
@@ -3087,6 +3711,267 @@ class DatabaseService {
   }
 
   // Mapping functions
+  private mapCampaign(row: any): Campaign {
+    return {
+      id: row.id,
+      storyId: row.story_id ?? null,
+      title: row.title,
+      description: row.description ?? null,
+      rulesetId: row.ruleset_id ?? null,
+      spotlightCharacterId: row.spotlight_character_id ?? null,
+      status: row.status,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }
+  }
+
+  private mapCampaignSettings(row: any): CampaignSettings {
+    return {
+      campaignId: row.campaign_id,
+      defaultPartySize: row.default_party_size,
+      maxPartySize: row.max_party_size,
+      sceneMode: row.scene_mode,
+      turnOrderMode: row.turn_order_mode,
+      diceEnforcement: row.dice_enforcement,
+      nsfwIntensity: row.nsfw_intensity,
+      worldCharter: row.world_charter ?? null,
+      companionCombatPolicy: row.companion_combat_policy ?? 'companions_autonomous',
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }
+  }
+
+  private mapSceneTurnState(row: any): SceneTurnState {
+    let actorOrder: string[] = []
+    try {
+      const parsed = JSON.parse(row.actor_order ?? '[]')
+      if (Array.isArray(parsed) && parsed.every((actorId) => typeof actorId === 'string')) {
+        actorOrder = parsed
+      }
+    } catch {
+      actorOrder = []
+    }
+
+    return {
+      id: row.id,
+      campaignId: row.campaign_id,
+      entryId: row.entry_id ?? null,
+      sceneMode: row.scene_mode,
+      turnOrderMode: row.turn_order_mode,
+      activeActorId: row.active_actor_id ?? null,
+      actorOrder,
+      turnNumber: row.turn_number ?? 0,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }
+  }
+
+  private mapCampaignPartyMember(row: any): CampaignPartyMember {
+    return {
+      id: row.id,
+      campaignId: row.campaign_id,
+      characterId: row.character_id,
+      eligibilityStatus: row.eligibility_status,
+      actorCategory: row.actor_category,
+      active: Boolean(row.active),
+      narrativeControlMode: row.narrative_control_mode,
+      combatControlMode: row.combat_control_mode,
+      displayOrder: row.display_order,
+      joinedAt: row.joined_at,
+      leftAt: row.left_at ?? null,
+    }
+  }
+
+  private mapActorControlProfile(row: any): ActorControlProfile {
+    return {
+      id: row.id,
+      campaignId: row.campaign_id,
+      characterId: row.character_id,
+      actorCategory: row.actor_category,
+      narrativeControlMode: row.narrative_control_mode,
+      combatControlMode: row.combat_control_mode,
+      priorities: row.priorities ?? null,
+      motivations: row.motivations ?? null,
+      fears: row.fears ?? null,
+      valuePriorities: row.value_priorities ?? null,
+      redLines: row.red_lines ?? null,
+      tacticalPreferences: row.tactical_preferences ?? null,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }
+  }
+
+  private mapCampaignSession(row: any): CampaignSession {
+    return {
+      id: row.id,
+      campaignId: row.campaign_id,
+      sessionNumber: row.session_number,
+      title: row.title ?? null,
+      primaryCharacterId: row.primary_character_id,
+      narrativeControlPolicy: row.narrative_control_policy,
+      combatControlPolicy: row.combat_control_policy,
+      status: row.status,
+      startedAt: row.started_at,
+      endedAt: row.ended_at ?? null,
+    }
+  }
+
+  private mapSessionPartyMember(row: any): SessionPartyMember {
+    return {
+      id: row.id,
+      sessionId: row.session_id,
+      characterId: row.character_id,
+      partyOrder: row.party_order,
+      actorCategory: row.actor_category,
+      narrativeControlMode: row.narrative_control_mode,
+      combatControlMode: row.combat_control_mode,
+      joinedAt: row.joined_at,
+      leftAt: row.left_at ?? null,
+    }
+  }
+
+  private mapRuleset(row: any): Ruleset {
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description ?? null,
+      isBuiltin: Boolean(row.is_builtin),
+      diceSystem: row.dice_system,
+      defaultCheckRuleKey: row.default_check_rule_key ?? null,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }
+  }
+
+  private mapRulesetStat(row: any): RulesetStat {
+    return {
+      id: row.id,
+      rulesetId: row.ruleset_id,
+      key: row.key,
+      label: row.label,
+      defaultValue: row.default_value,
+      minValue: row.min_value ?? null,
+      maxValue: row.max_value ?? null,
+      sortOrder: row.sort_order,
+    }
+  }
+
+  private mapRulesetSkill(row: any): RulesetSkill {
+    return {
+      id: row.id,
+      rulesetId: row.ruleset_id,
+      key: row.key,
+      label: row.label,
+      governingStatKey: row.governing_stat_key ?? null,
+      sortOrder: row.sort_order,
+    }
+  }
+
+  private mapRulesetCheckRule(row: any): RulesetCheckRule {
+    return {
+      id: row.id,
+      rulesetId: row.ruleset_id,
+      key: row.key,
+      label: row.label,
+      notation: row.notation,
+      criticalSuccessThreshold: row.critical_success_threshold ?? null,
+      criticalFailureThreshold: row.critical_failure_threshold ?? null,
+      outcomeBands: JSON.parse(row.outcome_bands),
+      sortOrder: row.sort_order,
+    }
+  }
+
+  private mapRulesetCondition(row: any): RulesetCondition {
+    return {
+      id: row.id,
+      rulesetId: row.ruleset_id,
+      key: row.key,
+      label: row.label,
+      description: row.description ?? null,
+      sortOrder: row.sort_order,
+    }
+  }
+
+  private mapRulesetSlot(row: any): RulesetSlot {
+    return {
+      id: row.id,
+      rulesetId: row.ruleset_id,
+      key: row.key,
+      label: row.label,
+      sortOrder: row.sort_order,
+    }
+  }
+
+  private mapRulesetAbility(row: any): RulesetAbility {
+    return {
+      id: row.id,
+      rulesetId: row.ruleset_id,
+      key: row.key,
+      label: row.label,
+      description: row.description ?? null,
+      resourceKey: row.resource_key ?? null,
+      resourceCost: row.resource_cost,
+      sortOrder: row.sort_order,
+    }
+  }
+
+  private mapRulesetLevel(row: any): RulesetLevel {
+    return {
+      id: row.id,
+      rulesetId: row.ruleset_id,
+      level: row.level,
+      label: row.label ?? null,
+      xpThreshold: row.xp_threshold ?? null,
+      statBonuses: row.stat_bonuses ? JSON.parse(row.stat_bonuses) : null,
+    }
+  }
+
+  private mapRulesetResource(row: any): RulesetResource {
+    return {
+      id: row.id,
+      rulesetId: row.ruleset_id,
+      key: row.key,
+      label: row.label,
+      maxFormula: row.max_formula,
+      minValue: row.min_value,
+      sortOrder: row.sort_order,
+    }
+  }
+
+  private mapCharacterSheet(row: any): CharacterSheet {
+    return {
+      characterId: row.character_id,
+      rulesetId: row.ruleset_id,
+      statValues: JSON.parse(row.stat_values),
+      resourceValues: JSON.parse(row.resource_values),
+      conditionStates: JSON.parse(row.condition_states),
+      level: row.level,
+      xp: row.xp,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }
+  }
+
+  private mapRollLedgerEntry(row: any): RollLedgerEntry {
+    return {
+      id: row.id,
+      campaignId: row.campaign_id,
+      sessionId: row.session_id ?? null,
+      actorId: row.actor_id ?? null,
+      notation: row.notation,
+      seed: row.seed,
+      rolls: JSON.parse(row.rolls),
+      modifier: row.modifier,
+      total: row.total,
+      dc: row.dc ?? null,
+      outcome: row.outcome ?? null,
+      reason: row.reason ?? null,
+      visibility: row.visibility,
+      biasApplied: row.bias_applied ? JSON.parse(row.bias_applied) : null,
+      createdAt: row.created_at,
+    }
+  }
+
   private mapStory(row: any): Story {
     const retryState = row.retry_state ? JSON.parse(row.retry_state) : null
     if (retryState) {
@@ -3214,6 +4099,9 @@ class DatabaseService {
       quantity: row.quantity,
       equipped: row.equipped === 1,
       location: row.location,
+      ownerCharacterId: row.owner_character_id || null,
+      slotKey: row.slot_key || null,
+      containerItemId: row.container_item_id || null,
       metadata: row.metadata ? JSON.parse(row.metadata) : null,
       branchId: row.branch_id || null,
       overridesId: row.overrides_id || null,

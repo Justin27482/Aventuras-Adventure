@@ -103,7 +103,7 @@ Your tasks:
 4. Update relationship statuses and character states
 
 Guidelines:
-- Use list_chapters and query_chapter to understand what happened in the story
+- Use list_sessions and query_session to understand what happened in the campaign
 - Ask specific questions when querying chapters (e.g., "What did [character] reveal?" not "Give me the full content")
 - Be conservative - only create entries for elements that are genuinely important to the story
 - Use exact names from the story text

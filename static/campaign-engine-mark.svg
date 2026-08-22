@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Campaign Engine mark</title>
+  <desc id="desc">A compass flame mark representing direction, agency, and campaign momentum.</desc>
+  <defs>
+    <linearGradient id="ember" x1="80" y1="430" x2="430" y2="70" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#d34da4" />
+      <stop offset="0.52" stop-color="#f59e42" />
+      <stop offset="1" stop-color="#ffe1a8" />
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+    </filter>
+  </defs>
+  <circle cx="256" cy="256" r="206" fill="#0f0d12" stroke="#4a2d1b" stroke-width="18" />
+  <circle cx="256" cy="256" r="174" fill="none" stroke="#7d431b" stroke-width="3" stroke-dasharray="3 18" />
+  <path d="M256 42 282 178 256 154 230 178Z" fill="#f59e42" opacity=".95" />
+  <path d="M470 256 334 282 358 256 334 230Z" fill="#d34da4" opacity=".9" />
+  <path d="M256 470 230 334 256 358 282 334Z" fill="#f59e42" opacity=".75" />
+  <path d="M42 256 178 230 154 256 178 282Z" fill="#d34da4" opacity=".72" />
+  <path d="M145 378C163 326 190 283 224 241 259 198 305 161 373 112 350 174 329 236 291 282 252 329 201 368 145 378Z" fill="url(#ember)" filter="url(#glow)" />
+  <path d="M143 379C184 353 229 319 267 279 303 241 331 199 373 112" fill="none" stroke="#fff0cf" stroke-width="13" stroke-linecap="round" />
+  <path d="M224 241 252 252 244 285 218 272Z" fill="#0f0d12" />
+  <circle cx="256" cy="256" r="17" fill="#fff0cf" stroke="#f59e42" stroke-width="8" />
+</svg>

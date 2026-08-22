@@ -218,7 +218,7 @@
                   <div class="text-muted-foreground text-xs">
                     {loadedVaultCharacterId
                       ? 'Click to change selection'
-                      : 'Browse your saved protagonists'}
+                      : 'Browse your saved lead characters'}
                   </div>
                 </div>
               </div>
@@ -262,7 +262,7 @@
           <p class="text-muted-foreground text-xs">
             {selectedMode === 'adventure'
               ? 'Create or describe your character for this adventure.'
-              : 'Define the main character for your story.'}
+              : 'Define the lead character for your campaign.'}
           </p>
         </div>
 
@@ -446,7 +446,7 @@
                 </div>
                 <div>
                   <Card.Title class="text-base leading-none">{protagonist.name}</Card.Title>
-                  <Card.Description class="mt-0.5 text-xs">Protagonist</Card.Description>
+                  <Card.Description class="mt-0.5 text-xs">Lead Character</Card.Description>
                 </div>
               </div>
 

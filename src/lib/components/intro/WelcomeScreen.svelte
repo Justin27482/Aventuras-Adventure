@@ -137,11 +137,12 @@
   class="welcome-screen bg-background fixed inset-0 z-50 flex h-full w-full flex-col items-center justify-center overflow-x-hidden overflow-y-auto p-4 text-center"
   out:fade={{ duration: 300 }}
 >
-  <div class="mb-8 space-y-2">
-    <h1 class="text-foreground text-4xl font-bold tracking-tight">Welcome to Aventuras</h1>
+  <div class="mb-8 flex flex-col items-center space-y-3">
+    <img src="/campaign-engine-mark.svg" alt="Campaign Engine" class="h-20 w-20 drop-shadow-[0_0_28px_hsl(32_92%_54%_/_0.28)]" />
+    <h1 class="text-foreground text-4xl font-bold tracking-tight">Welcome to the Campaign Engine</h1>
     <p class="text-muted-foreground text-lg">
       {#if step === 'interface'}
-        Customize your reading environment
+        Configure your GM workspace and begin your next campaign
       {:else if step === 'select'}
         Choose your AI provider to get started
       {:else}

@@ -33,6 +33,8 @@ export type EventType =
   | 'StoryLoaded' // Story loaded into state
   | 'StoryCreated' // New story created
   | 'ModeChanged' // Story mode changed
+  | 'CompanionDecisionProposed' // Companion or delegated action proposal created
+  | 'CompanionDecisionResolved' // Companion proposal accepted or rejected
   | 'BackgroundImageAnalysisStarted' // Started analyzing narrative for background image
   | 'BackgroundImageAnalysisComplete' // Finished analyzing narrative for background image
   | 'BackgroundImageAnalysisFailed' // Background image analysis or generation failed
@@ -120,6 +122,27 @@ export interface ModeChangedEvent {
   mode: 'adventure'
 }
 
+export interface CompanionDecisionProposedEvent {
+  type: 'CompanionDecisionProposed'
+  proposalId: string
+  campaignId: string
+  sessionId: string | null
+  characterId: string
+  actorCategory: string
+  controlMode: string
+  sceneMode: string
+  proposedAction: string
+}
+
+export interface CompanionDecisionResolvedEvent {
+  type: 'CompanionDecisionResolved'
+  proposalId: string
+  campaignId: string
+  sessionId: string | null
+  characterId: string
+  accepted: boolean
+}
+
 export interface SaveCompleteEvent {
   type: 'SaveComplete'
   storyId: string
@@ -202,6 +225,8 @@ export type AventuraEvent =
   | StoryLoadedEvent
   | StoryCreatedEvent
   | ModeChangedEvent
+  | CompanionDecisionProposedEvent
+  | CompanionDecisionResolvedEvent
   | SaveCompleteEvent
   | ImageAnalysisStartedEvent
   | ImageAnalysisCompleteEvent

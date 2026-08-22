@@ -110,7 +110,7 @@
     if (!newBranchName.trim()) return
     if (!latestCheckpoint) {
       alert(
-        'Cannot create a branch without a checkpoint. Checkpoints are created at chapter boundaries.',
+        'Cannot create a branch without a checkpoint. Checkpoints are created at session boundaries.',
       )
       return
     }
@@ -188,7 +188,7 @@
       disabled={!canCreateBranch}
       title={canCreateBranch
         ? 'Create new branch from latest checkpoint'
-        : 'No checkpoints available - checkpoints are created at chapter boundaries'}
+        : 'No checkpoints available - checkpoints are created at session boundaries'}
     >
       <Plus class="h-5 w-5 sm:h-4 sm:w-4" />
     </button>

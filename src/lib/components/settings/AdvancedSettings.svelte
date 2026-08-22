@@ -493,7 +493,7 @@
             <div class="flex-1">
               <Label class="leading-none font-medium">Memory Retrieval</Label>
               <p class="text-muted-foreground mt-1 text-xs">
-                How past chapters are retrieved for context
+                How past sessions are retrieved for context
               </p>
             </div>
           </Collapsible.Trigger>

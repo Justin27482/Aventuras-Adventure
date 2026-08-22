@@ -38,7 +38,7 @@ export class WizardStore {
 
   // Wizard State
   currentStep = $state(1)
-  totalSteps = 9
+  totalSteps = 8
 
   // Pack selection state
   selectedPackId = $state<string>('default-pack')
@@ -236,23 +236,21 @@ export class WizardStore {
   // Navigation
   canProceed(): boolean {
     switch (this.currentStep) {
-      case 1: // Mode
-        return true
-      case 2: // Pack Selection
+      case 1: // Pack Selection
         return this.allVariablesFilled()
-      case 3: // World & Setting
+      case 2: // World & Setting
         return this.setting.settingSeed.trim().length > 0
-      case 4: // Character (required - must have protagonist)
+      case 3: // Character (required - must have protagonist)
         return this.character.protagonist !== null
-      case 5: // Supporting Cast (optional)
+      case 4: // Supporting Cast (optional)
         return true
-      case 6: // Lorebook (optional)
+      case 5: // Lorebook (optional)
         return true
-      case 7: // Portraits (optional)
+      case 6: // Portraits (optional)
         return true
-      case 8: // Writing Style
+      case 7: // Writing Style
         return true
-      case 9: // Opening
+      case 8: // Opening
         return this.narrative.storyTitle.trim().length > 0
       default:
         return false
@@ -520,7 +518,7 @@ export class WizardStore {
       }
     }
 
-    if (!this.narrative.generatedOpening) {
+    if (!this.narrative.generatedOpening?.scene?.trim()) {
       this.narrative.openingError =
         'Please provide an opening scene (write your own or generate with AI)'
       return
@@ -558,6 +556,12 @@ export class WizardStore {
     const processedOpening = {
       ...this.narrative.generatedOpening,
       scene: replaceUserPlaceholders(this.narrative.generatedOpening.scene, protagonistName),
+    }
+
+    if (!processedOpening.scene.trim()) {
+      this.narrative.openingError =
+        'The opening scene is empty. Please write or generate an opening before starting.'
+      return
     }
 
     const processedCharacters = this.character.supportingCharacters.map((char) => ({
@@ -753,20 +757,27 @@ export class WizardStore {
       })
     }
 
-    const newStory = await story.createStoryFromWizard({
-      ...storyData,
-      importedEntries: processedEntries.length > 0 ? processedEntries : undefined,
-      translations,
-    })
+    try {
+      const newStory = await story.createStoryFromWizard({
+        ...storyData,
+        importedEntries: processedEntries.length > 0 ? processedEntries : undefined,
+        translations,
+      })
 
-    // Assign pack and save custom variable values
-    await database.setStoryPack(newStory.id, this.selectedPackId)
-    if (Object.keys(this.customVariableValues).length > 0) {
-      await database.setStoryCustomVariables(newStory.id, this.customVariableValues)
+      // Assign pack and save custom variable values
+      await database.setStoryPack(newStory.id, this.selectedPackId)
+      if (Object.keys(this.customVariableValues).length > 0) {
+        await database.setStoryCustomVariables(newStory.id, this.customVariableValues)
+      }
+
+      await story.loadStory(newStory.id)
+      ui.setActivePanel('story')
+      this.onClose()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create campaign'
+      console.error('[Wizard] Campaign creation failed:', error)
+      ui.showToast(message, 'error')
+      // Do NOT close the modal on error - let user retry or cancel
     }
-
-    await story.loadStory(newStory.id)
-    ui.setActivePanel('story')
-    this.onClose()
   }
 }

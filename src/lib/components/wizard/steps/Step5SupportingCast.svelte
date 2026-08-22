@@ -127,9 +127,9 @@
 <div class="space-y-4">
   <!-- Header / Description -->
   <div class="space-y-1">
-    <h3 class="text-lg font-medium">Supporting Cast</h3>
+    <h3 class="text-lg font-medium">Party Members</h3>
     <p class="text-muted-foreground text-sm">
-      Add side characters, allies, or antagonists to enrich your story. This step is optional.
+      Add allies, rivals, or companions to enrich your campaign. This step is optional.
     </p>
   </div>
 
@@ -221,7 +221,7 @@
         class="hover:border-primary/50 h-12 justify-start gap-3 border-dashed hover:border-solid"
         onclick={onGenerateCharacters}
         disabled={isGeneratingCharacters || !protagonist}
-        title={!protagonist ? 'Create a protagonist first' : 'Generate 3 AI characters'}
+        title={!protagonist ? 'Create a lead character first' : 'Generate 3 AI characters'}
       >
         <div class="bg-accent/10 flex h-6 w-6 items-center justify-center rounded-full">
           {#if isGeneratingCharacters}
@@ -230,7 +230,7 @@
             <Sparkles class="text-accent-foreground h-4 w-4" />
           {/if}
         </div>
-        <span class="text-sm">Generate Cast with AI</span>
+        <span class="text-sm">Generate Party with AI</span>
       </Button>
     </div>
   {:else}

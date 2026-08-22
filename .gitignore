@@ -143,6 +143,10 @@ DerivedData/
 .LSOverride
 Icon?
 
+# Tauri application icons are release assets, not OS metadata.
+!src-tauri/icons/
+!src-tauri/icons/**
+
 # Windows
 Thumbs.db
 Thumbs.db:encryptable

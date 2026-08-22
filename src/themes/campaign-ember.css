@@ -1,0 +1,69 @@
+/* =============================================
+   CAMPAIGN ENGINE THEME
+   Branded dark palette for the new campaign-first app.
+   Designed to feel like a GM-facing TTRPG cockpit rather than a literary story app.
+   ============================================= */
+[data-theme='campaign-ember'] {
+  --radius: 0.625rem;
+
+  --background: hsl(224 23% 8%);
+  --foreground: hsl(38 40% 95%);
+  --muted: hsl(222 20% 18%);
+  --muted-foreground: hsl(34 18% 72%);
+  --popover: hsl(224 21% 12%);
+  --popover-foreground: hsl(39 35% 96%);
+  --card: hsl(224 19% 13%);
+  --card-foreground: hsl(39 35% 96%);
+  --border: hsl(32 32% 24%);
+  --input: hsl(32 32% 24%);
+  --primary: hsl(32 92% 54%);
+  --primary-foreground: hsl(224 24% 10%);
+  --secondary: hsl(232 18% 19%);
+  --secondary-foreground: hsl(39 35% 96%);
+  --accent: hsl(315 46% 59%);
+  --accent-foreground: hsl(230 20% 10%);
+  --destructive: hsl(0 72% 44%);
+  --destructive-foreground: hsl(35 35% 96%);
+  --ring: hsl(32 92% 54%);
+
+  --color-surface-50: #f8f2e8;
+  --color-surface-100: #f1e3d0;
+  --color-surface-200: #e7d3aa;
+  --color-surface-300: #d8b77d;
+  --color-surface-400: #c68b3d;
+  --color-surface-500: #a86526;
+  --color-surface-600: #7d431b;
+  --color-surface-700: #4a2d1b;
+  --color-surface-800: #231a1a;
+  --color-surface-850: #171415;
+  --color-surface-900: #0f0d12;
+  --color-surface-950: #09080b;
+
+  --color-accent-50: #fdf2f8;
+  --color-accent-100: #fbe7f3;
+  --color-accent-200: #f5cfe7;
+  --color-accent-300: #eea7d3;
+  --color-accent-400: #e676b9;
+  --color-accent-500: #d34da4;
+  --color-accent-600: #b83a8d;
+  --color-accent-700: #8d2870;
+  --color-accent-800: #631d54;
+  --color-accent-900: #3d1238;
+  --color-accent-950: #231021;
+
+  --bg-primary: var(--color-surface-900);
+  --bg-secondary: var(--color-surface-800);
+  --bg-tertiary: var(--color-surface-700);
+  --text-primary: var(--color-surface-100);
+  --text-secondary: var(--color-surface-200);
+  --text-muted: var(--color-surface-300);
+  --text-accent: var(--color-accent-400);
+  --border-primary: var(--color-surface-700);
+  --border-secondary: var(--color-surface-600);
+
+  --scrollbar-track: var(--color-surface-800);
+  --scrollbar-thumb: hsl(32 92% 54% / 0.75);
+  --scrollbar-thumb-hover: hsl(32 92% 54% / 0.95);
+
+  --font-story: 'Georgia', 'Times New Roman', serif;
+}

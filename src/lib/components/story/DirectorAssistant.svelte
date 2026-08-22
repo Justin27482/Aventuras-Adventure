@@ -32,13 +32,13 @@
   let chatMessages = $state<DirectorChatMessage[]>([])
   let lastStoryId = $state<string | null>(null)
 
-  function createWelcomeMessage(storyTitle: string | undefined): DirectorChatMessage {
+  function createWelcomeMessage(campaignTitle: string | undefined): DirectorChatMessage {
     return {
       id: crypto.randomUUID(),
       role: 'assistant',
-      content: storyTitle
-        ? `Lets shape ${storyTitle}. Tell me the premise, tone, and the secrets that should stay hidden for now.`
-        : 'Open a story and I will help you brainstorm pacing, reveals, and hidden structure before anything is drafted.',
+      content: campaignTitle
+        ? `Lets shape ${campaignTitle}. Tell me the premise, tone, and the secrets that should stay hidden for now.`
+        : 'Open a campaign and I will help you plan pacing, reveals, and hidden structure before anything is drafted.',
       timestamp: Date.now(),
     }
   }

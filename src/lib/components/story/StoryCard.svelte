@@ -71,81 +71,82 @@
   }
 </script>
 
-<div
+<Card.Root
   role="button"
-  tabindex="0"
+  tabindex={0}
   title={s.title}
-  onclick={() => onOpen(s.id)}
-  onkeydown={(e) => e.key === 'Enter' && onOpen(s.id)}
-  class="h-full"
+  onclick={() => void onOpen(s.id)}
+  onkeydown={(e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      void onOpen(s.id)
+    }
+  }}
+  class="group hover:border-primary relative h-full cursor-pointer overflow-hidden transition-all hover:shadow-md"
 >
-  <Card.Root
-    class="group hover:border-primary relative h-full cursor-pointer overflow-hidden transition-all hover:shadow-md"
-  >
-    <Card.Header>
-      <div class="flex items-center justify-between gap-2">
-        <Card.Title class="truncate text-lg leading-tight font-semibold">
-          {s.title}
-        </Card.Title>
-        <div class="flex items-center gap-1">
-          <Button
-            icon={Copy}
-            variant="ghost"
-            class="text-muted-foreground hover:text-foreground h-8 w-8 hover:bg-transparent"
-            size="icon"
-            onclick={(e) => onDuplicate(s, e)}
-            title="Duplicate story into wizard"
-          />
-          <Button
-            icon={Trash2}
-            variant="ghost"
-            class="text-muted-foreground hover:text-foreground h-8 w-8 hover:bg-transparent"
-            size="icon"
-            onclick={(e) => onDelete(s.id, e)}
-            title="Delete story"
-          />
-        </div>
+  <Card.Header>
+    <div class="flex items-center justify-between gap-2">
+      <Card.Title class="truncate text-lg leading-tight font-semibold">
+        {s.title}
+      </Card.Title>
+      <div class="flex items-center gap-1">
+        <Button
+          icon={Copy}
+          variant="ghost"
+          class="text-muted-foreground hover:text-foreground h-8 w-8 hover:bg-transparent"
+          size="icon"
+          onclick={(e) => onDuplicate(s, e)}
+          title="Duplicate campaign into wizard"
+        />
+        <Button
+          icon={Trash2}
+          variant="ghost"
+          class="text-muted-foreground hover:text-foreground h-8 w-8 hover:bg-transparent"
+          size="icon"
+          onclick={(e) => onDelete(s.id, e)}
+          title="Delete campaign"
+        />
       </div>
-      {#if s.genre}
-        <div>
-          <TagBadge name={s.genre} color={getGenreColor(s.genre)} />
-        </div>
-      {/if}
-    </Card.Header>
-    <Card.Content>
-      {#if s.description}
-        <p class="text-muted-foreground line-clamp-3 text-sm">
-          {s.description}
-        </p>
-      {:else}
-        <p class="text-muted-foreground text-sm italic">No description</p>
-      {/if}
-    </Card.Content>
-    <Card.Footer class="text-muted-foreground mt-auto pt-0 text-xs">
-      <div class="flex w-full flex-col gap-2">
-        <div class="flex items-center gap-1">
-          <Clock class="h-3 w-3" />
-          <span>Updated {formatDate(s.updatedAt)}</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <Folder class="h-3.5 w-3.5 shrink-0" />
-          <Select.Root
-            type="single"
-            bind:value={folderValue}
-            onValueChange={(next) => void handleFolderChange(next)}
-          >
-            <Select.Trigger class="h-7 text-xs" onclick={(e) => e.stopPropagation()}>
-              <span class="truncate">{currentFolderLabel}</span>
-            </Select.Trigger>
-            <Select.Content>
-              <Select.Item value="__none" label="No folder" />
-              {#each folders as folder (folder.id)}
-                <Select.Item value={folder.id} label={folder.name} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        </div>
+    </div>
+    {#if s.genre}
+      <div>
+        <TagBadge name={s.genre} color={getGenreColor(s.genre)} />
       </div>
-    </Card.Footer>
-  </Card.Root>
-</div>
+    {/if}
+  </Card.Header>
+  <Card.Content>
+    {#if s.description}
+      <p class="text-muted-foreground line-clamp-3 text-sm">
+        {s.description}
+      </p>
+    {:else}
+      <p class="text-muted-foreground text-sm italic">No description</p>
+    {/if}
+  </Card.Content>
+  <Card.Footer class="text-muted-foreground mt-auto pt-0 text-xs">
+    <div class="flex w-full flex-col gap-2">
+      <div class="flex items-center gap-1">
+        <Clock class="h-3 w-3" />
+        <span>Updated {formatDate(s.updatedAt)}</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <Folder class="h-3.5 w-3.5 shrink-0" />
+        <Select.Root
+          type="single"
+          bind:value={folderValue}
+          onValueChange={(next) => void handleFolderChange(next)}
+        >
+          <Select.Trigger class="h-7 text-xs" onclick={(e) => e.stopPropagation()}>
+            <span class="truncate">{currentFolderLabel}</span>
+          </Select.Trigger>
+          <Select.Content>
+            <Select.Item value="__none" label="No folder" />
+            {#each folders as folder (folder.id)}
+              <Select.Item value={folder.id} label={folder.name} />
+            {/each}
+          </Select.Content>
+        </Select.Root>
+      </div>
+    </div>
+  </Card.Footer>
+</Card.Root>

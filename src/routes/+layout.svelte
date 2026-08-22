@@ -2,6 +2,7 @@
   import '../app.css'
   import { onMount } from 'svelte'
   import Toast from '$lib/components/Toast.svelte'
+  import * as Tooltip from '$lib/components/ui/tooltip'
   import { ui } from '$lib/stores/ui.svelte'
   import { story } from '$lib/stores/story.svelte'
   import { isAndroid } from '$lib/utils/platform'
@@ -71,8 +72,11 @@
   })
 </script>
 
-<div class="h-screen w-screen overflow-hidden">
-  {@render children()}
-</div>
+<!-- bits-ui requires a Tooltip.Provider ancestor; without it every Tooltip.Root throws and its pane fails to render. -->
+<Tooltip.Provider delayDuration={300}>
+  <div class="h-screen w-screen overflow-hidden">
+    {@render children()}
+  </div>
+</Tooltip.Provider>
 
 <Toast />

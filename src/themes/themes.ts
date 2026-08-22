@@ -1,5 +1,5 @@
 /**
- * Centralized theme registry for Aventura.
+ * Centralized theme registry for Campaign Engine.
  * Add new themes here and they'll automatically appear in the UI.
  */
 
@@ -11,6 +11,12 @@ export interface ThemeMetadata {
 }
 
 export const THEMES: ThemeMetadata[] = [
+  {
+    id: 'campaign-ember',
+    label: 'Campaign Ember',
+    description: 'Brand-new GM cockpit palette for the campaign engine',
+    isDark: true,
+  },
   {
     id: 'dark',
     label: 'Dark',

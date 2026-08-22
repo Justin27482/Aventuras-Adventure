@@ -12,7 +12,7 @@
 </script>
 
 <div class="space-y-4">
-  <p class="text-muted-foreground">How do you want to experience your story?</p>
+  <p class="text-muted-foreground">How do you want to experience your campaign?</p>
   <button
     class="group w-full text-left focus:outline-none"
     onclick={() => onModeChange('adventure')}
@@ -33,7 +33,7 @@
       </Card.Header>
       <Card.Content>
         <p class="text-muted-foreground text-sm">
-          <strong>You are the protagonist.</strong> Take actions in-world while the AI narrates outcomes,
+          <strong>You are the lead character.</strong> Take actions in-world while the AI narrates outcomes,
           NPC reactions, and evolving consequences.
         </p>
       </Card.Content>

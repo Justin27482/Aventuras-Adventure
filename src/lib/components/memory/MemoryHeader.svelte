@@ -18,7 +18,7 @@
   const tokensOutsideBuffer = $derived(story.tokensOutsideBuffer)
   const threshold = $derived(story.memoryConfig.tokenThreshold)
   const autoSummarize = $derived(story.memoryConfig.autoSummarize)
-  const messagesSinceLastChapter = $derived(story.messagesSinceLastChapter)
+  const messagesSinceLastSession = $derived(story.messagesSinceLastChapter)
   const bufferSize = $derived(story.memoryConfig.chapterBuffer)
 
   const percentage = $derived(
@@ -89,7 +89,7 @@
           <span class="text-muted-foreground/70"> tokens</span>
         </span>
         <span class="text-muted-foreground text-xs sm:text-sm">
-          {messagesSinceLastChapter} messages
+          {messagesSinceLastSession} messages since last session
           {#if bufferSize > 0}
             <span class="text-muted-foreground/70">({bufferSize} protected)</span>
           {/if}
@@ -102,10 +102,10 @@
       <Button
         class="flex-1 gap-2"
         onclick={handleCreateChapter}
-        disabled={ui.memoryLoading || messagesSinceLastChapter === 0}
+        disabled={ui.memoryLoading || messagesSinceLastSession === 0}
       >
         <Plus class="h-4 w-4" />
-        <span>Create Chapter Now</span>
+        <span>Create Session Now</span>
       </Button>
 
       <Button

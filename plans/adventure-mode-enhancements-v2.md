@@ -1,12 +1,14 @@
 # Adventure Mode Enhancements — TTRPG Campaign Engine
 
 Version: 2.0 (Greenfield Launch)
-Date: 2026-08-14
-Status: Planned (not started)
+Date: 2026-08-15
+Status: Active implementation; Phases 0-3 complete, Phase 4 in progress
 
 This document is a revised product and engineering plan for the next-generation system. It intentionally supersedes the original strategy in [plans/adventure-mode-enhancements.md](adventure-mode-enhancements.md) while preserving that earlier plan for reference.
 
 The core decision in this version is intentionally different: this is a clean-slate product launch, not a migration of the current story-first app. Existing Aventura stories are treated as legacy content and are not carried forward into the new campaign engine.
+
+Current execution status is tracked in [plans/adventure-mode-engineering-tasks-v2.md](adventure-mode-engineering-tasks-v2.md). Phases 0-3 are implemented and validated. Phase 4 scene/turn persistence has started with migration 049 and turn-order snapshot/restore support; campaign lifecycle wiring, turn direction, and UI remain outstanding.
 
 ---
 
@@ -34,7 +36,7 @@ This is the safer path because the current app is structurally coupled to a sing
 | Product scope | New campaign-first product; no migration from legacy stories |
 | Legacy app | Kept only as archived/legacy content, not active product behavior |
 | Campaign data model | New schema and code path from the ground up |
-| Player model | Party-based play with a spotlight actor and explicit player-controlled members |
+| Player model | Party-based play with a player-selected primary character, autonomous companions, and optional tactical companion control |
 | Core engine | Ruleset-driven, dice-aware, scene-aware, GM-supported |
 | UX direction | Bold rebrand; intentionally different from old Aventura app |
 | Compatibility | No legacy story compatibility work in the new product |
@@ -93,11 +95,33 @@ Campaign data includes:
 ### 4.2 Party-first play
 The new key abstraction is not a single “self” character. The campaign stores:
 
-- party members
-- player-controlled characters
+- an ally pool and eligible companion roster
+- an active party selected from eligible allies
+- a primary character selected per session
+- autonomous companion agency outside direct tactical control
 - spotlight/active character
 - active turn order and scene focus
 - per-member resources, conditions, and equipment
+
+### 4.3 Character agency and control policy
+
+The player manages the roster, but does not automatically possess every companion's voice or decisions.
+
+Actor categories are explicit: `primary_player_character`, `active_companion`, `inactive_ally`, `friendly_npc`, `neutral_npc`, `enemy`, and `gm_actor`.
+
+Control mode is separate from actor category:
+
+- `player_narrative`: player leads the actor's narrative decisions
+- `autonomous`: companion/NPC AI owns the actor's decisions
+- `tactical_delegate`: player supplies tactical intent and the actor chooses a fitting action
+- `tactical_player`: player selects the companion's combat action explicitly
+- `gm_directed`: GM/director owns the actor's action
+
+The first release defaults to a player-controlled primary character and autonomous active companions, both in social/narrative scenes and combat. An optional campaign/session policy may enable tactical delegation or direct tactical control for active companions during combat only. Enemies and ordinary NPCs are never player-controlled.
+
+Companions retain persistent voices, priorities, motivations, relationships, fears, values, knowledge, secrets, and red lines. Player requests are requests, not guaranteed commands. The director may resolve consequences, but must not silently convert an autonomous companion into a player puppet.
+
+At session start, the player selects a primary character, active party, party order, and optional companion combat policy. This selection is snapshotted for the session; party changes normally occur at camp, settlement, downtime, or another explicit transition.
 
 ### 4.3 Ruleset-driven simulation
 The engine is not just prose generation. It is explicitly rules-aware.
@@ -182,7 +206,11 @@ Core entities:
 
 - campaigns
 - campaign_settings
+- ally_pool / party eligibility
 - party_members
+- campaign_sessions
+- session_party_members
+- actor_control_profiles
 - characters
 - character_sheets
 - rulesets
@@ -212,6 +240,8 @@ The core abstraction should be an actor abstraction that works for:
 
 This enables unified turn order, active actor selection, and scene orchestration across combat and non-combat modes.
 
+The actor model must carry agency ownership and control policy. `characters.is_player_character` alone is insufficient because it cannot represent inactive allies, autonomous companions, session primary selection, or combat-only tactical delegation.
+
 ### 6.3 State ownership
 The app must separate:
 
@@ -240,13 +270,15 @@ Outcome: the app reads as a distinct product from the start.
 ### Phase 1 — Campaign foundation and party model
 
 1. New campaign tables and settings structure.
-2. Add `characters.is_player_character` and party membership model.
+2. Add ally eligibility, actor category, and agency/control profiles; do not use `is_player_character` as the sole control mechanism.
 3. Add `stories`-equivalent domain renamed around campaigns, while preserving internal domain naming only if needed.
-4. Add `spotlight_character_id` and active party roster model.
-5. Add per-character item ownership and shared stash semantics.
-6. Add campaign-level party limits and default party size.
+4. Add active party membership and per-session primary character selection.
+5. Add session party snapshots, party order, and explicit party-change boundaries.
+6. Add separate narrative-control and combat-control policies.
+7. Add per-character item ownership and shared stash semantics.
+8. Add campaign-level party limits and default party size.
 
-Outcome: party-first state is the foundation, not a feature layered on top of a protagonist system.
+Outcome: party-first state is the foundation while companion autonomy and optional tactical control preserve intraparty roleplay.
 
 ### Phase 2 — Ruleset engine and dice system
 
@@ -291,6 +323,7 @@ Outcome: numerical state is controlled by mechanics code rather than prompt sugg
 3. Track `activeActor`, `sceneMode`, `turnType`, and `pendingRoll` in metadata or dedicated tables.
 4. Add turn-order engine supporting free, spotlight, round robin, initiative, and DM-directed modes.
 5. Add scene transitions with narrative output instead of silent mode changes.
+6. Add companion decision proposals and tactical control policies without erasing companion narrative agency.
 
 Outcome: the engine can support both dungeon play and social/travel scenes without combat-only assumptions.
 
@@ -426,7 +459,27 @@ The following are not negotiable:
 
 These checks should be enforced in backend/service validation and by rollout guardrails in mechanics and DM tool execution.
 
-### 9.4 Clear product separation
+### 9.4 Safety prompt packs (required)
+
+The LLM safety policy must be converted out of hardcoded TypeScript text and into a dedicated prompt-pack category. The app should define new prompt-pack entries such as:
+
+- `safety-core-rules`
+- `safety-guardrails`
+- `safety-content-intensity`
+- `safety-content-bans`
+- `safety-mechanics-constraints`
+
+These pack entries carry the actual wording for:
+
+- hard safety bans
+- consent and coercion boundaries
+- intensity-dependent content framing
+- dark-content tone controls
+- GM-facing safety guidance for social or erotic scenes
+
+This keeps policy language editable and testable without code changes, while the enforcement layer still remains in code at the system boundary. In other words, the app may enforce the rule in validation code, but the wording and variant selection belong to the prompt pack.
+
+### 9.5 Clear product separation
 The app shell, branding, copy, and onboarding should make it obvious that this is a new product rather than a continuation of the old app.
 
 ---

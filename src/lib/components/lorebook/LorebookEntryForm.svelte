@@ -7,8 +7,11 @@
     AdventureEntryState,
   } from '$lib/types'
   import { story } from '$lib/stores/story.svelte'
+  import { settings } from '$lib/stores/settings.svelte'
   import { ui } from '$lib/stores/ui.svelte'
-  import { ChevronDown, ChevronUp, Plus, X } from 'lucide-svelte'
+  import { ChevronDown, ChevronUp, Plus, X, Sparkles, Loader2 } from 'lucide-svelte'
+  import { slide } from 'svelte/transition'
+  import { scenarioService } from '$lib/services/ai/wizard'
 
   import { Input } from '$lib/components/ui/input'
   import { Textarea } from '$lib/components/ui/textarea'
@@ -51,6 +54,9 @@
   let newKeyword = $state('')
 
   let saving = $state(false)
+  let showAiOptions = $state(false)
+  let aiGuidance = $state('')
+  let isGenerating = $state(false)
 
   const entryTypes: Array<{ value: EntryType; label: string }> = [
     { value: 'character', label: 'Character' },
@@ -163,6 +169,35 @@
     }
   }
 
+  // No wizard ExpandedSetting exists here, so we ground the generation in the
+  // current story's genre/title/description instead.
+  async function generateWithAI() {
+    if (isGenerating) return
+    isGenerating = true
+    try {
+      const genre = story.currentStory?.genre?.trim() || undefined
+      const result = await scenarioService.generateLorebookEntry(
+        { name: name.trim() || undefined, description: description.trim() || undefined, type },
+        'custom',
+        genre,
+        settings.servicePresetAssignments['wizard:lorebookEntryGeneration'],
+        aiGuidance.trim() || undefined,
+        {
+          title: story.currentStory?.title,
+          description: story.currentStory?.description ?? undefined,
+        },
+      )
+      name = result.name
+      description = result.description
+      aliases = result.aliases
+      keywords = result.keywords
+    } catch (error) {
+      ui.showToast(error instanceof Error ? error.message : 'Failed to generate entry', 'error')
+    } finally {
+      isGenerating = false
+    }
+  }
+
   async function handleSave() {
     if (!name.trim()) {
       ui.showToast('Name is required', 'error')
@@ -229,6 +264,44 @@
         {/each}
       </SelectContent>
     </Select>
+  </div>
+
+  <!-- AI-assisted generation -->
+  <div class="space-y-2">
+    <Button
+      variant="outline"
+      size="sm"
+      class="text-muted-foreground gap-2"
+      onclick={() => (showAiOptions = !showAiOptions)}
+    >
+      <Sparkles class="h-3.5 w-3.5" />
+      {showAiOptions ? 'Hide AI Options' : 'Generate with AI'}
+      <ChevronDown class="h-3 w-3 transition-transform {showAiOptions ? 'rotate-180' : ''}" />
+    </Button>
+
+    {#if showAiOptions}
+      <div
+        class="text-card-foreground bg-muted/10 space-y-3 rounded-lg border p-3"
+        transition:slide={{ duration: 150 }}
+      >
+        <Textarea
+          bind:value={aiGuidance}
+          placeholder="Guidance for AI (optional) - tone, role in the story, key details..."
+          class="min-h-16 resize-none text-sm"
+          rows={2}
+          disabled={isGenerating}
+        />
+        <Button size="sm" class="gap-2" onclick={generateWithAI} disabled={isGenerating}>
+          {#if isGenerating}
+            <Loader2 class="h-3.5 w-3.5 animate-spin" />
+            Generating...
+          {:else}
+            <Sparkles class="h-3.5 w-3.5" />
+            Generate Entry
+          {/if}
+        </Button>
+      </div>
+    {/if}
   </div>
 
   <!-- Description -->

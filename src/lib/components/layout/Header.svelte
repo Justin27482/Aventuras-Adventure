@@ -3,9 +3,12 @@
   import { ui } from '$lib/stores/ui.svelte'
   import { story } from '$lib/stores/story.svelte'
   import { settings } from '$lib/stores/settings.svelte'
+  import { campaign } from '$lib/stores/campaign.svelte'
+  import SessionSetupModal from '$lib/components/campaign/SessionSetupModal.svelte'
   import { exportService, gatherStoryData } from '$lib/services/export'
   import { Button } from '$lib/components/ui/button'
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
+  import * as Tooltip from '$lib/components/ui/tooltip'
   import {
     eventBus,
     type ImageAnalysisStartedEvent,
@@ -30,10 +33,31 @@
     ImageIcon,
     MessageSquare,
     AlertTriangle,
+    Play,
+    Square,
   } from 'lucide-svelte'
 
   let showExportMenu = $state(false)
   let showMobileMenu = $state(false)
+  let showSessionSetup = $state(false)
+
+  const needsSessionSetup = $derived(
+    !!story.currentStory &&
+      story.currentStory.templateId === 'wizard-generated' &&
+      !!campaign.current &&
+      !campaign.activeSession,
+  )
+
+  const hasActiveSession = $derived(!!campaign.activeSession)
+
+  async function endActiveSession() {
+    try {
+      await campaign.endSession()
+      ui.showToast('Session ended. You can now change the active party.', 'info')
+    } catch (error) {
+      ui.showToast(error instanceof Error ? error.message : 'Unable to end session', 'error')
+    }
+  }
 
   function goToLibrary() {
     story.closeStory()
@@ -100,7 +124,7 @@
     try {
       const success = await exportFn()
       if (success) {
-        ui.showToast(`Exported story as ${formatName}`, 'info')
+        ui.showToast(`Exported campaign as ${formatName}`, 'info')
       } else {
         ui.showToast('Export cancelled', 'info')
       }
@@ -133,7 +157,7 @@
           data.chapters,
           data.chapterSources,
         ),
-      'Aventuras (.avt)',
+      'Legacy Aventuras (.avt)',
     )
   }
 
@@ -167,7 +191,7 @@
   <DropdownMenu.Label>Import</DropdownMenu.Label>
   <DropdownMenu.Item onclick={() => ui.openNovelImport()}>
     <FileText class="text-muted-foreground h-4 w-4" />
-    Novel Chapters (new story)
+    Novel Chapters (new campaign)
   </DropdownMenu.Item>
   {#if story.currentStory}
     <DropdownMenu.Item onclick={() => ui.openChapterSourceImport()}>
@@ -184,7 +208,7 @@
     <DropdownMenu.Label>Export</DropdownMenu.Label>
     <DropdownMenu.Item onclick={exportAventuras}>
       <FileJson class="text-accent-400 h-4 w-4" />
-      Aventuras (.avt)
+      Legacy Aventuras (.avt)
     </DropdownMenu.Item>
     <DropdownMenu.Item onclick={exportMarkdown}>
       <FileText class="h-4 w-4 text-blue-400" />
@@ -198,17 +222,16 @@
 {/snippet}
 
 <header
-  class="bg-card relative z-10 flex h-12 items-center justify-between border-b px-1 sm:h-14 sm:px-4"
+  class="bg-card relative z-10 flex h-12 items-center justify-between border-b border-primary/20 px-1 shadow-[inset_0_-1px_0_rgba(245,166,66,0.18)] sm:h-14 sm:px-4"
 >
-  <!-- Left side: Story title -->
+  <!-- Left side: Campaign title -->
   <div class="flex min-w-0 flex-1 items-center">
     <div class="flex min-w-0 items-center gap-3 px-2.5 sm:px-1">
       <div
-        class="bg-primary h-7 w-7 flex-shrink-0"
-        style="mask-image: url('/logo.png'); mask-size: contain; mask-repeat: no-repeat; mask-position: center; -webkit-mask-image: url('/logo.png'); -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center;"
-        role="img"
-        aria-label="Aventuras"
-      ></div>
+        class="h-8 w-8 flex-shrink-0 rounded-sm shadow-[0_0_18px_rgba(245,166,66,0.4)]"
+      >
+        <img src="/campaign-engine-mark.svg" alt="Campaign Engine" class="h-full w-full" />
+      </div>
       {#if story.currentStory}
         <div class="flex min-w-0 items-center gap-2">
           <span
@@ -229,7 +252,7 @@
         {/if}
       {:else}
         <!-- App Branding (Library Mode) -->
-        <span class="text-foreground text-lg font-semibold sm:translate-y-[-1.5px]">Aventuras</span>
+        <span class="text-foreground text-lg font-semibold sm:translate-y-[-1.5px]">Campaign Engine</span>
       {/if}
     </div>
   </div>
@@ -267,42 +290,97 @@
     <!-- Back to Library Button (right side) -->
     {#if story.currentStory}
       <div class="hidden sm:block">
-        <Button
-          icon={Library}
-          label="Library"
-          variant="text"
-          class="text-muted-foreground hover:text-primary min-h-11 min-w-11"
-          onclick={goToLibrary}
-          title="Return to Library"
-        />
+        <Tooltip.Root>
+          <Tooltip.Trigger>
+            {#snippet child({ props })}
+              <Button
+                {...props}
+                icon={Library}
+                label="Library"
+                variant="text"
+                class="text-muted-foreground hover:text-primary min-h-11 min-w-11"
+                onclick={goToLibrary}
+              />
+            {/snippet}
+          </Tooltip.Trigger>
+          <Tooltip.Content>Return to Library</Tooltip.Content>
+        </Tooltip.Root>
       </div>
     {/if}
 
     {#if story.currentStory}
+      {#if needsSessionSetup}
+        <Tooltip.Root>
+          <Tooltip.Trigger>
+            {#snippet child({ props })}
+              <Button
+                {...props}
+                icon={Play}
+                label="Start Session"
+                variant="default"
+                class="min-h-11 min-w-11"
+                onclick={() => (showSessionSetup = true)}
+              />
+            {/snippet}
+          </Tooltip.Trigger>
+          <Tooltip.Content>Choose your party and start a session</Tooltip.Content>
+        </Tooltip.Root>
+      {:else if hasActiveSession}
+        <Tooltip.Root>
+          <Tooltip.Trigger>
+            {#snippet child({ props })}
+              <Button
+                {...props}
+                icon={Square}
+                label="End Session"
+                variant="outline"
+                class="min-h-11 min-w-11"
+                onclick={endActiveSession}
+              />
+            {/snippet}
+          </Tooltip.Trigger>
+          <Tooltip.Content>End the active session before changing the party</Tooltip.Content>
+        </Tooltip.Root>
+      {/if}
+
       <!-- Gallery Button -->
-      <Button
-        icon={ImageIcon}
-        label="Gallery"
-        variant="text"
-        class="text-muted-foreground hover:text-primary min-h-11 min-w-11"
-        onclick={() => ui.setActivePanel(ui.activePanel === 'gallery' ? 'story' : 'gallery')}
-        title="View generated images"
-      />
+      <Tooltip.Root>
+        <Tooltip.Trigger>
+          {#snippet child({ props })}
+            <Button
+              {...props}
+              icon={ImageIcon}
+              label="Gallery"
+              variant="text"
+              class="text-muted-foreground hover:text-primary min-h-11 min-w-11"
+              onclick={() => ui.setActivePanel(ui.activePanel === 'gallery' ? 'story' : 'gallery')}
+            />
+          {/snippet}
+        </Tooltip.Trigger>
+        <Tooltip.Content>View generated images</Tooltip.Content>
+      </Tooltip.Root>
 
       <!-- Import / Export Menu -->
       <div class="hidden sm:block">
         <DropdownMenu.Root bind:open={showExportMenu}>
           <DropdownMenu.Trigger>
             {#snippet child({ props })}
-              <Button
-                {...props}
-                icon={ArrowUpDown}
-                label={story.currentStory ? 'Import/Export' : 'Import'}
-                endIcon={ChevronDown}
-                variant="text"
-                class="text-muted-foreground hover:text-primary min-h-11 min-w-11"
-                title={story.currentStory ? 'Import / Export story' : 'Import story material'}
-              />
+              <Tooltip.Root>
+                <Tooltip.Trigger>
+                  {#snippet child({ props: tooltipProps })}
+                    <Button
+                      {...props}
+                      {...tooltipProps}
+                      icon={ArrowUpDown}
+                      label={story.currentStory ? 'Import/Export' : 'Import'}
+                      endIcon={ChevronDown}
+                      variant="text"
+                      class="text-muted-foreground hover:text-primary min-h-11 min-w-11"
+                    />
+                  {/snippet}
+                </Tooltip.Trigger>
+                <Tooltip.Content>{story.currentStory ? 'Import / Export campaign' : 'Import campaign material'}</Tooltip.Content>
+              </Tooltip.Root>
             {/snippet}
           </DropdownMenu.Trigger>
           <DropdownMenu.Content align="end">
@@ -337,6 +415,17 @@
             <Library class="text-muted-foreground h-4 w-4" />
             Library
           </DropdownMenu.Item>
+          {#if needsSessionSetup}
+            <DropdownMenu.Item onclick={() => (showSessionSetup = true)}>
+              <Play class="text-primary h-4 w-4" />
+              Start Session
+            </DropdownMenu.Item>
+          {:else if hasActiveSession}
+            <DropdownMenu.Item onclick={endActiveSession}>
+              <Square class="text-muted-foreground h-4 w-4" />
+              End Session
+            </DropdownMenu.Item>
+          {/if}
           <DropdownMenu.Separator />
         {/if}
         {@render importExportMenuItems()}
@@ -354,21 +443,28 @@
     </DropdownMenu.Root>
 
     {#if story.currentStory && story.lorebookEntries.length > 0}
-      <Button
-        variant="text"
-        class="text-muted-foreground hover:text-primary relative hidden min-h-11 min-w-11 sm:flex"
-        onclick={() => ui.toggleLorebookDebug()}
-        title="View active lorebook entries"
-      >
-        <Bug class="h-5 w-5" />
-        {#if ui.lastLorebookRetrieval && ui.lastLorebookRetrieval.all.length > 0}
-          <span
-            class="bg-accent-500 absolute top-1 right-1 flex h-3 w-3 items-center justify-center rounded-full text-[9px] font-medium text-white"
-          >
-            {ui.lastLorebookRetrieval.all.length}
-          </span>
-        {/if}
-      </Button>
+      <Tooltip.Root>
+        <Tooltip.Trigger>
+          {#snippet child({ props })}
+            <Button
+              {...props}
+              variant="text"
+              class="text-muted-foreground hover:text-primary relative hidden min-h-11 min-w-11 sm:flex"
+              onclick={() => ui.toggleLorebookDebug()}
+            >
+              <Bug class="h-5 w-5" />
+              {#if ui.lastLorebookRetrieval && ui.lastLorebookRetrieval.all.length > 0}
+                <span
+                  class="bg-accent-500 absolute top-1 right-1 flex h-3 w-3 items-center justify-center rounded-full text-[9px] font-medium text-white"
+                >
+                  {ui.lastLorebookRetrieval.all.length}
+                </span>
+              {/if}
+            </Button>
+          {/snippet}
+        </Tooltip.Trigger>
+        <Tooltip.Content>View active lorebook entries</Tooltip.Content>
+      </Tooltip.Root>
     {/if}
 
     {#if !story.currentStory}
@@ -416,3 +512,7 @@
     {/if}
   </div>
 </header>
+
+{#if showSessionSetup}
+  <SessionSetupModal open={showSessionSetup} onClose={() => (showSessionSetup = false)} />
+{/if}

@@ -41,7 +41,7 @@
     <div>
       <h3 class="text-lg font-semibold">Prompt Pack</h3>
       <p class="text-muted-foreground text-sm">
-        Choose which prompt templates to use for this story.
+        Choose which prompt templates to use for this campaign.
       </p>
     </div>
   </div>

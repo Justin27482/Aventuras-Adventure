@@ -49,6 +49,304 @@ export interface StoryFolder {
   updatedAt: number
 }
 
+export type CampaignActorCategory =
+  | 'primary_player_character'
+  | 'active_companion'
+  | 'inactive_ally'
+  | 'friendly_npc'
+  | 'neutral_npc'
+  | 'enemy'
+  | 'gm_actor'
+
+export type CampaignControlMode =
+  | 'player_narrative'
+  | 'autonomous'
+  | 'tactical_delegate'
+  | 'tactical_player'
+  | 'gm_directed'
+
+export interface Campaign {
+  id: string
+  storyId: string | null
+  title: string
+  description: string | null
+  rulesetId: string | null
+  spotlightCharacterId: string | null
+  status: 'active' | 'paused' | 'completed' | 'archived'
+  createdAt: number
+  updatedAt: number
+}
+
+export interface CampaignSettings {
+  campaignId: string
+  defaultPartySize: number
+  maxPartySize: number
+  sceneMode: string
+  turnOrderMode: string
+  diceEnforcement: string
+  nsfwIntensity: number
+  worldCharter: string | null
+  companionCombatPolicy: 'companions_autonomous' | 'tactical_delegate' | 'tactical_player'
+  createdAt: number
+  updatedAt: number
+}
+
+export interface CampaignPartyMember {
+  id: string
+  campaignId: string
+  characterId: string
+  eligibilityStatus: 'eligible' | 'unavailable' | 'dismissed' | 'deceased'
+  actorCategory: CampaignActorCategory
+  active: boolean
+  narrativeControlMode: CampaignControlMode
+  combatControlMode: CampaignControlMode
+  displayOrder: number
+  joinedAt: number
+  leftAt: number | null
+}
+
+export interface ActorControlProfile {
+  id: string
+  campaignId: string
+  characterId: string
+  actorCategory: CampaignActorCategory
+  narrativeControlMode: CampaignControlMode
+  combatControlMode: CampaignControlMode
+  priorities: string | null
+  motivations: string | null
+  fears: string | null
+  valuePriorities: string | null
+  redLines: string | null
+  tacticalPreferences: string | null
+  createdAt: number
+  updatedAt: number
+}
+
+export interface CampaignSession {
+  id: string
+  campaignId: string
+  sessionNumber: number
+  title: string | null
+  primaryCharacterId: string
+  narrativeControlPolicy: 'primary_player_companions_autonomous'
+  combatControlPolicy: 'companions_autonomous' | 'tactical_delegate' | 'tactical_player'
+  status: 'active' | 'completed' | 'abandoned'
+  startedAt: number
+  endedAt: number | null
+}
+
+export interface SceneTurnState {
+  id: string
+  campaignId: string
+  entryId: string | null
+  sceneMode: string
+  turnOrderMode: string
+  activeActorId: string | null
+  actorOrder: string[]
+  turnNumber: number
+  createdAt: number
+  updatedAt: number
+}
+
+export interface SessionPartyMember {
+  id: string
+  sessionId: string
+  characterId: string
+  partyOrder: number
+  actorCategory: 'primary_player_character' | 'active_companion'
+  narrativeControlMode: CampaignControlMode
+  combatControlMode: CampaignControlMode
+  joinedAt: number
+  leftAt: number | null
+}
+
+export type CompanionDecisionSource = 'companion_ai' | 'player_request' | 'tactical_delegate' | 'gm'
+
+export interface CompanionDecisionProposal {
+  id: string
+  campaignId: string
+  sessionId: string | null
+  characterId: string
+  actorCategory: CampaignActorCategory
+  source: CompanionDecisionSource
+  controlMode: CampaignControlMode
+  sceneMode: string
+  intent: string
+  proposedAction: string
+  rationale: string
+  accepted: boolean | null
+  createdAt: number
+}
+
+// ===== Ruleset Types (Phase 2) =====
+
+export interface Ruleset {
+  id: string
+  name: string
+  description: string | null
+  isBuiltin: boolean
+  diceSystem: string
+  defaultCheckRuleKey: string | null
+  createdAt: number
+  updatedAt: number
+}
+
+export interface RulesetStat {
+  id: string
+  rulesetId: string
+  key: string
+  label: string
+  defaultValue: number
+  minValue: number | null
+  maxValue: number | null
+  sortOrder: number
+}
+
+export interface RulesetSkill {
+  id: string
+  rulesetId: string
+  key: string
+  label: string
+  governingStatKey: string | null
+  sortOrder: number
+}
+
+/** A named margin-of-success band, e.g. "critical success" when margin >= 10. */
+export interface OutcomeBand {
+  label: string
+  minMargin: number | null
+  maxMargin: number | null
+}
+
+export interface RulesetCheckRule {
+  id: string
+  rulesetId: string
+  key: string
+  label: string
+  notation: string
+  criticalSuccessThreshold: number | null
+  criticalFailureThreshold: number | null
+  outcomeBands: OutcomeBand[]
+  sortOrder: number
+}
+
+export interface RulesetCondition {
+  id: string
+  rulesetId: string
+  key: string
+  label: string
+  description: string | null
+  sortOrder: number
+}
+
+export interface RulesetSlot {
+  id: string
+  rulesetId: string
+  key: string
+  label: string
+  sortOrder: number
+}
+
+export interface RulesetAbility {
+  id: string
+  rulesetId: string
+  key: string
+  label: string
+  description: string | null
+  resourceKey: string | null
+  resourceCost: number
+  sortOrder: number
+}
+
+export interface RulesetLevel {
+  id: string
+  rulesetId: string
+  level: number
+  label: string | null
+  xpThreshold: number | null
+  statBonuses: Record<string, number> | null
+}
+
+/**
+ * A derived resource (health, mana, stamina, etc). `maxFormula` is a small
+ * arithmetic expression referencing stat keys and `level`, evaluated by
+ * `src/lib/services/mechanics/resource-formulas.ts` (no code execution).
+ */
+export interface RulesetResource {
+  id: string
+  rulesetId: string
+  key: string
+  label: string
+  maxFormula: string
+  minValue: number
+  sortOrder: number
+}
+
+export interface FullRuleset {
+  ruleset: Ruleset
+  stats: RulesetStat[]
+  skills: RulesetSkill[]
+  checkRules: RulesetCheckRule[]
+  conditions: RulesetCondition[]
+  slots: RulesetSlot[]
+  abilities: RulesetAbility[]
+  levels: RulesetLevel[]
+  resources: RulesetResource[]
+}
+
+// ===== Dice Roll Types (Phase 2) =====
+
+export type RollVisibility = 'player_safe' | 'director_only'
+
+/**
+ * Outcome label for a resolved roll. Not a closed union: rulesets define their
+ * own outcome-band labels (e.g. narrative 2d6's "partial success"), so this is
+ * validated against a ruleset's `RulesetCheckRule.outcomeBands` at runtime instead.
+ */
+export type RollOutcome = string | null
+
+/** Common outcome labels used by built-in d20-style rulesets. */
+export const STANDARD_ROLL_OUTCOMES = {
+  criticalSuccess: 'critical_success',
+  success: 'success',
+  failure: 'failure',
+  criticalFailure: 'critical_failure',
+} as const
+
+/** Explicit GM bias applied to a roll; never silent, always logged in the ledger. */
+export interface RollBias {
+  type: 'karma' | 'fudge'
+  amount: number
+  note: string
+}
+
+export interface RollLedgerEntry {
+  id: string
+  campaignId: string
+  sessionId: string | null
+  actorId: string | null
+  notation: string
+  seed: string
+  rolls: number[]
+  modifier: number
+  total: number
+  dc: number | null
+  outcome: RollOutcome
+  reason: string | null
+  visibility: RollVisibility
+  biasApplied: RollBias | null
+  createdAt: number
+}
+
+export interface RollStats {
+  count: number
+  average: number
+  min: number
+  max: number
+  criticalSuccesses: number
+  criticalFailures: number
+}
+
 // Persistent retry state - lightweight version saved to database
 export type ActionInputType = 'do' | 'say' | 'think' | 'story' | 'free'
 
@@ -207,6 +505,31 @@ export interface Character {
   translatedTraits?: string[] | null
   translatedVisualDescriptors?: VisualDescriptors | null
   translationLanguage?: string | null
+}
+
+// ===== Character Sheet Types (Phase 3) =====
+
+export interface ResourceValue {
+  current: number
+  max: number
+}
+
+export interface ConditionState {
+  active: boolean
+  note: string | null
+}
+
+/** A character's dynamic ruleset state: stat scores, resources, conditions, level/xp. */
+export interface CharacterSheet {
+  characterId: string
+  rulesetId: string
+  statValues: Record<string, number>
+  resourceValues: Record<string, ResourceValue>
+  conditionStates: Record<string, ConditionState>
+  level: number
+  xp: number
+  createdAt: number
+  updatedAt: number
 }
 
 // ===== Character Vault Types =====
@@ -376,6 +699,9 @@ export interface Item {
   quantity: number
   equipped: boolean
   location: string
+  ownerCharacterId?: string | null
+  slotKey?: string | null
+  containerItemId?: string | null
   metadata: Record<string, unknown> | null
   branchId: string | null // Branch this item belongs to (null = main/inherited)
   overridesId?: string | null // COW: ID of the parent entity this row overrides (null = original)

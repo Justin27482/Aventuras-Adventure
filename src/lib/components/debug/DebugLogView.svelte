@@ -10,6 +10,7 @@
     CirclePlus,
     Trash2,
     WrapText,
+    ChevronDown,
   } from 'lucide-svelte'
   import { Button } from '$lib/components/ui/button'
   import { PROMPT_TEMPLATES } from '$lib/services/prompts/templates'
@@ -32,6 +33,7 @@
   let selectedCategories = $state<string[]>([])
   let scrollContainer: HTMLDivElement | null = $state(null)
   let userScrolledAway = $state(false)
+  let expandedRecords = $state(new Set<string>())
 
   // Pagination
   let currentPage = $state(1)
@@ -188,6 +190,13 @@
     userScrolledAway = !isNearTop()
   }
 
+  function toggleRecord(id: string) {
+    const next = new Set(expandedRecords)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    expandedRecords = next
+  }
+
   $effect(() => {
     const currentCount = logs.length
     if (currentCount > prevLogCount && !userScrolledAway) {
@@ -310,8 +319,24 @@
             <!-- Request -->
             {#if group.request}
               <div class="bg-muted/30">
-                <div class="border-border flex items-center justify-between border-b px-4 py-2">
+                <div
+                  class="border-border hover:bg-muted/40 flex cursor-pointer items-center justify-between border-b px-4 py-2 transition-colors"
+                  role="button"
+                  tabindex="0"
+                  aria-expanded={expandedRecords.has(group.request.id)}
+                  onclick={() => toggleRecord(group.request!.id)}
+                  onkeydown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') toggleRecord(group.request!.id)
+                  }}
+                >
                   <div class="flex items-center gap-2">
+                    <ChevronDown
+                      class="text-muted-foreground h-3.5 w-3.5 transition-transform {expandedRecords.has(
+                        group.request.id,
+                      )
+                        ? 'rotate-180'
+                        : ''}"
+                    />
                     <ArrowUpCircle class="h-4 w-4 text-blue-400" />
                     <span class="text-sm font-medium text-blue-400">Request</span>
                     <span class="text-muted-foreground text-xs">{group.request.serviceName}</span>
@@ -324,7 +349,10 @@
                       variant="ghost"
                       size="icon"
                       class="text-muted-foreground hover:text-foreground h-6 w-6"
-                      onclick={() => copyToClipboard(group.request!)}
+                      onclick={(event) => {
+                        event.stopPropagation()
+                        copyToClipboard(group.request!)
+                      }}
                       title="Copy JSON"
                     >
                       {#if copiedId === group.request.id}
@@ -335,18 +363,36 @@
                     </Button>
                   </div>
                 </div>
-                <pre
-                  class="text-muted-foreground bg-primary-foreground/5 max-h-[500px] overflow-x-auto overflow-y-auto p-3 font-mono text-xs whitespace-pre-wrap">{formatJson(
-                    group.request,
-                  )}</pre>
+                {#if expandedRecords.has(group.request.id)}
+                  <pre
+                    class="text-muted-foreground bg-primary-foreground/5 max-h-[50vh] overflow-x-auto overflow-y-auto p-3 font-mono text-xs whitespace-pre-wrap">{formatJson(
+                      group.request,
+                    )}</pre>
+                {/if}
               </div>
             {/if}
 
             <!-- Response -->
             {#if group.response}
               <div class="bg-muted/10">
-                <div class="border-border flex items-center justify-between border-b px-4 py-2">
+                <div
+                  class="border-border hover:bg-muted/40 flex cursor-pointer items-center justify-between border-b px-4 py-2 transition-colors"
+                  role="button"
+                  tabindex="0"
+                  aria-expanded={expandedRecords.has(group.response.id)}
+                  onclick={() => toggleRecord(group.response!.id)}
+                  onkeydown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') toggleRecord(group.response!.id)
+                  }}
+                >
                   <div class="flex items-center gap-2">
+                    <ChevronDown
+                      class="text-muted-foreground h-3.5 w-3.5 transition-transform {expandedRecords.has(
+                        group.response.id,
+                      )
+                        ? 'rotate-180'
+                        : ''}"
+                    />
                     <span class={group.response.error ? 'text-red-400' : 'text-green-400'}>
                       <ArrowDownCircle class="h-4 w-4" />
                     </span>
@@ -373,7 +419,10 @@
                       variant="ghost"
                       size="icon"
                       class="text-muted-foreground hover:text-foreground h-6 w-6"
-                      onclick={() => copyToClipboard(group.response!)}
+                      onclick={(event) => {
+                        event.stopPropagation()
+                        copyToClipboard(group.response!)
+                      }}
                       title="Copy JSON"
                     >
                       {#if copiedId === group.response.id}
@@ -384,10 +433,12 @@
                     </Button>
                   </div>
                 </div>
-                <pre
-                  class="bg-primary-foreground/5 max-h-[500px] overflow-x-auto overflow-y-auto p-3 font-mono text-xs whitespace-pre-wrap"
-                  class:text-muted-foreground={!group.response.error}
-                  class:text-red-300={group.response.error}>{formatJson(group.response)}</pre>
+                {#if expandedRecords.has(group.response.id)}
+                  <pre
+                    class="bg-primary-foreground/5 max-h-[50vh] overflow-x-auto overflow-y-auto p-3 font-mono text-xs whitespace-pre-wrap"
+                    class:text-muted-foreground={!group.response.error}
+                    class:text-red-300={group.response.error}>{formatJson(group.response)}</pre>
+                {/if}
               </div>
             {/if}
           </div>

@@ -1155,7 +1155,7 @@ function getDefaultReadingWindowFormattingSettings(): ReadingWindowFormattingSet
 
 export function getDefaultUISettings(): UISettings {
   return {
-    theme: 'dark',
+    theme: 'campaign-ember',
     fontSize: 'medium',
     fontFamily: 'default',
     fontSource: 'default',
@@ -1205,6 +1205,7 @@ export const DEFAULT_SERVICE_PRESET_ASSIGNMENTS: Record<string, string> = {
   'wizard:supportingCharacters': 'wizard',
   'wizard:openingGeneration': 'wizard',
   'wizard:openingRefinement': 'wizard',
+  'wizard:lorebookEntryGeneration': 'wizard',
   'translation:narration': 'translation',
   'translation:input': 'translation',
   'translation:ui': 'translation',

@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Aventuras Adventure",
+  "productName": "Campaign Engine",
   "version": "0.7.6",
   "identifier": "com.karelian.aventura.adventure",
   "build": {
@@ -15,7 +15,7 @@
   "app": {
     "windows": [
       {
-        "title": "Aventuras Adventure",
+        "title": "Campaign Engine",
         "width": 1280,
         "height": 800,
         "minWidth": 800,

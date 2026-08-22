@@ -13,6 +13,7 @@
   import { characterVault } from '$lib/stores/characterVault.svelte'
   import { lorebookVault } from '$lib/stores/lorebookVault.svelte'
   import { scenarioVault } from '$lib/stores/scenarioVault.svelte'
+  import { story } from '$lib/stores/story.svelte'
   import { vaultEditor } from '$lib/stores/vaultEditorStore.svelte'
   import {
     ChevronLeft,
@@ -665,6 +666,8 @@
         characters: () => characterVault.items,
         lorebooks: () => lorebookVault.items,
         scenarios: () => scenarioVault.items,
+        sessions: () => story.currentBranchChapters,
+        getSessionEntries: (session) => story.getChapterEntries(session),
         get activeLorebookId() {
           if (focusedEntity?.entityType === 'lorebook') return focusedEntity.entityId
           return vaultEditor.currentLorebookId ?? undefined

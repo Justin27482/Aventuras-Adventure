@@ -73,6 +73,14 @@ export interface ProviderConfig {
 
 import type { GoogleGenerativeAIProviderOptions } from '@ai-sdk/google'
 
+// Product guardrails for the new campaign engine.
+// We intentionally do not allow the model to run with BLOCK_NONE for safety-sensitive
+// categories. This is the first enforcement layer for the app’s hard bans:
+// - no compelled sexual acts
+// - no consent override
+// - no dark mind-control path that bypasses these constraints
+// The provider-level block is a safety net; the actual gameplay/content rules are still
+// enforced in app code and mechanics validation.
 export const GOOGLE_SAFETY_SETTINGS: NonNullable<
   GoogleGenerativeAIProviderOptions['safetySettings']
 > = [

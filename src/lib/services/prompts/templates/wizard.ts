@@ -207,8 +207,7 @@ Write an immersive opening that drops the reader into the story. Remember: descr
 const openingRefinementAdventurePromptTemplate: PromptTemplate = {
   id: 'opening-refinement-adventure',
   name: 'Opening Refinement (Adventure)',
-  category: 'wizard',
-  description: 'Refines the opening scene for adventure mode (player controls the protagonist)',
+  category: 'wizard',  description: 'Refines the opening scene for adventure mode (player controls the protagonist)',
   content: `You are refining the opening scene of an interactive {{ genreLabel }} adventure.
 
 <critical_constraints>
@@ -284,6 +283,22 @@ PROTAGONIST: {{ protagonistName }}{{ protagonistDescription }}
 {{ supportingCharactersSection }}
 {{ povInstruction }}
 {{ guidanceSection }}{{ lorebookContext }}{{ openingInstruction }}`,
+}
+
+const lorebookEntryGenerationPromptTemplate: PromptTemplate = {
+  id: 'lorebook-entry-generation',
+  name: 'Lorebook Entry Generation',
+  category: 'wizard',
+  description: 'Generates a single lorebook entry of any type from a name/description hint',
+  content: `You are a worldbuilding assistant writing a lorebook entry for interactive fiction.
+
+Write a rich, evocative entry that fits naturally into a {{ genreLabel }} story{{ storyContextSection }}.
+Also suggest 3-6 keywords that should trigger this entry's inclusion in AI context, and any well-known alternate names as aliases.
+{{ customInstruction }}`,
+  userContent: `Create a {{ typeLabel }} lorebook entry.
+{{ nameSection }}{{ descriptionSection }}
+
+Return a complete, well-written entry.`,
 }
 
 const characterCardImportPromptTemplate: PromptTemplate = {
@@ -513,6 +528,7 @@ export const wizardTemplates: PromptTemplate[] = [
   supportingCharactersPromptTemplate,
   openingGenerationAdventurePromptTemplate,
   openingRefinementAdventurePromptTemplate,
+  lorebookEntryGenerationPromptTemplate,
   characterCardImportPromptTemplate,
   vaultCharacterImportPromptTemplate,
   stImportStyleDetectionPromptTemplate,

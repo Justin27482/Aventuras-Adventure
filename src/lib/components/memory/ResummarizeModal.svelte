@@ -30,10 +30,10 @@
     <ResponsiveModal.Header class="border-b px-4 py-4">
       <div class="flex items-center gap-2">
         <RefreshCw class="text-primary h-5 w-5" />
-        <ResponsiveModal.Title>Resummarize Chapter</ResponsiveModal.Title>
+        <ResponsiveModal.Title>Resummarize Session</ResponsiveModal.Title>
       </div>
       <ResponsiveModal.Description>
-        Update the summary for this chapter.
+        Update the summary for this session.
       </ResponsiveModal.Description>
     </ResponsiveModal.Header>
 
@@ -42,7 +42,7 @@
         {#if chapter}
           <div class="bg-muted/50 rounded-lg border p-3">
             <div class="text-foreground text-sm font-medium">
-              Chapter {chapter.number}{chapter.title ? `: ${chapter.title}` : ''}
+              Session {chapter.number}{chapter.title ? `: ${chapter.title}` : ''}
             </div>
             <p class="text-muted-foreground mt-1 line-clamp-2 text-xs">
               {chapter.summary}
@@ -52,14 +52,14 @@
           {#if previousChapters.length > 0}
             <div class="space-y-2">
               <p class="text-muted-foreground text-sm">
-                The following {previousChapters.length} chapter{previousChapters.length === 1
+                The following {previousChapters.length} session{previousChapters.length === 1
                   ? ''
                   : 's'} will be used as context:
               </p>
               <div class="max-h-32 space-y-1 overflow-y-auto pr-1">
                 {#each previousChapters as prevChapter (prevChapter.id)}
                   <div class="text-muted-foreground bg-muted/30 rounded p-2 text-xs">
-                    <span class="text-foreground/80 font-medium">Ch {prevChapter.number}</span>
+                    <span class="text-foreground/80 font-medium">Session {prevChapter.number}</span>
                     {#if prevChapter.title}
                       <span>: {prevChapter.title}</span>
                     {/if}
@@ -72,17 +72,17 @@
               <AlertTriangle class="h-4 w-4" />
               <AlertTitle>No Context</AlertTitle>
               <AlertDescription>
-                This is the first chapter, so no previous context will be used.
+                This is the first session, so no previous context will be used.
               </AlertDescription>
             </Alert>
           {/if}
 
           <p class="text-muted-foreground text-sm">
-            The current summary will be replaced with a newly generated one. The chapter's old
+            The current summary will be replaced with a newly generated one. The session's old
             summary will <strong>not</strong> be included in the prompt.
           </p>
         {:else}
-          <div class="text-muted-foreground py-4 text-center">Chapter not found.</div>
+          <div class="text-muted-foreground py-4 text-center">Session not found.</div>
         {/if}
       </div>
     </ScrollArea>

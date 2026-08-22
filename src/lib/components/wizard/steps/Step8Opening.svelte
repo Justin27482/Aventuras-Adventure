@@ -110,11 +110,11 @@
 
 <div class="space-y-4 p-1">
   <p class="text-muted-foreground">
-    Give your story a title and either write your own opening scene or generate one with AI.
+    Give your campaign a title and either write your own opening scene or generate one with AI.
   </p>
 
   <div class="space-y-2">
-    <Label>Story Title</Label>
+    <Label>Campaign Title</Label>
     <Input
       type="text"
       value={storyTitle}
@@ -221,7 +221,7 @@
           <Textarea
             value={manualOpeningText}
             oninput={(e) => onManualOpeningChange(e.currentTarget.value)}
-            placeholder="Write the opening scene of your story here... Describe the setting, introduce your character, set the mood. This will be the first entry in your adventure."
+            placeholder="Write the opening scene of your campaign here... Describe the setting, introduce the party, and set the mood."
             class="min-h-[140px] resize-y text-sm"
             rows={6}
             disabled={isGeneratingOpening || isRefiningOpening || generatedOpening !== null}
@@ -380,7 +380,7 @@
   <!-- Summary -->
   <Card.Root class="bg-surface-800 border-surface-700">
     <Card.Content class="space-y-2 p-4 text-sm">
-      <h4 class="text-foreground font-medium">Story Summary</h4>
+      <h4 class="text-foreground font-medium">Campaign Summary</h4>
       <div class="text-muted-foreground grid grid-cols-2 gap-2">
         <div>
           <strong class="text-foreground">Mode:</strong>
@@ -406,7 +406,7 @@
         {/if}
         {#if protagonist}
           <div class="col-span-2">
-            <strong class="text-foreground">Protagonist:</strong>
+            <strong class="text-foreground">Lead Character:</strong>
             {protagonist.name}
           </div>
         {/if}

@@ -12,17 +12,17 @@
   import { Button } from '$lib/components/ui/button'
   import { EmptyState } from '$lib/components/ui/empty-state'
 
-  // Get chapters sorted by number (descending - newest first)
+  // Sessions are still stored through the existing chapter model during the transition.
 
   const sortedChapters = $derived([...story.chapters].sort((a, b) => b.number - a.number))
 
-  // Get entries for each chapter
+  // Get entries for each session
   function getChapterEntries(chapter: Chapter) {
     return story.getChapterEntries(chapter)
   }
 
   /**
-   * Run lore management after manual chapter creation.
+   * Run lore management after manual session creation.
    * Same as ActionInput's lore management, triggered per design doc section 3.4.
    */
   async function runLoreManagement() {
@@ -117,7 +117,7 @@
     }
   }
 
-  // Handle manual chapter creation
+  // Handle manual session creation
   async function handleCreateManualChapter(endEntryIndex: number) {
     ui.setMemoryLoading(true)
     try {
@@ -187,7 +187,7 @@
       onclick={() => ui.setActivePanel('story')}
     >
       <ArrowLeft class="h-3.5 w-3.5" />
-      <span>Back to Story</span>
+      <span>Back to Campaign</span>
     </Button>
   </div>
 
@@ -199,7 +199,7 @@
     <!-- Collapsible Settings -->
     <MemorySettings />
 
-    <!-- Chapter List -->
+    <!-- Session List -->
     {#if sortedChapters.length > 0}
       <div class="space-y-3">
         {#each sortedChapters as chapter (chapter.id)}
@@ -215,8 +215,8 @@
       <div class="py-12">
         <EmptyState
           icon={BookOpen}
-          title="No Chapters Yet"
-          description="Chapters are created automatically when the story grows beyond the token threshold, or you can create one manually using the button above."
+          title="No Sessions Yet"
+          description="Sessions are created automatically when the campaign grows beyond the token threshold, or you can create one manually using the button above."
         />
       </div>
     {/if}

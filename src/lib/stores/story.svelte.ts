@@ -38,6 +38,7 @@ import { settings } from './settings.svelte'
 import { extractInlineCustomVars } from '$lib/services/ai/sdk/schemas/runtime-variables'
 import type { ClassificationResult } from '$lib/services/ai/sdk/schemas/classifier'
 import type { RuntimeVariable } from '$lib/services/packs/types'
+import { packService } from '$lib/services/packs/pack-service'
 import { DEFAULT_MEMORY_CONFIG } from '$lib/services/ai/generation/MemoryService'
 import { LorebookImportExport } from '$lib/services/lorebookImportExport'
 import { countTokens } from '$lib/services/tokenizer'
@@ -60,6 +61,7 @@ import {
 } from '$lib/services/generation'
 import { createLogger } from '$lib/log'
 import { grammarService } from '$lib/services/grammar'
+import { campaign } from '$lib/stores/campaign.svelte'
 
 const log = createLogger('StoryStore')
 
@@ -622,6 +624,7 @@ class StoryStore {
     this.invalidateWordCountCache()
     this.invalidateChapterCache()
     grammarService.clearEntityWords()
+    campaign.reset()
   }
 
   // Close the current story and reset state
@@ -708,7 +711,33 @@ class StoryStore {
     // (fixes FK constraint issues from older data)
     await database.cleanupOrphanedEmbeddedImages()
 
+    // Custom packs can predate newly added templates; backfill any gaps from the
+    // code baseline so this campaign never renders with a missing prompt.
+    try {
+      const packId = await database.getStoryPackId(storyId)
+      if (packId) {
+        await packService.ensurePackTemplatesComplete(packId)
+      }
+    } catch (error) {
+      console.error('[StoryStore] Failed to backfill pack templates:', error)
+    }
+
     this.currentStory = story
+    // Every story (including legacy pre-campaign-engine adventures) gets a campaign
+    // record with defaults, backfilled here rather than gated to wizard-created ones.
+    try {
+      await campaign.ensureForStory({
+        id: story.id,
+        title: story.title,
+        description: story.description,
+        createdAt: story.createdAt,
+        updatedAt: story.updatedAt,
+        characters: [],
+      })
+    } catch (error) {
+      console.error('[StoryStore] Campaign bootstrap unavailable:', error)
+      campaign.reset()
+    }
     this.currentBgImage = await database.getBackgroundForBranch(storyId, story.currentBranchId)
 
     // Load branch-independent data first
@@ -740,6 +769,24 @@ class StoryStore {
     this.lorebookEntries = lorebookEntries
     this.chapterSources = chapterSources
     this.branches = branches
+
+    // Campaign features should not block opening a story if campaign schema/data is unavailable.
+    try {
+      await campaign.loadForStory(story.id)
+    } catch (error) {
+      console.error('[StoryStore] Campaign load unavailable:', error)
+      campaign.reset()
+    }
+
+    // Seeded separately: a party-seeding failure (e.g. a bad character record) must not
+    // discard the campaign/settings we just successfully loaded above.
+    if (campaign.current) {
+      try {
+        await campaign.seedPartyFromCharacters(characters)
+      } catch (error) {
+        console.error('[StoryStore] Party seeding failed for campaign:', campaign.current.id, error)
+      }
+    }
 
     // Import entity names into spell checker so they are not flagged as errors
     const entityNames = [
@@ -1848,6 +1895,7 @@ class StoryStore {
     name: string,
     description?: string,
     relationship?: string,
+    traits?: string[],
   ): Promise<Character> {
     if (!this.currentStory) throw new Error('No story loaded')
 
@@ -1857,7 +1905,7 @@ class StoryStore {
       name,
       description: description ?? null,
       relationship: relationship ?? null,
-      traits: [],
+      traits: traits ?? [],
       status: 'active',
       metadata: null,
       visualDescriptors: {},
@@ -5762,6 +5810,11 @@ class StoryStore {
       }
     }
   }): Promise<Story> {
+    const openingScene = data.openingScene?.trim()
+    if (!openingScene) {
+      throw new Error('Cannot create a campaign without an opening scene.')
+    }
+
     log('createStoryFromWizard called', {
       title: data.title,
       genre: data.genre,
@@ -5773,156 +5826,157 @@ class StoryStore {
       referenceMode: data.settings.referenceMode,
     })
 
-    // Create the base story with custom system prompt stored in settings
-    const storyData = await database.createStory({
-      id: crypto.randomUUID(),
-      title: data.title,
-      description: data.description ?? null,
-      genre: data.genre,
-      templateId: 'wizard-generated',
-      mode: data.mode,
-      settings: {
-        pov: data.settings.pov,
-        tense: data.settings.tense,
-        tone: data.settings.tone,
-        themes: data.settings.themes,
-        visualProseMode: data.settings.visualProseMode,
-        imageGenerationMode: data.settings.imageGenerationMode,
-        backgroundImagesEnabled: data.settings.backgroundImagesEnabled,
-        referenceMode: data.settings.referenceMode,
-        editingPassBeforeDisplayEnabled: true,
-      },
-      memoryConfig: DEFAULT_MEMORY_CONFIG,
-      retryState: null,
-      styleReviewState: null,
-      timeTracker: null,
-      currentBranchId: null,
-      currentBgImage: null,
-    })
-
-    this.allStories = [storyData, ...this.allStories]
-    const storyId = storyData.id
-
-    this.currentStory = storyData
-
-    // Add protagonist
-    if (data.protagonist.name) {
-      const protagonistTranslation = data.translations?.protagonist
-      const protagonist: Character = {
+    // All persistence below is one atomic unit: if any write fails partway through
+    // (e.g. a character insert), nothing is left behind — not even the story row —
+    // so a failed wizard run can never orphan a half-created campaign.
+    const { storyData, openingEntry } = await database.withTransaction(async () => {
+      // Create the base story with custom system prompt stored in settings
+      const storyData = await database.createStory({
         id: crypto.randomUUID(),
-        storyId,
-        name: data.protagonist.name,
-        description: data.protagonist.description ?? null,
-        relationship: 'self',
-        traits: data.protagonist.traits ?? [],
-        status: 'active',
-        metadata: { source: 'wizard' },
-        visualDescriptors: data.protagonist.visualDescriptors ?? {},
-        portrait: data.protagonist.portrait ?? null,
-        branchId: null, // New stories start on main branch
-        translatedName: protagonistTranslation?.name ?? null,
-        translatedDescription: protagonistTranslation?.description ?? null,
-        translatedTraits: protagonistTranslation?.traits ?? null,
-        translatedVisualDescriptors: undefined, // Translations not supported for structured visual descriptors yet
-        translationLanguage: protagonistTranslation ? (data.translations?.language ?? null) : null,
-      }
-      await database.addCharacter(protagonist)
-      log('Added protagonist:', protagonist.name)
-    }
-
-    // Add starting location
-    if (data.startingLocation.name) {
-      const locationTranslation = data.translations?.startingLocation
-      log('Starting location translation data:', {
-        hasTranslations: !!data.translations,
-        hasStartingLocation: !!locationTranslation,
-        translatedName: locationTranslation?.name,
-        translatedDesc: locationTranslation?.description?.substring(0, 50),
+        title: data.title,
+        description: data.description ?? null,
+        genre: data.genre,
+        templateId: 'wizard-generated',
+        mode: data.mode,
+        settings: {
+          pov: data.settings.pov,
+          tense: data.settings.tense,
+          tone: data.settings.tone,
+          themes: data.settings.themes,
+          visualProseMode: data.settings.visualProseMode,
+          imageGenerationMode: data.settings.imageGenerationMode,
+          backgroundImagesEnabled: data.settings.backgroundImagesEnabled,
+          referenceMode: data.settings.referenceMode,
+          editingPassBeforeDisplayEnabled: true,
+        },
+        memoryConfig: DEFAULT_MEMORY_CONFIG,
+        retryState: null,
+        styleReviewState: null,
+        timeTracker: null,
+        currentBranchId: null,
+        currentBgImage: null,
       })
-      const location: Location = {
-        id: crypto.randomUUID(),
-        storyId,
-        name: data.startingLocation.name,
-        description: data.startingLocation.description ?? null,
-        visited: true,
-        current: true,
-        connections: [],
-        metadata: { source: 'wizard' },
-        branchId: null, // New stories start on main branch
-        translatedName: locationTranslation?.name ?? null,
-        translatedDescription: locationTranslation?.description ?? null,
-        translationLanguage: locationTranslation ? (data.translations?.language ?? null) : null,
-      }
-      log('Location object being stored:', {
-        name: location.name,
-        translatedName: location.translatedName,
-        translatedDesc: location.translatedDescription?.substring(0, 50),
-        translationLanguage: location.translationLanguage,
-      })
-      await database.addLocation(location)
-      log(
-        'Added starting location:',
-        location.name,
-        'with translation:',
-        !!location.translatedDescription,
-      )
-    }
 
-    // Add initial items
-    for (const itemData of data.initialItems) {
-      if (!itemData.name) continue
-      const item: Item = {
-        id: crypto.randomUUID(),
-        storyId,
-        name: itemData.name,
-        description: itemData.description ?? null,
-        quantity: itemData.quantity ?? 1,
-        equipped: itemData.equipped ?? false,
-        location: itemData.location ?? 'inventory',
-        metadata: { source: 'wizard' },
-        branchId: null, // New stories start on main branch
-      }
-      await database.addItem(item)
-    }
+      const storyId = storyData.id
 
-    // Add supporting characters
-    for (const charData of data.characters) {
-      if (!charData.name) continue
-      const charTranslation = data.translations?.characters?.[charData.name]
-      const character: Character = {
-        id: crypto.randomUUID(),
-        storyId,
-        name: charData.name,
-        description: charData.description ?? null,
-        relationship: charData.relationship ?? null,
-        traits: charData.traits ?? [],
-        status: 'active',
-        metadata: (charData.metadata as Record<string, unknown> | null) ?? { source: 'wizard' },
-        visualDescriptors: charData.visualDescriptors ?? {},
-        portrait: charData.portrait ?? null,
-        branchId: null, // New stories start on main branch
-        translatedName: charTranslation?.name ?? null,
-        translatedDescription: charTranslation?.description ?? null,
-        translatedRelationship: charTranslation?.relationship ?? null,
-        translatedTraits: charTranslation?.traits ?? null,
-        translatedVisualDescriptors: undefined, // Translations not supported for structured visual descriptors yet
-        translationLanguage: charTranslation ? (data.translations?.language ?? null) : null,
+      // Add protagonist
+      if (data.protagonist.name) {
+        const protagonistTranslation = data.translations?.protagonist
+        const protagonist: Character = {
+          id: crypto.randomUUID(),
+          storyId,
+          name: data.protagonist.name,
+          description: data.protagonist.description ?? null,
+          relationship: 'self',
+          traits: data.protagonist.traits ?? [],
+          status: 'active',
+          metadata: { source: 'wizard' },
+          visualDescriptors: data.protagonist.visualDescriptors ?? {},
+          portrait: data.protagonist.portrait ?? null,
+          branchId: null, // New stories start on main branch
+          translatedName: protagonistTranslation?.name ?? null,
+          translatedDescription: protagonistTranslation?.description ?? null,
+          translatedTraits: protagonistTranslation?.traits ?? null,
+          translatedVisualDescriptors: undefined, // Translations not supported for structured visual descriptors yet
+          translationLanguage: protagonistTranslation
+            ? (data.translations?.language ?? null)
+            : null,
+        }
+        await database.addCharacter(protagonist)
+        log('Added protagonist:', protagonist.name)
       }
-      await database.addCharacter(character)
-      await reconcileCharacterEpistemicRefs(character)
-      log('Added supporting character:', character.name)
-    }
 
-    // Add opening scene as first narration entry
-    let openingEntry: StoryEntry | undefined = undefined
-    if (data.openingScene) {
-      const tokenCount = countTokens(data.openingScene)
+      // Add starting location
+      if (data.startingLocation.name) {
+        const locationTranslation = data.translations?.startingLocation
+        log('Starting location translation data:', {
+          hasTranslations: !!data.translations,
+          hasStartingLocation: !!locationTranslation,
+          translatedName: locationTranslation?.name,
+          translatedDesc: locationTranslation?.description?.substring(0, 50),
+        })
+        const location: Location = {
+          id: crypto.randomUUID(),
+          storyId,
+          name: data.startingLocation.name,
+          description: data.startingLocation.description ?? null,
+          visited: true,
+          current: true,
+          connections: [],
+          metadata: { source: 'wizard' },
+          branchId: null, // New stories start on main branch
+          translatedName: locationTranslation?.name ?? null,
+          translatedDescription: locationTranslation?.description ?? null,
+          translationLanguage: locationTranslation ? (data.translations?.language ?? null) : null,
+        }
+        log('Location object being stored:', {
+          name: location.name,
+          translatedName: location.translatedName,
+          translatedDesc: location.translatedDescription?.substring(0, 50),
+          translationLanguage: location.translationLanguage,
+        })
+        await database.addLocation(location)
+        log(
+          'Added starting location:',
+          location.name,
+          'with translation:',
+          !!location.translatedDescription,
+        )
+      }
+
+      // Add initial items
+      for (const itemData of data.initialItems) {
+        if (!itemData.name) continue
+        const item: Item = {
+          id: crypto.randomUUID(),
+          storyId,
+          name: itemData.name,
+          description: itemData.description ?? null,
+          quantity: itemData.quantity ?? 1,
+          equipped: itemData.equipped ?? false,
+          location: itemData.location ?? 'inventory',
+          metadata: { source: 'wizard' },
+          branchId: null, // New stories start on main branch
+        }
+        await database.addItem(item)
+      }
+
+      // Add supporting characters
+      for (const charData of data.characters) {
+        if (!charData.name) continue
+        const charTranslation = data.translations?.characters?.[charData.name]
+        const character: Character = {
+          id: crypto.randomUUID(),
+          storyId,
+          name: charData.name,
+          description: charData.description ?? null,
+          relationship: charData.relationship ?? null,
+          traits: charData.traits ?? [],
+          status: 'active',
+          metadata: (charData.metadata as Record<string, unknown> | null) ?? { source: 'wizard' },
+          visualDescriptors: charData.visualDescriptors ?? {},
+          portrait: charData.portrait ?? null,
+          branchId: null, // New stories start on main branch
+          translatedName: charTranslation?.name ?? null,
+          translatedDescription: charTranslation?.description ?? null,
+          translatedRelationship: charTranslation?.relationship ?? null,
+          translatedTraits: charTranslation?.traits ?? null,
+          translatedVisualDescriptors: undefined, // Translations not supported for structured visual descriptors yet
+          translationLanguage: charTranslation ? (data.translations?.language ?? null) : null,
+        }
+        await database.addCharacter(character)
+        await reconcileCharacterEpistemicRefs(character)
+        log('Added supporting character:', character.name)
+      }
+
+      // Add opening scene as first narration entry
+      const tokenCount = countTokens(openingScene)
       const baseTime = storyData.timeTracker ?? { years: 0, days: 0, hours: 0, minutes: 0 }
-      openingEntry = await database.addStoryEntry({
+      const openingEntry = await database.addStoryEntry({
         id: crypto.randomUUID(),
         storyId,
         type: 'narration',
-        content: data.openingScene,
+        content: openingScene,
         parentId: null,
         position: 0,
         metadata: {
@@ -5938,24 +5992,32 @@ class StoryStore {
           : null,
       })
       log('Added opening scene')
-    }
 
-    // Add imported lorebook entries
-    if (data.importedEntries && data.importedEntries.length > 0) {
-      const entries = LorebookImportExport.convertToEntries(data.importedEntries, 'import')
-      for (const entryData of entries) {
-        const entry: Entry = {
-          ...entryData,
-          id: crypto.randomUUID(),
-          storyId,
+      // Add imported lorebook entries
+      if (data.importedEntries && data.importedEntries.length > 0) {
+        const entries = LorebookImportExport.convertToEntries(data.importedEntries, 'import')
+        for (const entryData of entries) {
+          const entry: Entry = {
+            ...entryData,
+            id: crypto.randomUUID(),
+            storyId,
+          }
+          await database.addEntry(entry)
         }
-        await database.addEntry(entry)
+        log('Added imported entries:', data.importedEntries.length)
       }
-      log('Added imported entries:', data.importedEntries.length)
-    }
+
+      return { storyData, openingEntry }
+    })
+
+    const storyId = storyData.id
+
+    // Only reflect the new story in local state once persistence has fully committed.
+    this.allStories = [storyData, ...this.allStories]
+    this.currentStory = storyData
 
     // Generate background image from opening scene
-    if (data.openingScene && openingEntry && storyData.settings?.backgroundImagesEnabled) {
+    if (openingEntry && storyData.settings?.backgroundImagesEnabled) {
       aiService.analyzeBackgroundChangeAndGenerateImage(
         storyId,
         [openingEntry],
@@ -5963,6 +6025,27 @@ class StoryStore {
       )
       log('Generated background image')
     }
+
+    // Hydrate the active store immediately after wizard creation. The wizard opens the
+    // story panel in the same turn, so relying only on a later panel reload can briefly
+    // expose an empty roster or opening entry even though both were already persisted.
+    const [createdCharacters, createdEntries] = await Promise.all([
+      database.getCharactersForBranch(storyId, null),
+      database.getStoryEntriesForBranch(storyId, null),
+    ])
+    this.characters = createdCharacters
+    this.entries = createdEntries
+    if (!createdEntries.some((entry) => entry.id === openingEntry?.id)) {
+      throw new Error('Campaign was created, but its opening scene could not be verified.')
+    }
+    this.invalidateWordCountCache()
+    this.invalidateChapterCache()
+
+    log('Hydrated wizard-created story state:', {
+      storyId,
+      characters: createdCharacters.length,
+      entries: createdEntries.length,
+    })
 
     // Emit event
     eventBus.emit<StoryCreatedEvent>({ type: 'StoryCreated', storyId, mode: data.mode })

@@ -8,9 +8,13 @@
  */
 
 import { settings } from '$lib/stores/settings.svelte'
-import type { StoryMode, POV, Character, Location, Item } from '$lib/types'
+import type { StoryMode, POV, Character, Location, Item, EntryType } from '$lib/types'
 import { ContextBuilder } from '$lib/services/context'
 import { createLogger } from '$lib/log'
+import {
+  vaultLorebookEntrySchema,
+  type VaultLorebookEntrySchema,
+} from '$lib/services/ai/sdk/schemas/lorebook'
 import {
   type ExpandedSetting,
   type GeneratedProtagonist,
@@ -821,6 +825,64 @@ class ScenarioService {
           : { source: 'wizard' },
       })),
     }
+  }
+
+  /**
+   * Generate a single lorebook entry (any type) from optional name/description hints.
+   * Used for AI-assisted entry creation outside the wizard flow.
+   */
+  async generateLorebookEntry(
+    userInput: { name?: string; description?: string; type: EntryType },
+    genre: Genre,
+    customGenre?: string,
+    presetId?: string,
+    customInstruction?: string,
+    storyContext?: { title?: string; description?: string },
+  ): Promise<VaultLorebookEntrySchema> {
+    log('generateLorebookEntry called', {
+      userInput,
+      genre,
+      presetId,
+      hasCustomInstruction: !!customInstruction,
+    })
+
+    const presetConfig = settings.getPresetConfig(presetId || '', 'Lorebook Entry Generation')
+    const genreLabel = genre === 'custom' && customGenre ? customGenre : genre
+
+    const nameSection = userInput.name ? `NAME: ${userInput.name}` : 'NAME: (suggest one)'
+    const descriptionSection = userInput.description ? `\nHINT: ${userInput.description}` : ''
+    const storyContextSection = storyContext?.title
+      ? ` set in "${storyContext.title}"${storyContext.description ? ` (${storyContext.description})` : ''}`
+      : ''
+    const customInstructionBlock = customInstruction?.trim()
+      ? `\n\nAUTHOR'S GUIDANCE: ${customInstruction.trim()}`
+      : ''
+
+    const ctx = new ContextBuilder()
+    ctx.add({
+      genreLabel,
+      typeLabel: userInput.type,
+      nameSection,
+      descriptionSection,
+      storyContextSection,
+      customInstruction: customInstructionBlock,
+    })
+    const { system, user: prompt } = await ctx.render('lorebook-entry-generation')
+
+    const result = await generateStructured(
+      {
+        presetId: presetConfig.id,
+        schema: vaultLorebookEntrySchema,
+        system,
+        prompt,
+      },
+      'lorebook-entry-generation',
+    )
+
+    log('generateLorebookEntry complete')
+
+    // Keep the type the user already selected in the form rather than the model's guess.
+    return { ...result, type: userInput.type }
   }
 
   private capitalizeGenre(genre: Genre): string {

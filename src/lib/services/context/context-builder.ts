@@ -69,6 +69,77 @@ export class ContextBuilder {
       protagonistDescription: protagonist?.description || '',
     })
 
+    // Campaign agency context is additive. Legacy/archive stories have no campaign
+    // overlay and retain the existing protagonist-only variables above.
+    try {
+      const campaign = await database.getCampaignByStoryId(storyId)
+      if (campaign) {
+        const partyMembers = await database.getCampaignPartyMembers(campaign.id)
+        const actorProfiles = await database.getActorControlProfiles(campaign.id)
+        const sessions = await database.getCampaignSessions(campaign.id)
+        const activeSession = sessions.find((session) => session.status === 'active') ?? null
+        const sessionParty = activeSession
+          ? await database.getSessionPartyMembers(activeSession.id)
+          : []
+        const characterById = new Map(characters.map((character) => [character.id, character]))
+        const profileByCharacterId = new Map(
+          actorProfiles.map((profile) => [profile.characterId, profile]),
+        )
+        const rosterMembers = (activeSession ? sessionParty : partyMembers)
+          .map((member) => {
+            const character = characterById.get(member.characterId)
+            if (!character) return null
+            return { member, character }
+          })
+          .filter((value): value is NonNullable<typeof value> => value !== null)
+
+        const primaryCharacter = activeSession
+          ? characterById.get(activeSession.primaryCharacterId)
+          : protagonist
+        const companions = rosterMembers.filter(
+          ({ member }) => member.characterId !== primaryCharacter?.id,
+        )
+        const companionAgencyContext = companions
+          .map(({ member, character }) => {
+            const profile = profileByCharacterId.get(character.id)
+            const details = [
+              profile?.motivations && `motivations: ${profile.motivations}`,
+              profile?.priorities && `priorities: ${profile.priorities}`,
+              profile?.fears && `fears: ${profile.fears}`,
+              profile?.valuePriorities && `values: ${profile.valuePriorities}`,
+              profile?.redLines && `red lines: ${profile.redLines}`,
+              profile?.tacticalPreferences && `tactics: ${profile.tacticalPreferences}`,
+            ].filter(Boolean)
+            return `${character.name}: narrative=${member.narrativeControlMode}, combat=${member.combatControlMode}${details.length > 0 ? `; ${details.join('; ')}` : ''}`
+          })
+          .join('\n')
+
+        builder.add({
+          campaignTitle: campaign.title,
+          campaignSessionNumber: activeSession?.sessionNumber ?? '',
+          primaryCharacterName: primaryCharacter?.name || protagonist?.name || '',
+          primaryCharacterDescription: primaryCharacter?.description || '',
+          partyRoster: rosterMembers
+            .map(({ member, character }) => {
+              const profile = profileByCharacterId.get(character.id)
+              const agency = profile?.motivations
+                ? ` motivations: ${profile.motivations}`
+                : ''
+              return `${character.name} (${member.actorCategory}, narrative: ${member.narrativeControlMode}, combat: ${member.combatControlMode})${agency}`
+            })
+            .join('\n'),
+          companionRoster: companions.map(({ character }) => character.name).join(', '),
+          companionAgencyContext,
+          companionAgency:
+            'Active companions retain their own voices, motivations, priorities, and personal decisions. Player requests are not guaranteed commands.',
+          combatControlPolicy: activeSession?.combatControlPolicy ?? 'companions_autonomous',
+        })
+      }
+    } catch (error) {
+      // Campaign context is optional while older databases finish applying migrations.
+      log('Campaign agency context unavailable; using legacy story context', { storyId, error })
+    }
+
     // Current location
     const locations = await database.getLocations(storyId)
     const currentLocation = locations.find((l) => l.current)
@@ -95,6 +166,7 @@ export class ContextBuilder {
     const items = await database.getItems(storyId)
     const storyBeats = await database.getStoryBeats(storyId)
     await builder.loadRuntimeVariableContext(characters, locations, items, storyBeats, protagonist)
+    await builder.loadAgencyPromptContext()
 
     log('forStory complete', {
       storyId,
@@ -178,6 +250,27 @@ export class ContextBuilder {
       }
     } catch (error) {
       log('loadCustomVariables failed', { packId: this.packId, error })
+    }
+  }
+
+  private async loadAgencyPromptContext(): Promise<void> {
+    const templateIds = [
+      ['agencyCore', 'agency-core'],
+      ['agencyCompanionVoice', 'agency-companion-voice'],
+      ['agencyCompanionCombat', 'agency-companion-combat'],
+      ['agencyContext', 'agency-context'],
+    ] as const
+
+    for (const [contextKey, templateId] of templateIds) {
+      try {
+        const template = await database.getPackTemplate(this.packId, templateId)
+        this.context[contextKey] = template?.content
+          ? (templateEngine.render(template.content, this.context) ?? '')
+          : ''
+      } catch (error) {
+        this.context[contextKey] = ''
+        log('loadAgencyPromptContext failed', { packId: this.packId, templateId, error })
+      }
     }
   }
 

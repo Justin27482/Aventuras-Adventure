@@ -16,13 +16,13 @@ import { entryTypeSchema } from '../schemas/lorebook'
 export interface RetrievalToolContext {
   /** Available lorebook entries */
   entries: Entry[]
-  /** Chapter summaries for context */
+  /** Session summaries for context */
   chapters: Chapter[]
-  /** Imported chapter source text records for full-text search */
+  /** Imported source text records for full-text search */
   chapterSources?: ChapterSource[]
   /** Callback to record selected entry indices */
   onSelectEntry: (index: number) => void
-  /** Ask a question about a specific chapter and get an answer */
+  /** Ask a question about a specific session and get an answer */
   queryChapter?: (chapterNumber: number, question: string) => Promise<string>
 }
 
@@ -34,18 +34,18 @@ export function createRetrievalTools(context: RetrievalToolContext) {
 
   return {
     /**
-     * List available chapters with summaries.
+     * List available sessions with summaries.
      */
-    list_chapters: tool({
+    list_sessions: tool({
       description:
-        'List all available chapters with their summaries, keywords, and characters. Use this to understand the story context before selecting entries.',
+        'List all available sessions with their summaries, keywords, and characters. Use this to understand the campaign context before selecting entries.',
       inputSchema: z.object({
-        limit: z.number().optional().default(20).describe('Maximum chapters to return'),
+        limit: z.number().optional().default(20).describe('Maximum sessions to return'),
       }),
       execute: async ({ limit }: { limit?: number }) => {
         const limitedChapters = chapters.slice(0, limit ?? 20)
         return {
-          chapters: limitedChapters.map((ch) => ({
+          sessions: limitedChapters.map((ch) => ({
             number: ch.number,
             title: ch.title,
             summary: ch.summary.slice(0, 500) + (ch.summary.length > 500 ? '...' : ''),
@@ -61,32 +61,32 @@ export function createRetrievalTools(context: RetrievalToolContext) {
     }),
 
     /**
-     * Ask a question about a specific chapter.
+     * Ask a question about a specific session.
      */
-    query_chapter: tool({
+    query_session: tool({
       description:
-        'Ask a specific question about a chapter to get relevant information. Do NOT ask for "the full content" - instead ask targeted questions like "What happened to [character]?" or "How did [event] unfold?" The query AI will read the chapter and answer your question.',
+        'Ask a specific question about a session to get relevant information. Do NOT ask for "the full content" - instead ask targeted questions like "What happened to [character]?" or "How did [event] unfold?" The query AI will read the session and answer your question.',
       inputSchema: z.object({
-        chapterNumber: z.number().describe('The chapter number to query'),
+        sessionNumber: z.number().describe('The session number to query'),
         question: z
           .string()
           .describe(
-            'A specific question about the chapter content (e.g., "What did the protagonist discover?" or "How did the battle end?")',
+            'A specific question about the session content (e.g., "What did the lead character discover?" or "How did the battle end?")',
           ),
       }),
-      execute: async ({ chapterNumber, question }: { chapterNumber: number; question: string }) => {
-        const chapter = chapters.find((ch) => ch.number === chapterNumber)
+      execute: async ({ sessionNumber, question }: { sessionNumber: number; question: string }) => {
+        const chapter = chapters.find((ch) => ch.number === sessionNumber)
         if (!chapter) {
           return {
             found: false,
-            error: `Chapter ${chapterNumber} not found`,
+            error: `Session ${sessionNumber} not found`,
           }
         }
 
         let answer: string | undefined
         if (queryChapter) {
           try {
-            answer = await queryChapter(chapterNumber, question)
+            answer = await queryChapter(sessionNumber, question)
           } catch {
             // Query failed, return summary only
           }
@@ -94,7 +94,7 @@ export function createRetrievalTools(context: RetrievalToolContext) {
 
         return {
           found: true,
-          chapter: {
+          session: {
             number: chapter.number,
             title: chapter.title,
             summary: chapter.summary,

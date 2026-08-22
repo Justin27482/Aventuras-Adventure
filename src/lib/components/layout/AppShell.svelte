@@ -19,6 +19,7 @@
   import STChatImportModal from '$lib/components/modals/STChatImportModal.svelte'
   import ChapterSourceImportModal from '$lib/components/story/ChapterSourceImportModal.svelte'
   import NovelImportModal from '$lib/components/story/NovelImportModal.svelte'
+  import CompanionDecisionPanel from '$lib/components/campaign/CompanionDecisionPanel.svelte'
   import { swipe } from '$lib/utils/swipe'
   import { Bug } from 'lucide-svelte'
   import { MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH, MAX_SIDEBAR_RATIO } from '$lib/constants/layout'
@@ -261,6 +262,9 @@
 
   <!-- Sync Modal -->
   <SyncModal />
+
+  <!-- Companion proposal attribution; proposals remain non-mutating until turn/mechanics wiring. -->
+  <CompanionDecisionPanel />
 
   <!-- SillyTavern Chat Import Modal -->
   <STChatImportModal />

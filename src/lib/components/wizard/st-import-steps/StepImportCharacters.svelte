@@ -2,6 +2,7 @@
   import { User, Users, Edit3, Trash2, Archive, Check } from 'lucide-svelte'
   import * as Card from '$lib/components/ui/card'
   import { Button } from '$lib/components/ui/button'
+  import * as Tooltip from '$lib/components/ui/tooltip'
   import { Input } from '$lib/components/ui/input'
   import { Textarea } from '$lib/components/ui/textarea'
   import { Label } from '$lib/components/ui/label'
@@ -375,50 +376,78 @@
                 <div
                   class="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100"
                 >
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    class="text-muted-foreground hover:text-foreground h-7 px-2 text-[10px]"
-                    onclick={() => onSetAsProtagonist(i)}
-                    title="Set as protagonist"
-                  >
-                    <User class="mr-1 h-3 w-3" />
-                    Protagonist
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    class="text-muted-foreground hover:text-foreground h-7 w-7"
-                    onclick={() => startEdit(i)}
-                    title="Edit"
-                  >
-                    <Edit3 class="h-3 w-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    class="h-7 w-7 {savedToVault.has(i)
-                      ? 'text-green-500 hover:text-green-600'
-                      : 'text-muted-foreground hover:text-foreground'}"
-                    onclick={() => saveCharToVault(i)}
-                    disabled={savedToVault.has(i)}
-                    title={savedToVault.has(i) ? 'Saved to vault' : 'Save to vault'}
-                  >
-                    {#if savedToVault.has(i)}
-                      <Check class="h-3 w-3" />
-                    {:else}
-                      <Archive class="h-3 w-3" />
-                    {/if}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    class="text-muted-foreground hover:text-destructive h-7 w-7"
-                    onclick={() => onDeleteSupportingCharacter(i)}
-                    title="Delete"
-                  >
-                    <Trash2 class="h-3 w-3" />
-                  </Button>
+                  <Tooltip.Root>
+                    <Tooltip.Trigger>
+                      {#snippet child({ props })}
+                        <Button
+                          {...props}
+                          variant="ghost"
+                          size="sm"
+                          class="text-muted-foreground hover:text-foreground h-7 px-2 text-[10px]"
+                          onclick={() => onSetAsProtagonist(i)}
+                        >
+                          <User class="mr-1 h-3 w-3" />
+                          Protagonist
+                        </Button>
+                      {/snippet}
+                    </Tooltip.Trigger>
+                    <Tooltip.Content>Set as protagonist</Tooltip.Content>
+                  </Tooltip.Root>
+                  <Tooltip.Root>
+                    <Tooltip.Trigger>
+                      {#snippet child({ props })}
+                        <Button
+                          {...props}
+                          variant="ghost"
+                          size="icon"
+                          class="text-muted-foreground hover:text-foreground h-7 w-7"
+                          onclick={() => startEdit(i)}
+                        >
+                          <Edit3 class="h-3 w-3" />
+                        </Button>
+                      {/snippet}
+                    </Tooltip.Trigger>
+                    <Tooltip.Content>Edit character</Tooltip.Content>
+                  </Tooltip.Root>
+                  <Tooltip.Root>
+                    <Tooltip.Trigger>
+                      {#snippet child({ props })}
+                        <Button
+                          {...props}
+                          variant="ghost"
+                          size="icon"
+                          class="h-7 w-7 {savedToVault.has(i)
+                            ? 'text-green-500 hover:text-green-600'
+                            : 'text-muted-foreground hover:text-foreground'}"
+                          onclick={() => saveCharToVault(i)}
+                          disabled={savedToVault.has(i)}
+                        >
+                          {#if savedToVault.has(i)}
+                            <Check class="h-3 w-3" />
+                          {:else}
+                            <Archive class="h-3 w-3" />
+                          {/if}
+                        </Button>
+                      {/snippet}
+                    </Tooltip.Trigger>
+                    <Tooltip.Content>{savedToVault.has(i) ? 'Saved to vault' : 'Save to vault'}</Tooltip.Content>
+                  </Tooltip.Root>
+                  <Tooltip.Root>
+                    <Tooltip.Trigger>
+                      {#snippet child({ props })}
+                        <Button
+                          {...props}
+                          variant="ghost"
+                          size="icon"
+                          class="text-muted-foreground hover:text-destructive h-7 w-7"
+                          onclick={() => onDeleteSupportingCharacter(i)}
+                        >
+                          <Trash2 class="h-3 w-3" />
+                        </Button>
+                      {/snippet}
+                    </Tooltip.Trigger>
+                    <Tooltip.Content>Delete character</Tooltip.Content>
+                  </Tooltip.Root>
                 </div>
               </div>
             </Card.Content>
