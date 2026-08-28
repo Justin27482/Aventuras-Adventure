@@ -8,14 +8,17 @@
   import RuntimeVariableCard from './RuntimeVariableCard.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Plus, Activity, AlertTriangle } from 'lucide-svelte'
+  import { variableRegistry } from '$lib/services/templates/variables'
+  import { allSamples } from './sampleContext'
 
   interface Props {
     packId: string
     runtimeVariables: RuntimeVariable[]
+    previewValues?: Record<string, string>
     onVariablesChanged: () => void
   }
 
-  let { packId, runtimeVariables, onVariablesChanged }: Props = $props()
+  let { packId, runtimeVariables, previewValues = allSamples, onVariablesChanged }: Props = $props()
 
   // Track newly created variable ID so its card renders expanded
   let newlyCreatedId = $state<string | null>(null)
@@ -24,6 +27,7 @@
   let entityCounts = $state<Record<string, number>>({})
 
   const ENTITY_TYPE_ORDER: RuntimeEntityType[] = ['character', 'location', 'item', 'story_beat']
+  const promptRuntimeVariables = variableRegistry.getByCategory('runtime')
 
   const ENTITY_TYPE_LABELS: Record<RuntimeEntityType, string> = {
     character: 'Characters',
@@ -215,6 +219,19 @@
       Add Variable
     </Button>
   </div>
+
+  <details class="border-b px-4 py-3 text-xs">
+    <summary class="cursor-pointer font-medium">Prompt runtime context ({promptRuntimeVariables.length})</summary>
+    <p class="text-muted-foreground mt-1">These built-in values are injected automatically when prompts render.</p>
+    <div class="mt-2 grid max-h-48 grid-cols-1 gap-x-4 gap-y-1 overflow-y-auto sm:grid-cols-2">
+      {#each promptRuntimeVariables as variable (variable.name)}
+        <div class="min-w-0">
+          <span class="font-mono text-[11px]">{variable.name}</span>
+          <span class="text-muted-foreground ml-1 break-words">= {previewValues[variable.name] ?? '(empty)'}</span>
+        </div>
+      {/each}
+    </div>
+  </details>
 
   <!-- Variable List -->
   <div class="flex-1 overflow-y-auto p-4">

@@ -14,6 +14,8 @@ export const systemSamples: Record<string, string> = {
   mode: 'adventure',
   pov: 'second',
   tense: 'present',
+  nsfwIntensity: '3',
+  nsfwIntensityLabel: 'Mature (R)',
 }
 
 export const runtimeSamples: Record<string, string> = {

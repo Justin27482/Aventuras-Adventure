@@ -49,6 +49,7 @@
   import { cn } from '$lib/utils/cn'
   import IconRow from '$lib/components/ui/icon-row.svelte'
   import { DEFAULT_FALLBACK_STYLE_PROMPT } from '$lib/services/ai/image/constants'
+  import CharacterSheet from '$lib/components/campaign/CharacterSheet.svelte'
 
   let showAddForm = $state(false)
   let newName = $state('')
@@ -68,6 +69,7 @@
   let pendingProtagonistId = $state<string | null>(null)
   let previousRelationshipLabel = $state('')
   let swapError = $state<string | null>(null)
+  let sheetCharacterId = $state<string | null>(null)
 
   // Portrait state
   let uploadingPortraitId = $state<string | null>(null)
@@ -607,6 +609,16 @@
       !!character.description
     )
   }
+
+  function ownedItems(characterId: string) {
+    return story.items.filter((item) => item.ownerCharacterId === characterId)
+  }
+
+  function isClothingItem(item: (typeof story.items)[number]): boolean {
+    const clothing = item.metadata?.clothing
+    return (typeof clothing === 'object' && clothing !== null && 'isClothing' in clothing && clothing.isClothing === true) ||
+      /\b(dress|shirt|top|jacket|coat|robe|skirt|pants|shorts|trousers|leggings|bra|corset|underwear|briefs|thong|shoes|boots|heels|sandals|gloves|armor|breastplate|cuirass|chainmail|plate)\b/i.test(item.name)
+  }
 </script>
 
 <div class="flex flex-col gap-1 pb-12">
@@ -748,6 +760,8 @@
         {@const isProtagonist = character.relationship === 'self'}
         {@const isCollapsed = ui.isEntityCollapsed(character.id)}
         {@const isEditing = editingId === character.id}
+        {@const characterItems = ownedItems(character.id)}
+        {@const clothingItems = characterItems.filter(isClothingItem)}
 
         <div
           class={cn(
@@ -1147,6 +1161,29 @@
               </div>
             {/if}
 
+            {#if characterItems.length > 0}
+              <div class="border-border/50 mt-2 rounded-md border bg-muted/10 p-2 text-[11px]">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-muted-foreground font-medium">Owned items</span>
+                  <span class="text-muted-foreground">{characterItems.length}</span>
+                </div>
+                <p class="text-muted-foreground mt-1 truncate">
+                  {characterItems.map((item) => item.name).join(' · ')}
+                </p>
+                {#if clothingItems.length > 0}
+                  <p class="text-rose-400/90 mt-1 truncate">
+                    Wearing: {clothingItems.filter((item) => item.equipped).map((item) => item.name).join(' · ') || 'none equipped'}
+                  </p>
+                {/if}
+              </div>
+            {/if}
+
+            {#if sheetCharacterId === character.id}
+              <div class="border-border/60 mt-2 border-t pt-2">
+                <CharacterSheet characterId={character.id} />
+              </div>
+            {/if}
+
             <!-- Runtime Variables (Pinned, always visible) -->
             {#if runtimeVarDefs.length > 0}
               <RuntimeVariableDisplay
@@ -1190,6 +1227,27 @@
                 onDelete={!isProtagonist ? () => deleteCharacter(character) : undefined}
                 showDelete={!isProtagonist}
               >
+                <Tooltip.Root>
+                  <Tooltip.Trigger>
+                    {#snippet child({ props })}
+                      <Button
+                        {...props}
+                        variant="text"
+                        size="icon"
+                        class={cn(
+                          'h-6 w-6',
+                          sheetCharacterId === character.id
+                            ? 'text-primary'
+                            : 'text-muted-foreground hover:text-primary',
+                        )}
+                        onclick={() => (sheetCharacterId = sheetCharacterId === character.id ? null : character.id)}
+                      >
+                        <BookOpen class="h-3.5 w-3.5" />
+                      </Button>
+                    {/snippet}
+                  </Tooltip.Trigger>
+                  <Tooltip.Content>{sheetCharacterId === character.id ? 'Hide character sheet' : 'View character sheet'}</Tooltip.Content>
+                </Tooltip.Root>
                 {#if !isProtagonist}
                   <Tooltip.Root>
                     <Tooltip.Trigger>

@@ -1,4 +1,5 @@
 import { database } from '$lib/services/database'
+import { MAX_CONTENT_INTENSITY } from '$lib/services/content-intensity'
 import type {
   Campaign,
   CampaignSettings,
@@ -8,6 +9,7 @@ import type {
   CampaignSession,
   Character,
   Item,
+  SceneTurnState,
   SessionPartyMember,
 } from '$lib/types'
 import {
@@ -17,11 +19,29 @@ import {
   validateSpotlightCharacter,
   buildSessionPartySnapshot,
 } from '$lib/services/campaign/campaign-rules'
+import {
+  TurnOrderService,
+  type SceneMode,
+  type TurnOrderActor,
+  type TurnOrderMode,
+} from '$lib/services/campaign/turn-order-service'
+import { TurnDirector, type TurnType } from '$lib/services/campaign/turn-director'
 
 const DEFAULT_NARRATIVE_CONTROL: CampaignControlMode = 'autonomous'
 const DEFAULT_COMBAT_CONTROL: CampaignControlMode = 'autonomous'
 // Fallback ruleset for campaigns created (or backfilled) before a GM chooses one explicitly.
 const DEFAULT_RULESET_ID = 'd20-classic'
+
+const SCENE_MODE_DEFAULT_TURN_ORDER: Record<SceneMode, TurnOrderMode> = {
+  free: 'free',
+  exploration: 'free',
+  travel: 'round_robin',
+  camp: 'spotlight',
+  settlement: 'spotlight',
+  combat: 'initiative',
+  social: 'spotlight',
+  downtime: 'gm_directed',
+}
 
 class CampaignStore {
   current = $state<Campaign | null>(null)
@@ -30,7 +50,11 @@ class CampaignStore {
   sessions = $state<CampaignSession[]>([])
   activeSession = $state<CampaignSession | null>(null)
   sessionParty = $state<SessionPartyMember[]>([])
+  sceneTurnState = $state<SceneTurnState | null>(null)
+  previousSceneMode = $state<SceneMode | null>(null)
+  lastSceneTransition = $state<string | null>(null)
   loading = $state(false)
+  private turnDirector = new TurnDirector()
 
   activeParty = $derived(
     this.partyMembers
@@ -47,6 +71,9 @@ class CampaignStore {
     this.sessions = []
     this.activeSession = null
     this.sessionParty = []
+    this.sceneTurnState = null
+    this.previousSceneMode = null
+    this.lastSceneTransition = null
     this.loading = false
   }
 
@@ -72,9 +99,252 @@ class CampaignStore {
       this.sessionParty = this.activeSession
         ? await database.getSessionPartyMembers(this.activeSession.id)
         : []
+      await this.loadSceneTurnState(null)
     } finally {
       this.loading = false
     }
+  }
+
+  private buildTurnOrderActors(actorIds: string[]): TurnOrderActor[] {
+    return actorIds.map((actorId) => ({ id: actorId, name: actorId, category: 'ally' }))
+  }
+
+  private normalizeSceneMode(mode: string | null | undefined): SceneMode {
+    if (!mode) return 'free'
+    if (mode in SCENE_MODE_DEFAULT_TURN_ORDER) {
+      return mode as SceneMode
+    }
+    return 'free'
+  }
+
+  private normalizeTurnOrderMode(mode: string | null | undefined): TurnOrderMode {
+    if (
+      mode === 'free' ||
+      mode === 'round_robin' ||
+      mode === 'initiative' ||
+      mode === 'spotlight' ||
+      mode === 'gm_directed'
+    ) {
+      return mode
+    }
+    return 'free'
+  }
+
+  getDefaultTurnOrderModeForScene(sceneMode: SceneMode): TurnOrderMode {
+    return SCENE_MODE_DEFAULT_TURN_ORDER[sceneMode]
+  }
+
+  private getCurrentTurnActorIds(): string[] {
+    if (this.activeSession && this.sessionParty.length > 0) {
+      return this.sessionParty
+        .filter((member) => member.leftAt === null)
+        .sort((a, b) => a.partyOrder - b.partyOrder)
+        .map((member) => member.characterId)
+    }
+
+    return this.activeParty.map((member) => member.characterId)
+  }
+
+  private buildDefaultSceneTurnState(entryId: string | null): SceneTurnState {
+    if (!this.current) throw new Error('No campaign loaded')
+    const now = Date.now()
+    const actorOrder = this.getCurrentTurnActorIds()
+    const activeActorId =
+      this.current.spotlightCharacterId && actorOrder.includes(this.current.spotlightCharacterId)
+        ? this.current.spotlightCharacterId
+        : actorOrder[0] ?? null
+
+    return {
+      id: crypto.randomUUID(),
+      campaignId: this.current.id,
+      entryId,
+      sceneMode: this.normalizeSceneMode(this.settings?.sceneMode),
+      turnOrderMode: this.normalizeTurnOrderMode(this.settings?.turnOrderMode),
+      activeActorId,
+      actorOrder,
+      turnNumber: 0,
+      createdAt: now,
+      updatedAt: now,
+    }
+  }
+
+  async loadSceneTurnState(entryId: string | null = null): Promise<SceneTurnState> {
+    if (!this.current) throw new Error('No campaign loaded')
+
+    const stored = await database.getSceneTurnState(this.current.id, entryId)
+    if (stored) {
+      this.sceneTurnState = stored
+      this.previousSceneMode = this.normalizeSceneMode(stored.sceneMode)
+      await this.reconcileSceneTurnStateWithParty()
+      return this.sceneTurnState!
+    }
+
+    const created = this.buildDefaultSceneTurnState(entryId)
+    await database.upsertSceneTurnState(created)
+    this.sceneTurnState = created
+    this.previousSceneMode = this.normalizeSceneMode(created.sceneMode)
+    return created
+  }
+
+  private async persistSceneTurnState(next: SceneTurnState): Promise<void> {
+    await database.upsertSceneTurnState(next)
+    this.sceneTurnState = next
+  }
+
+  private async reconcileSceneTurnStateWithParty(): Promise<void> {
+    if (!this.sceneTurnState) return
+
+    const actorIds = this.getCurrentTurnActorIds()
+    const known = this.sceneTurnState.actorOrder.filter((actorId) => actorIds.includes(actorId))
+    const missing = actorIds.filter((actorId) => !known.includes(actorId))
+    const actorOrder = [...known, ...missing]
+    const activeActorId =
+      this.sceneTurnState.activeActorId && actorOrder.includes(this.sceneTurnState.activeActorId)
+        ? this.sceneTurnState.activeActorId
+        : actorOrder[0] ?? null
+
+    if (
+      activeActorId === this.sceneTurnState.activeActorId &&
+      actorOrder.length === this.sceneTurnState.actorOrder.length &&
+      actorOrder.every((actorId, index) => actorId === this.sceneTurnState!.actorOrder[index])
+    ) {
+      return
+    }
+
+    await this.persistSceneTurnState({
+      ...this.sceneTurnState,
+      actorOrder,
+      activeActorId,
+      updatedAt: Date.now(),
+    })
+  }
+
+  getCurrentTurnActor(): TurnOrderActor | null {
+    const activeActorId = this.sceneTurnState?.activeActorId ?? null
+    if (!activeActorId) return null
+
+    const member = this.partyMembers.find((candidate) => candidate.characterId === activeActorId)
+    const actorCategory = member?.actorCategory
+
+    const category: TurnOrderActor['category'] =
+      actorCategory === 'primary_player_character'
+        ? 'player'
+        : actorCategory === 'active_companion'
+          ? 'ally'
+          : actorCategory === 'enemy'
+            ? 'enemy'
+            : actorCategory === 'friendly_npc' || actorCategory === 'neutral_npc'
+              ? 'npc'
+              : 'ally'
+
+    return {
+      id: activeActorId,
+      name: member?.characterId ?? activeActorId,
+      category,
+    }
+  }
+
+  getCurrentTurnType(): TurnType {
+    const currentSceneMode = this.normalizeSceneMode(this.sceneTurnState?.sceneMode)
+    const previousSceneMode = this.previousSceneMode ?? currentSceneMode
+    const activeActor = this.getCurrentTurnActor()
+
+    return this.turnDirector.getNextTurnType({
+      sceneMode: currentSceneMode,
+      previousSceneMode,
+      activeActor,
+      pendingRoll: null,
+    })
+  }
+
+  async setSceneMode(
+    sceneMode: SceneMode,
+    options?: { applyDefaultTurnOrder?: boolean },
+  ): Promise<void> {
+    const current = await this.loadSceneTurnState(null)
+    const previousSceneMode = this.previousSceneMode ?? this.normalizeSceneMode(current.sceneMode)
+    const applyDefaultTurnOrder = options?.applyDefaultTurnOrder ?? true
+    const nextTurnOrderMode = applyDefaultTurnOrder
+      ? this.getDefaultTurnOrderModeForScene(sceneMode)
+      : this.normalizeTurnOrderMode(current.turnOrderMode)
+    const now = Date.now()
+
+    this.previousSceneMode = previousSceneMode
+    this.lastSceneTransition =
+      previousSceneMode !== sceneMode
+        ? this.turnDirector.describeSceneTransition(previousSceneMode, sceneMode)
+        : null
+
+    await this.persistSceneTurnState({
+      ...current,
+      sceneMode,
+      turnOrderMode: nextTurnOrderMode,
+      updatedAt: now,
+    })
+
+    if (this.settings) {
+      const nextSettings: CampaignSettings = {
+        ...this.settings,
+        sceneMode,
+        turnOrderMode: nextTurnOrderMode,
+        updatedAt: now,
+      }
+      await database.upsertCampaignSettings(nextSettings)
+      this.settings = nextSettings
+    }
+  }
+
+  async setTurnOrderMode(turnOrderMode: TurnOrderMode): Promise<void> {
+    const current = await this.loadSceneTurnState(null)
+    const now = Date.now()
+    await this.persistSceneTurnState({ ...current, turnOrderMode, updatedAt: now })
+
+    if (this.settings) {
+      const nextSettings: CampaignSettings = {
+        ...this.settings,
+        turnOrderMode,
+        updatedAt: now,
+      }
+      await database.upsertCampaignSettings(nextSettings)
+      this.settings = nextSettings
+    }
+  }
+
+  async setActiveActor(characterId: string | null): Promise<void> {
+    const current = await this.loadSceneTurnState(null)
+    const service = new TurnOrderService({
+      sceneMode: this.normalizeSceneMode(current.sceneMode),
+      turnOrderMode: this.normalizeTurnOrderMode(current.turnOrderMode),
+      actors: this.buildTurnOrderActors(current.actorOrder),
+      activeActorId: current.activeActorId,
+    })
+    service.setActiveActor(characterId)
+    const snapshot = service.snapshot()
+    await this.persistSceneTurnState({
+      ...current,
+      actorOrder: snapshot.actorIds,
+      activeActorId: snapshot.activeActorId,
+      updatedAt: Date.now(),
+    })
+  }
+
+  async advanceTurn(): Promise<void> {
+    const current = await this.loadSceneTurnState(null)
+    const service = new TurnOrderService({
+      sceneMode: this.normalizeSceneMode(current.sceneMode),
+      turnOrderMode: this.normalizeTurnOrderMode(current.turnOrderMode),
+      actors: this.buildTurnOrderActors(current.actorOrder),
+      activeActorId: current.activeActorId,
+    })
+    service.advance()
+    const snapshot = service.snapshot()
+    await this.persistSceneTurnState({
+      ...current,
+      actorOrder: snapshot.actorIds,
+      activeActorId: snapshot.activeActorId,
+      turnNumber: current.turnNumber + 1,
+      updatedAt: Date.now(),
+    })
   }
 
   async ensureForStory(story: {
@@ -109,6 +379,7 @@ class CampaignStore {
           diceEnforcement: 'guided',
           nsfwIntensity: 0,
           worldCharter: null,
+          gmPersona: null,
           companionCombatPolicy: 'companions_autonomous',
           createdAt: now,
           updatedAt: now,
@@ -141,6 +412,7 @@ class CampaignStore {
       diceEnforcement: 'guided',
       nsfwIntensity: 0,
       worldCharter: null,
+      gmPersona: null,
       companionCombatPolicy: 'companions_autonomous',
       createdAt: now,
       updatedAt: now,
@@ -246,6 +518,7 @@ class CampaignStore {
       ...this.partyMembers.filter((candidate) => candidate.characterId !== character.id),
       member,
     ].sort((a, b) => a.displayOrder - b.displayOrder)
+    await this.reconcileSceneTurnStateWithParty()
   }
 
   async setSpotlightCharacter(characterId: string | null): Promise<void> {
@@ -254,16 +527,41 @@ class CampaignStore {
 
     await database.updateCampaignSpotlight(this.current.id, characterId)
     this.current = { ...this.current, spotlightCharacterId: characterId, updatedAt: Date.now() }
+    if (this.sceneTurnState && characterId && this.sceneTurnState.actorOrder.includes(characterId)) {
+      await this.setActiveActor(characterId)
+    }
   }
 
   async updateSettings(updates: Partial<CampaignSettings>): Promise<void> {
     if (!this.settings) throw new Error('No campaign settings loaded')
-    const next = { ...this.settings, ...updates, updatedAt: Date.now() }
+    const next = {
+      ...this.settings,
+      ...updates,
+      nsfwIntensity:
+        updates.nsfwIntensity === undefined
+          ? this.settings.nsfwIntensity
+          : Math.max(0, Math.min(MAX_CONTENT_INTENSITY, Math.floor(updates.nsfwIntensity))),
+      updatedAt: Date.now(),
+    }
     if (next.maxPartySize < next.defaultPartySize) {
       throw new Error('Maximum party size cannot be smaller than the default party size')
     }
-    await database.upsertCampaignSettings(next)
-    this.settings = next
+    const { campaignId: _campaignId, createdAt: _createdAt, updatedAt: _updatedAt, ...changedSettings } = updates
+    await database.updateCampaignSettings(next.campaignId, changedSettings)
+    const persisted = await database.getCampaignSettings(next.campaignId)
+    if (!persisted || persisted.nsfwIntensity !== next.nsfwIntensity) {
+      throw new Error('Campaign settings write could not be verified')
+    }
+    this.settings = persisted
+  }
+
+  async setRuleset(rulesetId: string): Promise<void> {
+    if (!this.current) throw new Error('No campaign loaded')
+    const selected = await database.getRuleset(rulesetId)
+    if (!selected) throw new Error('Ruleset not found')
+    const updated = { ...this.current, rulesetId, updatedAt: Date.now() }
+    await database.upsertCampaign(updated)
+    this.current = updated
   }
 
   async setItemOwnership(
@@ -327,6 +625,7 @@ class CampaignStore {
     this.sessions = [session, ...this.sessions]
     this.activeSession = session
     this.sessionParty = snapshot
+    await this.reconcileSceneTurnStateWithParty()
     return session
   }
 
@@ -340,6 +639,7 @@ class CampaignStore {
     )
     this.activeSession = null
     this.sessionParty = []
+    await this.reconcileSceneTurnStateWithParty()
   }
 }
 

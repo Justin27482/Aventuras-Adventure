@@ -10,8 +10,9 @@ const actionChoicesPromptTemplate: PromptTemplate = {
 
 ## CRITICAL: Who is the Player?
 The USER is playing as {{ protagonistName }}{{ protagonistDescription }}. This is the USER'S persona/character - it IS the user, not a separate NPC.
-When generating action choices, you are suggesting what THE USER might want to do next as their character {{ protagonistName }}.
-Do NOT generate actions for {{ protagonistName }} as if they were a separate character - these are suggestions for the user's next move.
+The currently acting character is {{ activeActorName }}.
+When generating action choices, prioritize what THE USER might do while acting as {{ activeActorName }}.
+Do NOT generate actions for {{ activeActorName }} as if they were a separate character - these are suggestions for the user's next move.
 {{ styleGuidance }}
 
 ## Current Narrative
@@ -29,7 +30,7 @@ NPCs Present: {{ npcsPresent }}
 Active Quests: {{ activeQuests }}
 {{ lorebookContext }}
 ## Your Task
-Generate 3-4 distinct action choices for THE USER (playing as {{ protagonistName }}). Think like an RPG:
+Generate 3-4 distinct action choices for THE USER (currently acting as {{ activeActorName }}). Think like an RPG:
 - **Every choice should move the plot forward** - no passive waiting or stalling
 - Include at least one physical action (examine, take, use, attack, etc.)
 - If NPCs are present, include a dialogue option for the user to talk to them

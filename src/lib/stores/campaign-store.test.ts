@@ -6,8 +6,10 @@ const { mockDatabase } = vi.hoisted(() => ({
     getCampaignSettings: vi.fn(),
     getCampaignPartyMembers: vi.fn(),
     getCampaignSessions: vi.fn(),
+    getSceneTurnState: vi.fn(),
     upsertCampaign: vi.fn(),
     upsertCampaignSettings: vi.fn(),
+    upsertSceneTurnState: vi.fn(),
     upsertCampaignPartyMember: vi.fn(),
     updateCampaignSpotlight: vi.fn(),
     updateItem: vi.fn(),
@@ -71,8 +73,10 @@ describe('campaign store session boundaries', () => {
     mockDatabase.getCampaignSettings.mockResolvedValue(null)
     mockDatabase.getCampaignPartyMembers.mockResolvedValue([])
     mockDatabase.getCampaignSessions.mockResolvedValue([])
+    mockDatabase.getSceneTurnState.mockResolvedValue(null)
     mockDatabase.upsertCampaign.mockResolvedValue(undefined)
     mockDatabase.upsertCampaignSettings.mockResolvedValue(undefined)
+    mockDatabase.upsertSceneTurnState.mockResolvedValue(undefined)
     mockDatabase.upsertCampaignPartyMember.mockResolvedValue(undefined)
     mockDatabase.updateCampaignSpotlight.mockResolvedValue(undefined)
     mockDatabase.updateItem.mockResolvedValue(undefined)
@@ -129,11 +133,36 @@ describe('campaign store session boundaries', () => {
     mockDatabase.cleanupOrphanedEmbeddedImages.mockResolvedValue(undefined)
   })
 
-  it('wraps wizard story creation in a single transaction so partial writes do not orphan a campaign', async () => {
-    mockDatabase.addCharacter.mockRejectedValueOnce(new Error('db failure'))
+  it('creates a wizard story without requiring a transaction-level write lock', async () => {
+    mockDatabase.getCharactersForBranch.mockResolvedValueOnce([
+      buildCharacter({ id: 'primary-1', name: 'Kyra', relationship: 'self' }),
+    ])
+    mockDatabase.getStoryEntriesForBranch.mockResolvedValueOnce([
+      {
+        id: 'entry-1',
+        storyId: 'story-1',
+        type: 'narration',
+        content: 'The lamps burned low as the city listened.',
+        parentId: null,
+        position: 0,
+        metadata: null,
+        branchId: null,
+        createdAt: 1,
+      },
+    ])
+    mockDatabase.addStoryEntry.mockResolvedValueOnce({
+      id: 'entry-1',
+      storyId: 'story-1',
+      type: 'narration',
+      content: 'The lamps burned low as the city listened.',
+      parentId: null,
+      position: 0,
+      metadata: null,
+      branchId: null,
+      createdAt: 1,
+    })
 
-    await expect(
-      story.createStoryFromWizard({
+    await story.createStoryFromWizard({
         title: 'Brightness Dimmed',
         genre: 'Fantasy',
         description: 'A quiet lantern-lit mystery',
@@ -156,10 +185,11 @@ describe('campaign store session boundaries', () => {
         initialItems: [],
         openingScene: 'The lamps burned low as the city listened.',
         characters: [{ name: 'Lys', relationship: 'ally', traits: ['sharp'] }],
-      }),
-    ).rejects.toThrow('db failure')
+      })
 
-    expect(database.withTransaction).toHaveBeenCalledTimes(1)
+    expect(database.withTransaction).not.toHaveBeenCalled()
+    expect(database.createStory).toHaveBeenCalledTimes(1)
+    expect(database.addStoryEntry).toHaveBeenCalledTimes(1)
   })
 
   it('starts and ends a session while preserving the party snapshot boundary', async () => {
@@ -275,5 +305,175 @@ describe('campaign store session boundaries', () => {
     await expect(campaign.startSession({ primaryCharacterId: primary.id })).rejects.toThrow(
       'Primary character must be an active eligible party member',
     )
+  })
+
+  it('hydrates missing scene turn state from campaign defaults and party order', async () => {
+    mockDatabase.getCampaignByStoryId.mockResolvedValue({
+      id: 'campaign-1',
+      storyId: 'story-1',
+      title: 'The Night Road',
+      description: null,
+      rulesetId: 'd20-classic',
+      spotlightCharacterId: 'primary-1',
+      status: 'active',
+      createdAt: 1,
+      updatedAt: 1,
+    })
+    mockDatabase.getCampaignSettings.mockResolvedValue({
+      campaignId: 'campaign-1',
+      defaultPartySize: 4,
+      maxPartySize: 6,
+      sceneMode: 'combat',
+      turnOrderMode: 'initiative',
+      diceEnforcement: 'guided',
+      nsfwIntensity: 0,
+      worldCharter: null,
+      companionCombatPolicy: 'companions_autonomous',
+      createdAt: 1,
+      updatedAt: 1,
+    })
+    mockDatabase.getCampaignPartyMembers.mockResolvedValue([
+      {
+        id: 'member-1',
+        campaignId: 'campaign-1',
+        characterId: 'primary-1',
+        eligibilityStatus: 'eligible',
+        actorCategory: 'primary_player_character',
+        active: true,
+        narrativeControlMode: 'player_narrative',
+        combatControlMode: 'player_narrative',
+        displayOrder: 0,
+        joinedAt: 1,
+        leftAt: null,
+      },
+      {
+        id: 'member-2',
+        campaignId: 'campaign-1',
+        characterId: 'companion-1',
+        eligibilityStatus: 'eligible',
+        actorCategory: 'active_companion',
+        active: true,
+        narrativeControlMode: 'autonomous',
+        combatControlMode: 'autonomous',
+        displayOrder: 1,
+        joinedAt: 1,
+        leftAt: null,
+      },
+    ])
+
+    await campaign.loadForStory('story-1')
+
+    expect(mockDatabase.upsertSceneTurnState).toHaveBeenCalledTimes(1)
+    const [state] = mockDatabase.upsertSceneTurnState.mock.calls[0]
+    expect(state.campaignId).toBe('campaign-1')
+    expect(state.entryId).toBeNull()
+    expect(state.sceneMode).toBe('combat')
+    expect(state.turnOrderMode).toBe('initiative')
+    expect(state.actorOrder).toEqual(['primary-1', 'companion-1'])
+    expect(state.activeActorId).toBe('primary-1')
+  })
+
+  it('advances turn state and persists active actor changes', async () => {
+    await campaign.ensureForStory({
+      id: 'story-1',
+      title: 'The Night Road',
+      description: null,
+      createdAt: 1,
+      updatedAt: 1,
+      characters: [],
+    })
+
+    const primary = buildCharacter({ id: 'primary-1', name: 'Kyra', relationship: 'self' })
+    const companion = buildCharacter({ id: 'companion-1', name: 'Rin', relationship: 'friend' })
+
+    await campaign.setPartyMember(primary, {
+      actorCategory: 'primary_player_character',
+      displayOrder: 0,
+    })
+    await campaign.setPartyMember(companion, {
+      actorCategory: 'active_companion',
+      displayOrder: 1,
+    })
+
+    await campaign.loadSceneTurnState()
+    await campaign.setActiveActor('primary-1')
+    await campaign.advanceTurn()
+
+    expect(campaign.sceneTurnState?.activeActorId).toBe('companion-1')
+    expect(campaign.sceneTurnState?.turnNumber).toBe(1)
+    expect(mockDatabase.upsertSceneTurnState).toHaveBeenCalled()
+  })
+
+  it('applies per-scene-mode default turn order and persists settings', async () => {
+    await campaign.ensureForStory({
+      id: 'story-1',
+      title: 'The Night Road',
+      description: null,
+      createdAt: 1,
+      updatedAt: 1,
+      characters: [],
+    })
+
+    const primary = buildCharacter({ id: 'primary-1', name: 'Kyra', relationship: 'self' })
+    await campaign.setPartyMember(primary, {
+      actorCategory: 'primary_player_character',
+      displayOrder: 0,
+    })
+
+    await campaign.loadSceneTurnState()
+    await campaign.setSceneMode('combat')
+
+    expect(campaign.sceneTurnState?.sceneMode).toBe('combat')
+    expect(campaign.sceneTurnState?.turnOrderMode).toBe('initiative')
+    expect(campaign.settings?.sceneMode).toBe('combat')
+    expect(campaign.settings?.turnOrderMode).toBe('initiative')
+    expect(mockDatabase.upsertCampaignSettings).toHaveBeenCalled()
+  })
+
+  it('tracks scene transitions and the active turn type when the scene changes', async () => {
+    await campaign.ensureForStory({
+      id: 'story-1',
+      title: 'The Night Road',
+      description: null,
+      createdAt: 1,
+      updatedAt: 1,
+      characters: [],
+    })
+
+    const primary = buildCharacter({ id: 'primary-1', name: 'Kyra', relationship: 'self' })
+    await campaign.setPartyMember(primary, {
+      actorCategory: 'primary_player_character',
+      displayOrder: 0,
+    })
+
+    await campaign.loadSceneTurnState()
+    await campaign.setSceneMode('combat')
+
+    expect(campaign.lastSceneTransition).toContain('combat')
+    expect(campaign.getCurrentTurnType()).toBe('scene_transition')
+  })
+
+  it('allows scene-mode changes without forcing the default turn order', async () => {
+    await campaign.ensureForStory({
+      id: 'story-1',
+      title: 'The Night Road',
+      description: null,
+      createdAt: 1,
+      updatedAt: 1,
+      characters: [],
+    })
+
+    const primary = buildCharacter({ id: 'primary-1', name: 'Kyra', relationship: 'self' })
+    await campaign.setPartyMember(primary, {
+      actorCategory: 'primary_player_character',
+      displayOrder: 0,
+    })
+
+    await campaign.loadSceneTurnState()
+    await campaign.setTurnOrderMode('round_robin')
+    await campaign.setSceneMode('social', { applyDefaultTurnOrder: false })
+
+    expect(campaign.sceneTurnState?.sceneMode).toBe('social')
+    expect(campaign.sceneTurnState?.turnOrderMode).toBe('round_robin')
   })
 })

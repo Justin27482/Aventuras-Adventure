@@ -9,9 +9,11 @@
   import StoryView from '$lib/components/story/StoryView.svelte'
   import LibraryView from '$lib/components/story/LibraryView.svelte'
   import GalleryTab from '$lib/components/story/GalleryTab.svelte'
+  import TurnOrderStrip from '$lib/components/campaign/TurnOrderStrip.svelte'
   import LorebookView from '$lib/components/lorebook/LorebookView.svelte'
   import MemoryView from '$lib/components/memory/MemoryView.svelte'
   import VaultPanel from '$lib/components/vault/VaultPanel.svelte'
+  import GMScreen from '$lib/components/campaign/GMScreen.svelte'
   import SettingsModal from '$lib/components/settings/SettingsModal.svelte'
   import LorebookDebugPanel from '$lib/components/debug/LorebookDebugPanel.svelte'
   import DebugLogModal from '$lib/components/debug/DebugLogModal.svelte'
@@ -20,6 +22,8 @@
   import ChapterSourceImportModal from '$lib/components/story/ChapterSourceImportModal.svelte'
   import NovelImportModal from '$lib/components/story/NovelImportModal.svelte'
   import CompanionDecisionPanel from '$lib/components/campaign/CompanionDecisionPanel.svelte'
+  import RulesetEditor from '$lib/components/settings/tabs/ruleset.svelte'
+  import WorldbuildingAssistant from '$lib/components/worldbuilding/WorldbuildingAssistant.svelte'
   import { swipe } from '$lib/utils/swipe'
   import { Bug } from 'lucide-svelte'
   import { MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH, MAX_SIDEBAR_RATIO } from '$lib/constants/layout'
@@ -164,6 +168,12 @@
       document.body.style.userSelect = ''
     }
   })
+
+  $effect(() => {
+    if (!settings.uiSettings.gmMode && ui.activePanel === 'gm') {
+      ui.setActivePanel('story')
+    }
+  })
 </script>
 
 <svelte:window
@@ -207,6 +217,10 @@
     <div class="flex flex-1 flex-col overflow-hidden">
       <Header />
 
+      {#if story.currentStory}
+        <TurnOrderStrip />
+      {/if}
+
       <main class="flex-1 overflow-hidden">
         {#if ui.activePanel === 'story' && story.currentStory}
           <StoryView />
@@ -216,8 +230,14 @@
           <LorebookView />
         {:else if ui.activePanel === 'memory' && story.currentStory}
           <MemoryView />
+        {:else if ui.activePanel === 'gm' && story.currentStory && settings.uiSettings.gmMode}
+          <GMScreen />
         {:else if ui.activePanel === 'vault'}
           <VaultPanel />
+        {:else if ui.activePanel === 'rulesets'}
+          <RulesetEditor />
+        {:else if ui.activePanel === 'worldbuilding'}
+          <WorldbuildingAssistant />
         {:else if ui.activePanel === 'library' || !story.currentStory}
           <LibraryView />
         {:else if children}

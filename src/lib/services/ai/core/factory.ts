@@ -26,6 +26,7 @@ import {
 import { TranslationService } from '../utils/TranslationService'
 import { ImageAnalysisService } from '../image/ImageAnalysisService'
 import { BackgroundImageService } from '../image/BackgroundImageService'
+import { RulesetAssistantService } from '../ruleset/RulesetAssistantService'
 
 /**
  * Factory class for creating AI services.
@@ -99,6 +100,10 @@ export class ServiceFactory {
    */
   createStyleReviewerService(): StyleReviewerService {
     return new StyleReviewerService('styleReviewer')
+  }
+
+  createRulesetAssistantService(): RulesetAssistantService {
+    return new RulesetAssistantService('rulesetAssistant')
   }
 
   /**

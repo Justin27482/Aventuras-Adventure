@@ -16,6 +16,11 @@ import type {
   Checkpoint,
   Branch,
   EmbeddedImage,
+  Campaign,
+  CampaignSettings,
+  CampaignThread,
+  CampaignThreadBeat,
+  SceneTurnState,
 } from '$lib/types'
 
 /** Complete story data for export */
@@ -31,6 +36,11 @@ export interface StoryExportData {
   branches: Branch[]
   chapters: Chapter[]
   chapterSources: ChapterSource[]
+  campaign: Campaign | null
+  campaignSettings: CampaignSettings | null
+  campaignThreads: CampaignThread[]
+  campaignThreadBeats: CampaignThreadBeat[]
+  sceneTurnState: SceneTurnState | null
 }
 
 /**
@@ -39,6 +49,7 @@ export interface StoryExportData {
  * @returns Complete story data ready for export
  */
 export async function gatherStoryData(storyId: string): Promise<StoryExportData> {
+  const campaign = await database.getCampaignByStoryId(storyId)
   const [
     entries,
     characters,
@@ -51,6 +62,10 @@ export async function gatherStoryData(storyId: string): Promise<StoryExportData>
     branches,
     chapters,
     chapterSources,
+    campaignSettings,
+    campaignThreads,
+    campaignThreadBeats,
+    sceneTurnState,
   ] = await Promise.all([
     database.getStoryEntries(storyId),
     database.getCharacters(storyId),
@@ -63,6 +78,10 @@ export async function gatherStoryData(storyId: string): Promise<StoryExportData>
     database.getBranches(storyId),
     database.getChapters(storyId),
     database.getChapterSources(storyId),
+    campaign ? database.getCampaignSettings(campaign.id) : Promise.resolve(null),
+    campaign ? database.getCampaignThreads(campaign.id) : Promise.resolve([]),
+    campaign ? database.getCampaignThreadBeats(campaign.id) : Promise.resolve([]),
+    campaign ? database.getSceneTurnState(campaign.id) : Promise.resolve(null),
   ])
 
   return {
@@ -77,6 +96,11 @@ export async function gatherStoryData(storyId: string): Promise<StoryExportData>
     branches,
     chapters,
     chapterSources,
+    campaign,
+    campaignSettings,
+    campaignThreads,
+    campaignThreadBeats,
+    sceneTurnState,
   }
 }
 

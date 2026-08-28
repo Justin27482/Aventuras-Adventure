@@ -43,7 +43,6 @@
 
   const needsSessionSetup = $derived(
     !!story.currentStory &&
-      story.currentStory.templateId === 'wizard-generated' &&
       !!campaign.current &&
       !campaign.activeSession,
   )
@@ -156,6 +155,16 @@
           data.branches,
           data.chapters,
           data.chapterSources,
+          null,
+          data.campaign
+            ? {
+                campaign: data.campaign,
+                campaignSettings: data.campaignSettings,
+                campaignThreads: data.campaignThreads,
+                campaignThreadBeats: data.campaignThreadBeats,
+                sceneTurnState: data.sceneTurnState,
+              }
+            : undefined,
         ),
       'Legacy Aventuras (.avt)',
     )

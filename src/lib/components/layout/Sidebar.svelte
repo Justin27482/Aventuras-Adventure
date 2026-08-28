@@ -12,6 +12,7 @@
     BookMarked,
     Brain,
     Coins,
+    Crown,
   } from 'lucide-svelte'
   import { story } from '$lib/stores/story.svelte'
   import CharacterPanel from '$lib/components/world/CharacterPanel.svelte'
@@ -20,8 +21,10 @@
   import InventoryPanel from '$lib/components/world/InventoryPanel.svelte'
   import ClothingPanel from '$lib/components/world/ClothingPanel.svelte'
   import QuestPanel from '$lib/components/world/QuestPanel.svelte'
+  import CampaignQuestPanel from '$lib/components/world/CampaignQuestPanel.svelte'
   import TimePanel from '$lib/components/world/TimePanel.svelte'
   import BranchPanel from '$lib/components/branch/BranchPanel.svelte'
+  import GMControlsPanel from '$lib/components/campaign/GMControlsPanel.svelte'
   import { swipe } from '$lib/utils/swipe'
   import { DESKTOP_BREAKPOINT, MAX_SIDEBAR_WIDTH, MAX_SIDEBAR_RATIO } from '$lib/constants/layout'
 
@@ -29,14 +32,17 @@
   import * as Tooltip from '$lib/components/ui/tooltip'
   import { Button } from '$lib/components/ui/button'
 
-  const tabs = [
+  const tabs = $derived([
     { id: 'characters' as const, icon: Users, label: 'Characters' },
     { id: 'locations' as const, icon: MapPin, label: 'Locations' },
     { id: 'inventory' as const, icon: Backpack, label: 'Inventory' },
     { id: 'quests' as const, icon: Scroll, label: 'Quests' },
     { id: 'time' as const, icon: Clock, label: 'Time' },
     { id: 'branches' as const, icon: GitBranch, label: 'Branches' },
-  ]
+    ...(settings.uiSettings.gmMode
+      ? [{ id: 'gm' as const, icon: Crown, label: 'GM / QA' }]
+      : []),
+  ])
 
   function handleSwipeLeft() {
     // Navigate to next tab
@@ -85,6 +91,10 @@
   }
 
   $effect(() => {
+    if (!settings.uiSettings.gmMode && ui.sidebarTab === 'gm') {
+      ui.setSidebarTab('characters')
+      return
+    }
     void ui.sidebarTab
     if (scrollContainer) scrollContainer.scrollTop = 0
   })
@@ -187,6 +197,7 @@
       </Tabs.Content>
       <Tabs.Content value="quests" class="mt-0 h-full space-y-4">
         <QuestPanel />
+        <CampaignQuestPanel />
       </Tabs.Content>
       <Tabs.Content value="time" class="mt-0 h-full space-y-4">
         <TimePanel />
@@ -194,6 +205,11 @@
       <Tabs.Content value="branches" class="mt-0 h-full space-y-4">
         <BranchPanel />
       </Tabs.Content>
+      {#if settings.uiSettings.gmMode}
+        <Tabs.Content value="gm" class="mt-0 h-full space-y-4">
+          <GMControlsPanel />
+        </Tabs.Content>
+      {/if}
     </div>
   </Tabs.Root>
 
@@ -202,62 +218,83 @@
     class="bottom-context-nav border-border bg-muted flex flex-shrink-0 items-center gap-1 border-t p-2"
   >
     <Tooltip.Root>
-      <Tooltip.Trigger>
+      <Tooltip.Trigger class="min-w-0 flex-1">
         {#snippet child({ props })}
           <Button
             {...props}
             variant="ghost"
-            class="text-muted-foreground hover:bg-muted/40 hover:text-foreground h-auto min-h-12 flex-1 flex-col gap-1 py-2 text-xs {ui.activePanel ===
+            class="text-muted-foreground hover:bg-muted/40 hover:text-foreground h-auto min-h-11 w-full min-w-0 flex-col gap-1 px-1 py-1.5 text-[11px] {ui.activePanel ===
             'story'
               ? '!bg-primary/10 !text-primary'
               : ''}"
             onclick={() => ui.setActivePanel('story')}
           >
             <BookOpen class="h-4 w-4" />
-            <span>Campaign</span>
+            <span class="max-w-full truncate">Campaign</span>
           </Button>
         {/snippet}
       </Tooltip.Trigger>
       <Tooltip.Content>Campaign story and notes</Tooltip.Content>
     </Tooltip.Root>
     <Tooltip.Root>
-      <Tooltip.Trigger>
+      <Tooltip.Trigger class="min-w-0 flex-1">
         {#snippet child({ props })}
           <Button
             {...props}
             variant="ghost"
-            class="text-muted-foreground hover:bg-muted/40 hover:text-foreground h-auto min-h-12 flex-1 flex-col gap-1 py-2 text-xs {ui.activePanel ===
+            class="text-muted-foreground hover:bg-muted/40 hover:text-foreground h-auto min-h-11 w-full min-w-0 flex-col gap-1 px-1 py-1.5 text-[11px] {ui.activePanel ===
             'lorebook'
               ? '!bg-primary/10 !text-primary'
               : ''}"
             onclick={() => ui.setActivePanel('lorebook')}
           >
             <BookMarked class="h-4 w-4" />
-            <span>Lorebook</span>
+            <span class="max-w-full truncate">Lorebook</span>
           </Button>
         {/snippet}
       </Tooltip.Trigger>
       <Tooltip.Content>Lore and world information</Tooltip.Content>
     </Tooltip.Root>
     <Tooltip.Root>
-      <Tooltip.Trigger>
+      <Tooltip.Trigger class="min-w-0 flex-1">
         {#snippet child({ props })}
           <Button
             {...props}
             variant="ghost"
-            class="text-muted-foreground hover:bg-muted/40 hover:text-foreground h-auto min-h-12 flex-1 flex-col gap-1 py-2 text-xs {ui.activePanel ===
+            class="text-muted-foreground hover:bg-muted/40 hover:text-foreground h-auto min-h-11 w-full min-w-0 flex-col gap-1 px-1 py-1.5 text-[11px] {ui.activePanel ===
             'memory'
               ? '!bg-primary/10 !text-primary'
               : ''}"
             onclick={() => ui.setActivePanel('memory')}
           >
             <Brain class="h-4 w-4" />
-            <span>Memory</span>
+            <span class="max-w-full truncate">Memory</span>
           </Button>
         {/snippet}
       </Tooltip.Trigger>
       <Tooltip.Content>Character and story memory</Tooltip.Content>
     </Tooltip.Root>
+    {#if settings.uiSettings.gmMode}
+      <Tooltip.Root>
+        <Tooltip.Trigger class="min-w-0 flex-1">
+          {#snippet child({ props })}
+            <Button
+              {...props}
+              variant="ghost"
+              class="text-muted-foreground hover:bg-muted/40 hover:text-foreground h-auto min-h-11 w-full min-w-0 flex-col gap-1 px-1 py-1.5 text-[11px] {ui.activePanel ===
+              'gm'
+                ? '!bg-primary/10 !text-primary'
+                : ''}"
+              onclick={() => ui.setActivePanel('gm')}
+            >
+              <Crown class="h-4 w-4" />
+              <span class="max-w-full truncate">GM</span>
+            </Button>
+          {/snippet}
+        </Tooltip.Trigger>
+        <Tooltip.Content>GM planning screen</Tooltip.Content>
+      </Tooltip.Root>
+    {/if}
   </div>
 </aside>
 

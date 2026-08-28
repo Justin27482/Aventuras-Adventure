@@ -37,6 +37,7 @@
   let editName = $state('')
   let editDescription = $state('')
   let editQuantity = $state(1)
+  let editWeight = $state(0)
   let editEquipped = $state(false)
   let editOwnerCharacterId = $state<string | null>(null)
   let editSlotKey = $state('')
@@ -100,6 +101,7 @@
     editName = item.name
     editDescription = item.description ?? ''
     editQuantity = item.quantity
+    editWeight = item.weight ?? 0
     editEquipped = item.equipped
     editOwnerCharacterId = item.ownerCharacterId ?? null
     editSlotKey = item.slotKey ?? ''
@@ -116,6 +118,7 @@
     editName = ''
     editDescription = ''
     editQuantity = 1
+    editWeight = 0
     editEquipped = false
     editOwnerCharacterId = null
     editSlotKey = ''
@@ -154,7 +157,11 @@
       name,
       description: editDescription.trim() || null,
       quantity,
+      weight: Math.max(0, Number(editWeight) || 0),
       equipped: item.location === 'inventory' ? editEquipped : false,
+      ownerCharacterId: editOwnerCharacterId,
+      slotKey: editSlotKey.trim() || null,
+      containerItemId: editContainerItemId,
       metadata: updatedMetadata,
     })
 
@@ -294,6 +301,10 @@
                 <div class="col-span-2 space-y-1 sm:col-span-1">
                   <Label class="text-xs">Quantity</Label>
                   <Input type="number" bind:value={editQuantity} min="1" class="h-8 text-sm" />
+                </div>
+                <div class="col-span-2 space-y-1 sm:col-span-1">
+                  <Label class="text-xs">Weight per item</Label>
+                  <Input type="number" bind:value={editWeight} min="0" step="0.1" class="h-8 text-sm" />
                 </div>
               </div>
 

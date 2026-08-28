@@ -34,6 +34,7 @@ export interface PromptContext {
   pov: 'first' | 'second' | 'third'
   tense: 'past' | 'present'
   protagonistName: string
+  activeActorName?: string
   genre?: string
   settingDescription?: string
   tone?: string

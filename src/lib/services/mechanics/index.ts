@@ -13,7 +13,11 @@ export {
   validateItemTransfer,
   applyClothingDurabilityDelta,
   validateSlotCarryLimit,
+  validateEncumbrance,
+  validateInventorySlotCapacity,
+  isArmorItem,
   assertNoCoercedConsentMutation,
 } from './mechanics-rules'
 export { groupInventoryByOwner, type InventoryGroup } from './inventory-grouping'
 export { mechanicsService } from './mechanics-service'
+export { rulesValidatorService, RulesValidatorService } from './rules-validator-service'

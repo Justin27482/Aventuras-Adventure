@@ -1,0 +1,2 @@
+-- Schema changes are applied idempotently by the frontend database initializer.
+-- This migration remains as a version marker for databases that already passed 054.

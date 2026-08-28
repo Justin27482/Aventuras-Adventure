@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte'
   import type { FullPack } from '$lib/services/packs/types'
+  import type { PromptPackCompatibilityReport } from '$lib/services/packs/prompt-pack-compatibility'
   import { allSamples } from './sampleContext'
   import { packService } from '$lib/services/packs/pack-service'
   import { createIsMobile } from '$lib/hooks/is-mobile.svelte'
@@ -19,6 +20,9 @@
   import { Textarea } from '$lib/components/ui/textarea'
   import { Label } from '$lib/components/ui/label'
   import { renderDescription } from '$lib/utils/markdown'
+  import { variableRegistry } from '$lib/services/templates/variables'
+  import { story } from '$lib/stores/story.svelte'
+  import { ContextBuilder } from '$lib/services/context'
   import TestVariablesModal from './TestVariablesModal.svelte'
   import {
     ChevronLeft,
@@ -31,6 +35,7 @@
     Check,
     X,
     Settings,
+    RefreshCw,
   } from 'lucide-svelte'
 
   interface Props {
@@ -47,6 +52,11 @@
   let fullPack = $state<FullPack | null>(null)
   let loading = $state(true)
   let drawerOpen = $state(false)
+  let compatibility = $state<PromptPackCompatibilityReport | null>(null)
+  let compatibilityLoading = $state(false)
+  let liveContextValues = $state<Record<string, string>>({})
+  const systemVariableCount = variableRegistry.getByCategory('system').length
+  const promptRuntimeVariableCount = variableRegistry.getByCategory('runtime').length
 
   // Editor tab state
   let editorActiveTab = $state<'system' | 'user'>('system')
@@ -62,6 +72,7 @@
   // Test variables state
   let showTestVars = $state(false)
   let testValues = $state<Record<string, string>>({})
+  const variablePreviewValues = $derived({ ...allSamples, ...liveContextValues, ...testValues })
 
   function handleTestValuesChange(values: Record<string, string>) {
     testValues = values
@@ -100,10 +111,32 @@
     loadPack()
   })
 
+  $effect(() => {
+    const storyId = story.currentStory?.id
+    if (!storyId) {
+      liveContextValues = {}
+      return
+    }
+
+    void (async () => {
+      try {
+        const contextBuilder = await ContextBuilder.forStory(storyId, packId)
+        const context = contextBuilder.getContext()
+        liveContextValues = Object.fromEntries(
+          Object.entries(context).map(([key, value]) => [key, String(value ?? '')]),
+        )
+      } catch (error) {
+        console.warn('[PromptPackEditor] Failed to load live prompt context:', error)
+        liveContextValues = {}
+      }
+    })()
+  })
+
   async function loadPack() {
     loading = true
     try {
       fullPack = await packService.getFullPack(packId)
+      await loadCompatibility()
     } catch (error) {
       console.error('[PromptPackEditor] Failed to load pack:', error)
     } finally {
@@ -111,9 +144,22 @@
     }
   }
 
+  async function loadCompatibility() {
+    compatibilityLoading = true
+    try {
+      compatibility = await packService.getPromptPackCompatibility(packId)
+    } catch (error) {
+      console.error('[PromptPackEditor] Failed to check pack compatibility:', error)
+      compatibility = null
+    } finally {
+      compatibilityLoading = false
+    }
+  }
+
   async function refreshPack() {
     try {
       fullPack = await packService.getFullPack(packId)
+      await loadCompatibility()
       // testValues cleanup and default re-initialization handled by $effect watching fullPack.variables
     } catch (error) {
       console.error('[PromptPackEditor] Failed to refresh pack:', error)
@@ -479,6 +525,7 @@
             <VariableManager
               {packId}
               variables={fullPack?.variables ?? []}
+              previewValues={variablePreviewValues}
               onVariablesChanged={refreshPack}
             />
           </div>
@@ -487,6 +534,7 @@
             <RuntimeVariableManager
               {packId}
               runtimeVariables={fullPack?.runtimeVariables ?? []}
+              previewValues={variablePreviewValues}
               onVariablesChanged={refreshPack}
             />
           </div>
@@ -593,6 +641,92 @@
                   {/if}
                 </div>
               {/if}
+
+              <div class="space-y-3 border-t pt-4">
+                <div class="flex items-center justify-between gap-3">
+                  <div>
+                    <h4 class="text-sm font-medium">Template Compatibility</h4>
+                    <p class="text-muted-foreground text-xs">
+                      Checks syntax and variable references without changing custom templates.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    class="h-7 gap-1.5 text-xs"
+                    onclick={loadCompatibility}
+                    disabled={compatibilityLoading}
+                  >
+                    <RefreshCw class={compatibilityLoading ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />
+                    Check
+                  </Button>
+                </div>
+
+                {#if compatibilityLoading}
+                  <p class="text-muted-foreground text-xs">Checking templates...</p>
+                {:else if compatibility}
+                  {#if compatibility.compatible}
+                    <p class="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-2 text-xs text-emerald-600 dark:text-emerald-400">
+                      Compatible with the current prompt contract.
+                    </p>
+                  {:else}
+                    <div class="space-y-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs">
+                      {#if compatibility.missingTemplateIds.length > 0}
+                        <div>
+                          <p class="font-medium text-amber-700 dark:text-amber-300">Missing templates</p>
+                          <p class="text-muted-foreground mt-1 break-words">
+                            {compatibility.missingTemplateIds.join(', ')}
+                          </p>
+                        </div>
+                      {/if}
+                      {#if compatibility.issues.length > 0}
+                        <div>
+                          <p class="font-medium text-amber-700 dark:text-amber-300">Template issues</p>
+                          <ul class="text-muted-foreground mt-1 list-disc space-y-1 pl-4">
+                            {#each compatibility.issues as issue}
+                              <li>{issue.templateId}: {issue.message}</li>
+                            {/each}
+                          </ul>
+                        </div>
+                      {/if}
+                    </div>
+                  {/if}
+                {/if}
+              </div>
+
+              <div class="space-y-3 border-t pt-4">
+                <div>
+                  <h4 class="text-sm font-medium">Prompt Contract</h4>
+                  <p class="text-muted-foreground text-xs">
+                    Built-in variables are injected automatically. Custom and entity runtime variables are editable per pack.
+                  </p>
+                </div>
+                <div class="grid gap-2 sm:grid-cols-3">
+                  <button
+                    type="button"
+                    class="border-border bg-muted/20 hover:bg-muted/40 rounded-md border p-3 text-left transition-colors"
+                    onclick={handleToggleVariables}
+                  >
+                    <span class="text-muted-foreground block text-[11px] uppercase">Custom variables</span>
+                    <span class="text-foreground text-lg font-semibold">{fullPack.variables.length}</span>
+                    <span class="text-muted-foreground block text-[11px]">View variables</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="border-border bg-muted/20 hover:bg-muted/40 rounded-md border p-3 text-left transition-colors"
+                    onclick={handleToggleRuntimeVars}
+                  >
+                    <span class="text-muted-foreground block text-[11px] uppercase">Entity runtime vars</span>
+                    <span class="text-foreground text-lg font-semibold">{fullPack.runtimeVariables?.length ?? 0}</span>
+                    <span class="text-muted-foreground block text-[11px]">View definitions</span>
+                  </button>
+                  <div class="border-border bg-muted/20 rounded-md border p-3">
+                    <span class="text-muted-foreground block text-[11px] uppercase">Built-in prompt vars</span>
+                    <span class="text-foreground text-lg font-semibold">{systemVariableCount + promptRuntimeVariableCount}</span>
+                    <span class="text-muted-foreground block text-[11px]">{systemVariableCount} system + {promptRuntimeVariableCount} runtime</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         {/if}

@@ -416,8 +416,12 @@ class AIService {
       narrativeResponse,
       userAction: lastUserAction?.content ?? '',
       recentEntries: entries.slice(-10),
-      protagonistName: protagonist?.name ?? promptContext?.protagonistName ?? 'the protagonist',
-      protagonistDescription: protagonist?.description,
+      protagonistName: promptContext?.protagonistName ?? protagonist?.name ?? 'the protagonist',
+      activeActorName: promptContext?.activeActorName ?? null,
+      protagonistDescription: promptContext?.protagonistName
+        ? worldState.characters?.find((character) => character.name === promptContext.protagonistName)
+            ?.description
+        : protagonist?.description,
       mode: promptContext?.mode ?? 'adventure',
       pov: pov ?? promptContext?.pov ?? 'second',
       tense: promptContext?.tense ?? 'present',

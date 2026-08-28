@@ -48,8 +48,20 @@ const agencyContext: PromptTemplate = {
   name: 'Campaign Party Context',
   category: 'agency',
   description: 'Current campaign, session, primary character, and active party context',
-  content: `{% if partyRoster != '' %}# Campaign Party Context
+  content: `{% if partyRoster != '' or worldCharter != '' or activeCampaignThreads != '' or gmPersona != '' or rulesetDigest != '' %}# Campaign Party Context
 - Campaign: {{ campaignTitle }}{% if campaignSessionNumber != '' %}, Session {{ campaignSessionNumber }}{% endif %}
+{% if worldCharter != '' %}- World charter:
+{{ worldCharter }}
+{% endif %}
+{% if gmPersona != '' %}- GM persona:
+{{ gmPersona }}
+{% endif %}
+{% if rulesetDigest != '' %}- Rules digest:
+{{ rulesetDigest }}
+{% endif %}
+{% if activeCampaignThreads != '' %}- Campaign threads:
+{{ activeCampaignThreads }}
+{% endif %}
 - Primary character: {{ primaryCharacterName }}
 {% if primaryCharacterDescription != '' %}- Primary character context: {{ primaryCharacterDescription }}
 {% endif %}- Active party:
@@ -58,9 +70,39 @@ const agencyContext: PromptTemplate = {
 {% endif %}{% endif %}`,
 }
 
+const gmCore: PromptTemplate = {
+  id: 'gm-core',
+  name: 'GM Core',
+  category: 'gm',
+  description: 'Campaign-level GM voice, rules, and planning contract',
+  content: `{% if gmPersona != '' %}# GM Persona
+{{ gmPersona }}
+{% endif %}{% if rulesetDigest != '' %}# Rules Digest
+{{ rulesetDigest }}
+{% endif %}- Preserve the world charter and established campaign facts.
+- Treat campaign threads as continuity obligations, not guaranteed outcomes.
+- Keep director-only planning information out of player-facing narration.
+`,
+}
+
+const turnOrderContext: PromptTemplate = {
+  id: 'turn-order-context',
+  name: 'Turn Order Context',
+  category: 'gm',
+  description: 'Current scene, turn mode, active actor, and upcoming actors',
+  content: `{% if sceneMode != '' or turnOrderMode != '' or activeActorName != '' %}# Turn Context
+{% if sceneMode != '' %}- Scene mode: {{ sceneMode }}
+{% endif %}{% if turnOrderMode != '' %}- Turn order: {{ turnOrderMode }}
+{% endif %}{% if activeActorName != '' %}- Active actor: {{ activeActorName }}
+{% endif %}{% if upcomingActors != '' %}- Upcoming actors: {{ upcomingActors }}
+{% endif %}{% endif %}`,
+}
+
 export const agencyTemplates: PromptTemplate[] = [
   agencyCore,
   companionVoice,
   companionCombat,
   agencyContext,
+  gmCore,
+  turnOrderContext,
 ]

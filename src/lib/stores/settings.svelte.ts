@@ -1163,6 +1163,7 @@ export function getDefaultUISettings(): UISettings {
     autoSave: true,
     spellcheckEnabled: true,
     debugMode: false,
+    gmMode: false,
     disableSuggestions: false,
     disableActionPrefixes: false,
     showReasoning: true,
@@ -1608,6 +1609,9 @@ class SettingsStore {
 
       const debugMode = await database.getSetting('debug_mode')
       if (debugMode !== null) debug.isActive = this.uiSettings.debugMode = debugMode === 'true'
+
+      const gmMode = await database.getSetting('gm_mode')
+      if (gmMode !== null) this.uiSettings.gmMode = gmMode === 'true'
 
       const sidebarWidth = await database.getSetting('sidebar_width')
       if (sidebarWidth) this.uiSettings.sidebarWidth = parseInt(sidebarWidth, 10)
@@ -2686,6 +2690,11 @@ class SettingsStore {
     await database.setSetting('debug_mode', enabled.toString())
   }
 
+  async setGMMode(enabled: boolean) {
+    this.uiSettings.gmMode = enabled
+    await database.setSetting('gm_mode', enabled.toString())
+  }
+
   async setAdvancedManualMode(enabled: boolean) {
     this.advancedRequestSettings.manualMode = enabled
     await database.setSetting('advanced_manual_mode', enabled.toString())
@@ -3125,6 +3134,7 @@ class SettingsStore {
     await database.setSetting('auto_save', this.uiSettings.autoSave.toString())
     await database.setSetting('spellcheck_enabled', this.uiSettings.spellcheckEnabled.toString())
     await database.setSetting('debug_mode', this.uiSettings.debugMode.toString())
+    await database.setSetting('gm_mode', this.uiSettings.gmMode.toString())
     await database.setSetting('disable_suggestions', this.uiSettings.disableSuggestions.toString())
     await database.setSetting(
       'disable_action_prefixes',

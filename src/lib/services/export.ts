@@ -15,6 +15,11 @@ import type {
   Branch,
   PersistentStyleReviewState,
   EmbeddedImage,
+  Campaign,
+  CampaignSettings,
+  CampaignThread,
+  CampaignThreadBeat,
+  SceneTurnState,
 } from '$lib/types'
 
 export interface AventuraExport {
@@ -35,6 +40,11 @@ export interface AventuraExport {
   chapters?: Chapter[] // Added in v1.7.0
   chapterSources?: ChapterSource[] // Added in v1.9.0
   currentBgImage?: string | null // Added in v1.8.0
+  campaign?: Campaign | null // Added in v2.0.0
+  campaignSettings?: CampaignSettings | null // Added in v2.0.0
+  campaignThreads?: CampaignThread[] // Added in v2.0.0
+  campaignThreadBeats?: CampaignThreadBeat[] // Added in v2.0.0
+  sceneTurnState?: SceneTurnState | null // Added in v2.0.0
 }
 
 // Version history for import compatibility
@@ -46,7 +56,8 @@ export interface AventuraExport {
 // v1.5.0 - Added character portraits
 // v1.6.0 - Added checkpoints and branches
 // v1.7.0 - Added chapters (memory system)
-// v1.9.0 - Added chapterSources (raw imported chapter text)
+  // v1.9.0 - Added chapterSources (raw imported chapter text)
+  // v2.0.0 - Added campaign settings, planning threads, and scene state
 
 class ExportService {
   private readonly VERSION = '1.9.0'
@@ -134,6 +145,7 @@ class ExportService {
     chapters: Chapter[] = [],
     chapterSources: ChapterSource[] = [],
     currentBgImage: string | null = null,
+    campaignData: Pick<AventuraExport, 'campaign' | 'campaignSettings' | 'campaignThreads' | 'campaignThreadBeats' | 'sceneTurnState'> = {},
   ): Promise<boolean> {
     const exportData: AventuraExport = {
       version: this.VERSION,
@@ -152,6 +164,7 @@ class ExportService {
       chapters,
       chapterSources,
       currentBgImage,
+      ...campaignData,
     }
 
     const filePath = await save({
@@ -814,6 +827,67 @@ class ExportService {
             height: image.height,
             status: image.status,
             errorMessage: image.errorMessage,
+          })
+        }
+      }
+
+      if (data.campaign) {
+        const importedCampaignId = crypto.randomUUID()
+        const importedCampaign: Campaign = {
+          ...data.campaign,
+          id: importedCampaignId,
+          storyId: newStoryId,
+          spotlightCharacterId: data.campaign.spotlightCharacterId
+            ? (oldToNewId.get(data.campaign.spotlightCharacterId) ?? null)
+            : null,
+          title: skipImportedSuffix ? data.campaign.title : `${data.campaign.title} (Imported)`,
+          updatedAt: Date.now(),
+        }
+        await database.upsertCampaign(importedCampaign)
+
+        if (data.campaignSettings) {
+          await database.upsertCampaignSettings({
+            ...data.campaignSettings,
+            campaignId: importedCampaignId,
+            updatedAt: Date.now(),
+          })
+        }
+
+        const threadIdMap = new Map<string, string>()
+        for (const thread of data.campaignThreads ?? []) {
+          const importedThreadId = crypto.randomUUID()
+          threadIdMap.set(thread.id, importedThreadId)
+          await database.upsertCampaignThread({
+            ...thread,
+            id: importedThreadId,
+            campaignId: importedCampaignId,
+            updatedAt: Date.now(),
+          })
+        }
+
+        for (const beat of data.campaignThreadBeats ?? []) {
+          const importedThreadId = threadIdMap.get(beat.threadId)
+          if (!importedThreadId) continue
+          await database.upsertCampaignThreadBeat({
+            ...beat,
+            id: crypto.randomUUID(),
+            campaignId: importedCampaignId,
+            threadId: importedThreadId,
+            updatedAt: Date.now(),
+          })
+        }
+
+        if (data.sceneTurnState) {
+          await database.upsertSceneTurnState({
+            ...data.sceneTurnState,
+            id: crypto.randomUUID(),
+            campaignId: importedCampaignId,
+            entryId: data.sceneTurnState.entryId ? (oldToNewId.get(data.sceneTurnState.entryId) ?? null) : null,
+            activeActorId: data.sceneTurnState.activeActorId
+              ? (oldToNewId.get(data.sceneTurnState.activeActorId) ?? null)
+              : null,
+            actorOrder: data.sceneTurnState.actorOrder.map((actorId) => oldToNewId.get(actorId) ?? actorId),
+            updatedAt: Date.now(),
           })
         }
       }

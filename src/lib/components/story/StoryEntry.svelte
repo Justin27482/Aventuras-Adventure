@@ -1,8 +1,10 @@
 <script lang="ts">
-  import type { StoryEntry, EmbeddedImage } from '$lib/types'
+  import type { StoryEntry, EmbeddedImage, RollLedgerEntry } from '$lib/types'
   import { story } from '$lib/stores/story.svelte'
   import { ui } from '$lib/stores/ui.svelte'
+  import { campaign } from '$lib/stores/campaign.svelte'
   import { settings } from '$lib/stores/settings.svelte'
+  import RollCard from '$lib/components/campaign/RollCard.svelte'
   import {
     User,
     BookOpen,
@@ -83,6 +85,26 @@
   const readingWindowStyle = $derived(
     getReadingWindowStyleVars(settings.uiSettings.readingWindowFormatting),
   )
+
+  // Associated dice rolls from entry metadata
+  let associatedRolls = $state<RollLedgerEntry[]>([])
+
+  $effect(() => {
+    const rollIds = entry.metadata?.rollIds
+    if (rollIds && rollIds.length > 0 && campaign.current) {
+      database
+        .getRollLedger(campaign.current.id)
+        .then((allRolls) => {
+          const idSet = new Set(rollIds)
+          associatedRolls = allRolls.filter((r) => idSet.has(r.id))
+        })
+        .catch((err) => {
+          console.warn('[StoryEntry] Failed to load associated rolls:', err)
+        })
+    } else {
+      associatedRolls = []
+    }
+  })
 
   // Check if this is the latest narration entry (for retry button)
   const isLatestNarration = $derived.by(() => {
@@ -1574,6 +1596,14 @@
           {@html renderReadingWindowContent(entry.originalInput ?? entry.content)}
         {:else}
           {@html renderReadingWindowContent(entry.content)}
+        {/if}
+
+        {#if associatedRolls.length > 0}
+          <div class="mt-3 space-y-2">
+            {#each associatedRolls as roll (roll.id)}
+              <RollCard entry={roll} compact={true} />
+            {/each}
+          </div>
         {/if}
 
         {#if selectedOrphanId}

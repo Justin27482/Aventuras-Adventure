@@ -1,107 +1,92 @@
-# Aventuras
+# Campaign Engine
 
-## Overview
+Campaign Engine is a GM-first tabletop adventure application for building campaigns, managing parties, and running AI-assisted sessions. It combines a local SQLite campaign workspace with configurable rulesets, deterministic dice, structured world state, and provider-agnostic narrative generation.
 
-Aventuras Adventure is a desktop and mobile interactive fiction application focused on Adventure Mode, deep AI integration via major providers, an advanced Memory System, dynamic Lorebook, and an autonomous Lore Management Agent. The app provides a robust set of writing tools and world tracking features, ensuring contextually rich and coherent AI-generated narratives.
+The active product is the Adventure split of Aventuras. Legacy material is kept behind an explicit archive boundary and is not treated as active Campaign Engine content.
 
 ## Features
 
-### Story Mode
+### Campaigns and Sessions
 
-- **Adventure Mode** - Interactive fiction with multiple-choice actions and world tracking
-- **POV Options** - First, second, or third person perspective
-- **Tense Control** - Past or present tense narrative style
+- Campaign-first onboarding with a guided opening scene and campaign settings
+- Session lifecycle with explicit start and end boundaries
+- Primary-character selection, active party membership, party order, and spotlight tracking
+- Autonomous companion agency with optional delegated or direct tactical combat control
+- Session memory, checkpoints, recap generation, and in-story time tracking
 
-### AI Integration
+### Rulesets and Dice
 
-- Use any OpenAI-compatible gateway or provider like OpenRouter, NanoGPT, llama.cpp, LM Studio, and more
-- Streaming responses with real-time text generation
-- Configurable models, temperature, and token limits
-- Extended thinking/reasoning support with configurable effort levels
-- API profiles for saving multiple configurations
+- Built-in ruleset templates for d20, narrative 2d6, Shadowdark-style, Savage Worlds-style, and other generic systems
+- Custom ruleset authoring for stats, skills, checks, conditions, slots, abilities, resources, spells, levels, and creature stat blocks
+- Slot- or weight-based encumbrance configuration and inventory capacity formulas
+- Dice notation with modifiers, advantage/disadvantage, keep-high/keep-low, rerolls, exploding dice, clamps, and seeded evaluation
+- Auditable roll ledger with DCs, outcomes, actor attribution, visibility, and explicit karma/fudge bias logging
+- Ruleset JSON import and export
 
-### Memory System
+### GM Screen and Worldbuilding
 
-- Automatic chapter summarization to manage context windows
-- Configurable token thresholds and chapter buffers
-- Manual chapter creation and resummarization
-- AI-powered memory retrieval for relevant past events
-- Chapter metadata tracking (keywords, characters, locations, plot threads)
-- In-story time tracking per chapter
+- GM Screen with scene controls, turn controls, world charter editing, and session recap generation
+- Campaign threads for plots, quests, factions, mysteries, character arcs, and threats
+- Thread beats, clocks, stakes, player-safe visibility, and director-only planning notes
+- Scene modes for exploration, travel, settlement, camp, combat, social scenes, downtime, and GM-directed flow
+- Interview-driven worldbuilding assistant with reviewable draft proposals
+- World charter drafting from campaign state and optional AI expansion
 
-### Lorebook
+### Party and Mechanics
 
-- Unified entry system for characters, locations, items, factions, concepts, and events
-- Dynamic state tracking (relationships, inventory, discoveries)
-- Keyword-based and relevance-based context injection
-- Hidden information and secrets system
-- Aliases for flexible entry referencing
-- Import/export support (JSON, YAML, SillyTavern format)
-- SillyTavern character card import (V1/V2 JSON and PNG)
-- AI-assisted autonomous lore management agent
+- Dynamic character sheets driven by the selected ruleset
+- Resources, conditions, ability uses, experience, money, equipment, clothing durability, and inventory ownership
+- Per-character inventories and shared stash semantics
+- Owner-scoped item transfers, equipped-slot validation, carry limits, and negative-value protection
+- Companion decision proposals with explicit accept, reject, and attribution states
+- Mechanics tools for rolls, resources, conditions, abilities, items, time, scenes, turns, quests, and tables
 
-### Writing Tools
+### Narrative and AI
 
+- Streaming narrative generation through OpenAI-compatible gateways and supported AI SDK providers
+- Configurable models, temperature, token limits, reasoning effort, and reusable API profiles
+- Prompt Packs for GM behavior, party context, scene modes, turn types, worldbuilding, and custom runtime variables
+- Inline roll, turn, scene, and actor control tags with local resolution and safe continuation flow
+- Prompt-pack compatibility checks for user-authored packs
 - Local grammar checking powered by Harper.js (WebAssembly)
-- AI-powered style analysis for repetitive words and phrases
-- Action suggestions that match player writing style
-- Persistent action suggestions between sessions
 
-### World Tracking
+### Lorebook and World State
 
-- Character relationships and dispositions with portrait support
-- Location visits and changes with automatic discovery
-- Inventory management with equipment tracking
-- Quest/story beat progression (milestones, revelations, plot points)
-- In-story time tracking (years, days, hours, minutes)
-- Collapsible UI cards for all world elements
+- Unified entries for characters, locations, items, factions, concepts, and events
+- Relationships, dispositions, discoveries, inventory state, hidden information, aliases, and relevance-based injection
+- Lorebook entries can link to ruleset abilities for mechanical reference
+- AI-assisted lore management with reviewable changes rather than silent mutations
+- Lorebook import/export, including Aventura and SillyTavern formats where supported
+- Character portraits and generated images embedded in campaign entries
 
-### Templates
+### Safety and Control
 
-- Built-in genre templates (fantasy, sci-fi, mystery, horror, slice of life)
-- Custom template creation with system prompts
-- Initial state configuration (protagonist, locations, items)
-- Opening scene text support
+- Code-level validation at mechanics mutation boundaries
+- Safety prompt packs for core rules, guardrails, intensity, content bans, and mechanics constraints
+- Content intensity controls that affect narrative framing and image prompting without weakening hard bans
+- Clear separation between player-safe campaign context and director-only planning data
 
-### Image Generation
+### Import, Export, and Sync
 
-- Embedded image generation in story entries
-- AI-powered imageable scene detection
-- NanoGPT provider integration
-- Character portrait support for visual consistency
-- Configurable image size (512x512 or 1024x1024)
+- Campaign export/import packages containing story content, world state, settings, campaign threads, beats, and scene-turn state
+- Collision-safe identifier remapping when importing a campaign
+- Ruleset JSON packages for sharing custom mechanical systems
+- Local network sync and QR-assisted device pairing
+- Markdown and plain-text campaign exports
 
-### Save and Restore
+### Interface and Platforms
 
-- Named checkpoints with full state snapshots
-- Retry system for undoing actions and generating alternatives
-- Character and time state preservation on retry
-
-### Network Sync
-
-- Local network sync between devices
-- QR code connection for easy pairing
-- Push/pull stories between devices
-- Server mode for sharing stories
-
-### UI Customization
-
-- Multiple themes (dark, light, light solarized, retro console, fallen down)
-- Custom font selection (system or Google fonts)
-- Adjustable text size (small, medium, large)
-- Word count display toggle
-
-### Cross-Platform
-
-- Desktop (Windows, macOS, Linux)
-- Android (APK)
-- iOS (planned)
+- Campaign Ember theme plus a broad selection of light, dark, retro, and high-contrast themes
+- Responsive layouts for desktop and mobile-sized windows
+- Desktop builds for Windows, macOS, and Linux
+- Android development and APK build support through Tauri
+- iOS assets and packaging configuration remain platform-dependent
 
 ## Installation
 
 ### Download Pre-built Binaries
 
-Pre-compiled binaries are available on the [Releases](https://github.com/AventurasTeam/Aventuras/releases) page:
+Pre-compiled binaries are available on the [Releases](https://github.com/Justin27482/Aventuras-Adventure/releases) page:
 
 | Platform | Download                                  |
 | -------- | ----------------------------------------- |
@@ -118,7 +103,7 @@ Pre-compiled binaries are available on the [Releases](https://github.com/Aventur
 - **Backend Framework**: Tauri 2 (Desktop/Android via Rust)
 - **Styling**: Tailwind CSS, shadcn-svelte
 - **Database**: SQLite (via `@tauri-apps/plugin-sql`)
-- **AI**: OpenAI-compatible APIs (OpenRouter, AI SDK), Local NLP via Harper.js (WASM)
+- **AI**: OpenAI-compatible APIs through the Vercel AI SDK, Local NLP via Harper.js (WASM)
 - **Package Manager**: npm
 
 ## Development
@@ -133,8 +118,8 @@ Pre-compiled binaries are available on the [Releases](https://github.com/Aventur
 
 ```bash
 # Clone the repository
-git clone https://github.com/AventurasTeam/Aventuras.git
-cd aventuras
+git clone https://github.com/Justin27482/Aventuras-Adventure.git
+cd Aventuras-Adventure
 
 # Install dependencies
 npm install
@@ -159,14 +144,22 @@ Available `npm run` scripts:
 
 ### Tests
 
-**Current Status**: No test suite is currently configured.
+Run the complete Vitest suite:
 
-- TODO: Add testing framework (e.g., Vitest/Playwright) and configure tests.
+```bash
+npx vitest run
+```
+
+The current implementation also uses Svelte diagnostics and a production build as release checks:
+
+```bash
+npx svelte-check --tsconfig ./tsconfig.json
+npm run build
+```
 
 ### Environment Variables
 
-- TODO: Document any required or optional environment variables (e.g., specific build or deployment variables).
-- **API Keys**: Configured primarily via the UI (Settings -> API Settings).
+API providers and keys are configured primarily through the UI in Settings. No provider key is required to install or build the application.
 
 ### Project Structure
 

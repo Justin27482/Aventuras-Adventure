@@ -2,6 +2,10 @@ import { database } from '$lib/services/database'
 import { PROMPT_TEMPLATES } from '$lib/services/prompts/templates'
 import { hashContent } from './hash'
 import type { PresetPack, FullPack } from './types'
+import {
+  checkPromptPackCompatibility,
+  type PromptPackCompatibilityReport,
+} from './prompt-pack-compatibility'
 
 /**
  * Pack Service
@@ -104,6 +108,15 @@ class PackService {
     ])
 
     return { pack, templates, variables, runtimeVariables }
+  }
+
+  /** Check a pack's templates against the current prompt contract without changing content. */
+  async getPromptPackCompatibility(packId: string): Promise<PromptPackCompatibilityReport> {
+    const templates = await database.getPackTemplates(packId)
+    const expectedTemplateIds = PROMPT_TEMPLATES.flatMap((template) =>
+      template.userContent ? [template.id, `${template.id}-user`] : [template.id],
+    )
+    return checkPromptPackCompatibility(templates, expectedTemplateIds)
   }
 
   /** Create a new pack seeded from the pristine PROMPT_TEMPLATES baseline. */

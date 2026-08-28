@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const { mockDatabase } = vi.hoisted(() => ({
   mockDatabase: {
     addRollLedgerEntry: vi.fn(),
+    getSceneTurnState: vi.fn(),
   },
 }))
 
@@ -33,6 +34,7 @@ const CHECK_RULE: RulesetCheckRule = {
 describe('roll()', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockDatabase.getSceneTurnState.mockResolvedValue(null)
   })
 
   it('persists a ledger entry for every roll', async () => {
@@ -82,6 +84,22 @@ describe('roll()', () => {
     expect(failureResult.outcome).toBe('failure')
   })
 
+  it('resolves plain success or failure when a DC is provided without a check rule', async () => {
+    const successResult = await roll({
+      campaignId: 'campaign-1',
+      notation: '1d20+100',
+      dc: 10,
+    })
+    expect(successResult.outcome).toBe('success')
+
+    const failureResult = await roll({
+      campaignId: 'campaign-1',
+      notation: '1d20-100',
+      dc: 10,
+    })
+    expect(failureResult.outcome).toBe('failure')
+  })
+
   it('records optional metadata (session, actor, reason, visibility)', async () => {
     const { entry } = await roll({
       campaignId: 'campaign-1',
@@ -96,5 +114,29 @@ describe('roll()', () => {
     expect(entry.actorId).toBe('character-1')
     expect(entry.reason).toBe('Stealth check past the guard')
     expect(entry.visibility).toBe('director_only')
+  })
+
+  it('uses active actor from scene turn state when actorId is omitted', async () => {
+    mockDatabase.getSceneTurnState.mockResolvedValue({
+      id: 'state-1',
+      campaignId: 'campaign-1',
+      entryId: null,
+      sceneMode: 'combat',
+      turnOrderMode: 'round_robin',
+      activeActorId: 'character-active',
+      actorOrder: ['character-active', 'character-other'],
+      turnNumber: 2,
+      createdAt: 1,
+      updatedAt: 1,
+    })
+
+    const { entry } = await roll({
+      campaignId: 'campaign-1',
+      notation: '1d20+3',
+      reason: 'Perception check',
+    })
+
+    expect(entry.actorId).toBe('character-active')
+    expect(mockDatabase.getSceneTurnState).toHaveBeenCalledWith('campaign-1', null)
   })
 })

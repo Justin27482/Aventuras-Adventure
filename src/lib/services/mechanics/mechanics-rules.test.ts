@@ -9,6 +9,7 @@ import {
   validateItemTransfer,
   validateMoneyAmount,
   validateSlotCarryLimit,
+  validateInventorySlotCapacity,
 } from './mechanics-rules'
 import type { CampaignPartyMember, Item, RulesetSlot } from '$lib/types'
 
@@ -86,7 +87,7 @@ describe('useAbilityResource', () => {
 })
 
 describe('validateEquipSlot', () => {
-  const slots: RulesetSlot[] = [{ id: 's1', rulesetId: 'r1', key: 'weapon', label: 'Weapon', sortOrder: 0 }]
+  const slots: RulesetSlot[] = [{ id: 's1', rulesetId: 'r1', key: 'weapon', label: 'Weapon', slotType: 'wearable', sortOrder: 0 }]
 
   it('allows equipping into a known, unoccupied slot', () => {
     const item = buildItem({ id: 'item-1', ownerCharacterId: 'char-1' })
@@ -171,6 +172,19 @@ describe('validateSlotCarryLimit', () => {
       buildItem({ id: 'item-2', ownerCharacterId: 'char-1', slotKey: 'weapon', equipped: true }),
     ]
     expect(() => validateSlotCarryLimit('char-1', 'weapon', items)).toThrow(/More than one item/)
+  })
+})
+
+describe('validateInventorySlotCapacity', () => {
+  it('counts carried stacks and equipped armor, but not equipped clothing', () => {
+    const items = [
+      { id: 'bag', storyId: 's', name: 'Potion', description: null, quantity: 1, equipped: false, location: 'inventory', ownerCharacterId: 'pc', metadata: null, branchId: null },
+      { id: 'armor', storyId: 's', name: 'Leather Armor', description: null, quantity: 1, equipped: true, location: 'inventory', ownerCharacterId: 'pc', metadata: null, branchId: null },
+      { id: 'cloak', storyId: 's', name: 'Travel Cloak', description: null, quantity: 1, equipped: true, location: 'inventory', ownerCharacterId: 'pc', metadata: null, branchId: null },
+    ]
+
+    expect(() => validateInventorySlotCapacity('pc', items, 2)).not.toThrow()
+    expect(() => validateInventorySlotCapacity('pc', items, 1)).toThrow('Inventory slot capacity exceeded')
   })
 })
 

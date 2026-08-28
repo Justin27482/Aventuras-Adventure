@@ -12,9 +12,11 @@
 import { database } from '$lib/services/database'
 import { templateEngine } from '$lib/services/templates/engine'
 import { createLogger } from '$lib/log'
+import { getContentIntensityLevel } from '$lib/services/content-intensity'
 import type { RenderResult } from './types'
 import type { Character, Location, Item, StoryBeat } from '$lib/types'
 import type { RuntimeVariable, RuntimeVarsMap } from '$lib/services/packs/types'
+import { TurnDirector } from '$lib/services/campaign/turn-director'
 
 const log = createLogger('ContextBuilder')
 
@@ -61,12 +63,30 @@ export class ContextBuilder {
       moneyState: moneySystemEnabled ? `${currentMoney} ${moneyName}` : '',
     })
 
+    if (story.settings?.imageGenerationMode === 'inline') {
+      const template = await database.getPackTemplate(packId, 'narrative-inline-images')
+      builder.add({
+        inlineImageInstructions: template?.content
+          ? templateEngine.render(template.content, builder.context) ?? ''
+          : '',
+      })
+    }
+    if (story.settings?.visualProseMode) {
+      const template = await database.getPackTemplate(packId, 'narrative-visual-prose')
+      builder.add({
+        visualProseInstructions: template?.content
+          ? templateEngine.render(template.content, builder.context) ?? ''
+          : '',
+      })
+    }
+
     // Protagonist
     const characters = await database.getCharacters(storyId)
     const protagonist = characters.find((c) => c.relationship === 'self')
     builder.add({
       protagonistName: protagonist?.name || 'the protagonist',
       protagonistDescription: protagonist?.description || '',
+      activeActorName: protagonist?.name || 'the protagonist',
     })
 
     // Campaign agency context is additive. Legacy/archive stories have no campaign
@@ -74,8 +94,17 @@ export class ContextBuilder {
     try {
       const campaign = await database.getCampaignByStoryId(storyId)
       if (campaign) {
+        const campaignSettings = await database.getCampaignSettings(campaign.id)
+        const sceneTurnState = await database.getSceneTurnState(campaign.id, null)
+        const ruleset = campaign.rulesetId ? await database.getRuleset(campaign.rulesetId) : null
+        const checkRules = campaign.rulesetId
+          ? await database.getRulesetCheckRules(campaign.rulesetId)
+          : []
+        const recentRollEntries = await database.getRollLedger(campaign.id, { limit: 5 })
         const partyMembers = await database.getCampaignPartyMembers(campaign.id)
         const actorProfiles = await database.getActorControlProfiles(campaign.id)
+        const campaignThreads = await database.getCampaignThreads(campaign.id)
+        const campaignThreadBeats = await database.getCampaignThreadBeats(campaign.id)
         const sessions = await database.getCampaignSessions(campaign.id)
         const activeSession = sessions.find((session) => session.status === 'active') ?? null
         const sessionParty = activeSession
@@ -113,9 +142,92 @@ export class ContextBuilder {
             return `${character.name}: narrative=${member.narrativeControlMode}, combat=${member.combatControlMode}${details.length > 0 ? `; ${details.join('; ')}` : ''}`
           })
           .join('\n')
+        const beatsByThreadId = new Map<string, typeof campaignThreadBeats>()
+        for (const beat of campaignThreadBeats) {
+          const current = beatsByThreadId.get(beat.threadId) ?? []
+          current.push(beat)
+          beatsByThreadId.set(beat.threadId, current)
+        }
+        const formatThread = (thread: (typeof campaignThreads)[number]) => {
+          const clock =
+            thread.clockMax !== null
+              ? `, clock ${thread.clockValue}/${thread.clockMax}`
+              : thread.clockValue > 0
+                ? `, clock ${thread.clockValue}`
+                : ''
+          const stakes = thread.stakes ? ` Stakes: ${thread.stakes}` : ''
+          const summary = thread.summary ? `: ${thread.summary}` : ''
+          const beats = (beatsByThreadId.get(thread.id) ?? [])
+            .filter((beat) => beat.visibility === thread.visibility)
+            .slice(-3)
+            .map((beat) => `${beat.title}${beat.summary ? ` (${beat.summary})` : ''}`)
+          const beatText = beats.length > 0 ? ` Recent beats: ${beats.join('; ')}.` : ''
+          return `- [${thread.threadType}, ${thread.status}${clock}] ${thread.title}${summary}.${stakes}${beatText}`
+        }
+        const activeCampaignThreads = campaignThreads
+          .filter((thread) => thread.status === 'active' || thread.status === 'dormant')
+          .filter((thread) => thread.visibility === 'player_safe')
+          .map(formatThread)
+          .join('\n')
+        const activeMember = rosterMembers.find(
+          ({ member }) => member.characterId === sceneTurnState?.activeActorId,
+        )
+        const turnType = new TurnDirector().getNextTurnType({
+          sceneMode: (sceneTurnState?.sceneMode ?? 'free') as import('$lib/services/campaign/turn-order-service').SceneMode,
+          activeActor: sceneTurnState?.activeActorId
+            ? {
+                id: sceneTurnState.activeActorId,
+                name: characterById.get(sceneTurnState.activeActorId)?.name ?? sceneTurnState.activeActorId,
+                category: activeMember?.member.actorCategory === 'primary_player_character' ? 'player' : 'ally',
+              }
+            : null,
+        })
+        const directorOnlyCampaignThreads = campaignThreads
+          .filter((thread) => thread.status === 'active' || thread.status === 'dormant')
+          .filter((thread) => thread.visibility === 'director_only')
+          .map(formatThread)
+          .join('\n')
+        const rulesetDigest = ruleset
+          ? [
+              `Ruleset: ${ruleset.name}`,
+              ruleset.diceSystem ? `Dice system: ${ruleset.diceSystem}` : '',
+              checkRules.length > 0
+                ? `Checks: ${checkRules.map((rule) => `${rule.label} (${rule.notation})`).join(', ')}`
+                : '',
+            ]
+              .filter(Boolean)
+              .join('\n')
+          : ''
+        const recentRolls = recentRollEntries
+          .map((roll) => `${roll.notation} = ${roll.total}${roll.dc === null ? '' : ` vs DC ${roll.dc}`} (${roll.outcome ?? 'unresolved'})`)
+          .join('\n')
+
+        const nsfwIntensity = campaignSettings?.nsfwIntensity ?? 0
+        const nsfwIntensityLabel = getContentIntensityLevel(nsfwIntensity).label
 
         builder.add({
           campaignTitle: campaign.title,
+          worldCharter: campaignSettings?.worldCharter ?? '',
+          gmPersona: campaignSettings?.gmPersona ?? '',
+          nsfwIntensity,
+          nsfwIntensityLabel,
+          rulesetDigest,
+          recentRolls,
+          pendingRoll: '',
+          turnType,
+          sceneMode: sceneTurnState?.sceneMode ?? '',
+          turnOrderMode: sceneTurnState?.turnOrderMode ?? '',
+          activeActorName:
+            sceneTurnState?.activeActorId
+              ? characterById.get(sceneTurnState.activeActorId)?.name ?? sceneTurnState.activeActorId
+              : '',
+          upcomingActors: sceneTurnState?.actorOrder
+            .filter((actorId) => actorId !== sceneTurnState.activeActorId)
+            .slice(0, 4)
+            .map((actorId) => characterById.get(actorId)?.name ?? actorId)
+            .join(', ') ?? '',
+          activeCampaignThreads,
+          directorOnlyCampaignThreads,
           campaignSessionNumber: activeSession?.sessionNumber ?? '',
           primaryCharacterName: primaryCharacter?.name || protagonist?.name || '',
           primaryCharacterDescription: primaryCharacter?.description || '',
@@ -258,6 +370,19 @@ export class ContextBuilder {
       ['agencyCore', 'agency-core'],
       ['agencyCompanionVoice', 'agency-companion-voice'],
       ['agencyCompanionCombat', 'agency-companion-combat'],
+      ['gmCore', 'gm-core'],
+      ['turnOrderContext', 'turn-order-context'],
+      ['sceneContext', 'scene-context'],
+      ['narrativeTurnContext', 'narrative-turn'],
+      ['worldCharterContext', 'world-charter-context'],
+      ['rulesDigestContext', 'rules-digest-context'],
+      ['partyRosterContext', 'party-roster-context'],
+      ['narrativePriming', 'narrative-priming'],
+      ['safetyCoreRules', 'safety-core-rules'],
+      ['safetyGuardrails', 'safety-guardrails'],
+      ['safetyContentIntensity', 'safety-content-intensity'],
+      ['safetyContentBans', 'safety-content-bans'],
+      ['safetyMechanicsConstraints', 'safety-mechanics-constraints'],
       ['agencyContext', 'agency-context'],
     ] as const
 

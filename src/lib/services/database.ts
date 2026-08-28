@@ -38,6 +38,8 @@ import type {
   CampaignPartyMember,
   ActorControlProfile,
   CampaignSession,
+  CampaignThread,
+  CampaignThreadBeat,
   SceneTurnState,
   SessionPartyMember,
   Ruleset,
@@ -47,6 +49,8 @@ import type {
   RulesetCondition,
   RulesetSlot,
   RulesetAbility,
+  RulesetSpell,
+  RulesetCreature,
   RulesetLevel,
   RulesetResource,
   CharacterSheet,
@@ -141,9 +145,16 @@ class DatabaseService {
   private db: Database | null = null
   /** Pending open promise — prevents concurrent callers from opening the DB twice. */
   private dbPromise: Promise<Database> | null = null
+  /** Serializes explicit transactions on the shared SQLite connection. */
+  private transactionQueue: Promise<void> = Promise.resolve()
 
   private async delay(ms: number): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, ms))
+  }
+
+  private isBusyError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error)
+    return /database is locked|database table is locked|SQLITE_BUSY|code 5/i.test(message)
   }
 
   async init(): Promise<void> {
@@ -161,6 +172,10 @@ class DatabaseService {
             // Must run exactly once per connection; placing it here (instead of
             // after the await below) avoids concurrent callers re-issuing it.
             await db.execute('PRAGMA foreign_keys = ON')
+            // Wait briefly for another SQLite connection to finish its write
+            // instead of failing immediately with SQLITE_BUSY (code 5).
+            await db.execute('PRAGMA busy_timeout = 10000')
+            await this.ensureRulesetSchema(db)
             this.db = db
             return db
           } catch (error) {
@@ -183,6 +198,32 @@ class DatabaseService {
     await this.dbPromise
   }
 
+  private async ensureRulesetSchema(db: Database): Promise<void> {
+    const ensureColumn = async (table: string, column: string, definition: string) => {
+      const columns = await db.select<Array<{ name: string }>>(`PRAGMA table_info(${table})`)
+      if (!columns.some((entry) => entry.name === column)) {
+        await db.execute(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
+      }
+    }
+
+    await ensureColumn('rulesets', 'encumbrance_mode', "TEXT NOT NULL DEFAULT 'slot'")
+    await ensureColumn(
+      'rulesets',
+      'encumbrance_capacity_formula',
+      "TEXT NOT NULL DEFAULT '10 + strength + constitution + level'",
+    )
+    await ensureColumn(
+      'rulesets',
+      'inventory_slot_capacity_formula',
+      "TEXT NOT NULL DEFAULT '10 + strength + constitution + level'",
+    )
+    await ensureColumn('ruleset_slots', 'slot_type', "TEXT NOT NULL DEFAULT 'wearable'")
+    await ensureColumn('items', 'weight', 'REAL NOT NULL DEFAULT 0')
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_rulesets_encumbrance_mode ON rulesets(encumbrance_mode)',
+    )
+  }
+
   /**
    * Close the database connection. After calling this, the next
    * getDb() / init() call will re-open the connection.
@@ -202,21 +243,78 @@ class DatabaseService {
     return this.db!
   }
 
+  private enqueueWrite<T>(label: string, operation: (db: Database) => Promise<T>): Promise<T> {
+    const run = this.transactionQueue.then(async () => {
+      const db = await this.getDb()
+      console.info(`[Database] write queued: ${label}`)
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const result = await operation(db)
+          console.info(`[Database] write complete: ${label}`)
+          return result
+        } catch (error) {
+          console.error(`[Database] write failed: ${label}`, {
+            attempt,
+            busy: this.isBusyError(error),
+            error,
+          })
+          if (!this.isBusyError(error) || attempt === 3) throw error
+          await this.delay(250 * attempt)
+        }
+      }
+      throw new Error('Database write failed after retries')
+    })
+
+    this.transactionQueue = run.then(
+      () => undefined,
+      () => undefined,
+    )
+    return run
+  }
+
   /**
    * Run a callback inside a BEGIN/COMMIT transaction.
    * Automatically rolls back on error.
    */
   async withTransaction<T>(fn: () => Promise<T>): Promise<T> {
-    const db = await this.getDb()
-    await db.execute('BEGIN')
-    try {
-      const result = await fn()
-      await db.execute('COMMIT')
-      return result
-    } catch (error) {
-      await db.execute('ROLLBACK')
-      throw error
-    }
+    const run = this.transactionQueue.then(async () => {
+      const db = await this.getDb()
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        let transactionStarted = false
+        // Acquire the write reservation before the callback performs any reads.
+        // This avoids a deferred read-to-write upgrade failing with SQLITE_BUSY.
+        try {
+          console.info(`[Database] transaction begin attempt ${attempt}`)
+          await db.execute('BEGIN IMMEDIATE')
+          transactionStarted = true
+          const result = await fn()
+          await db.execute('COMMIT')
+          console.info('[Database] transaction committed')
+          return result
+        } catch (error) {
+          console.error('[Database] transaction failed', { attempt, error })
+          if (transactionStarted) {
+            try {
+              await db.execute('ROLLBACK')
+            } catch (rollbackError) {
+              console.error('[Database] Failed to roll back transaction:', rollbackError)
+            }
+          }
+          if (!this.isBusyError(error) || attempt === 3) {
+            throw error
+          }
+          console.warn(`[Database] Transaction busy; retrying attempt ${attempt + 1}/3`)
+          await this.delay(250 * attempt)
+        }
+      }
+      throw new Error('Database transaction failed after retries')
+    })
+
+    this.transactionQueue = run.then(
+      () => undefined,
+      () => undefined,
+    )
+    return run
   }
 
   /**
@@ -388,36 +486,38 @@ class DatabaseService {
   }
 
   async upsertCampaign(campaign: Campaign): Promise<void> {
-    const db = await this.getDb()
-    await db.execute(
-      `INSERT INTO campaigns (id, story_id, title, description, ruleset_id, spotlight_character_id, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET
-         title = excluded.title,
-         description = excluded.description,
-         ruleset_id = excluded.ruleset_id,
-         spotlight_character_id = excluded.spotlight_character_id,
-         status = excluded.status,
-         updated_at = excluded.updated_at`,
-      [
-        campaign.id,
-        campaign.storyId,
-        campaign.title,
-        campaign.description,
-        campaign.rulesetId,
-        campaign.spotlightCharacterId,
-        campaign.status,
-        campaign.createdAt,
-        campaign.updatedAt,
-      ],
+    await this.enqueueWrite(`campaign upsert ${campaign.id}`, (db) =>
+      db.execute(
+        `INSERT INTO campaigns (id, story_id, title, description, ruleset_id, spotlight_character_id, status, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           title = excluded.title,
+           description = excluded.description,
+           ruleset_id = excluded.ruleset_id,
+           spotlight_character_id = excluded.spotlight_character_id,
+           status = excluded.status,
+           updated_at = excluded.updated_at`,
+        [
+          campaign.id,
+          campaign.storyId,
+          campaign.title,
+          campaign.description,
+          campaign.rulesetId,
+          campaign.spotlightCharacterId,
+          campaign.status,
+          campaign.createdAt,
+          campaign.updatedAt,
+        ],
+      ),
     )
   }
 
   async updateCampaignSpotlight(campaignId: string, characterId: string | null): Promise<void> {
-    const db = await this.getDb()
-    await db.execute(
-      'UPDATE campaigns SET spotlight_character_id = ?, updated_at = ? WHERE id = ?',
-      [characterId, Date.now(), campaignId],
+    await this.enqueueWrite(`campaign spotlight ${campaignId}`, (db) =>
+      db.execute(
+        'UPDATE campaigns SET spotlight_character_id = ?, updated_at = ? WHERE id = ?',
+        [characterId, Date.now(), campaignId],
+      ),
     )
   }
 
@@ -428,47 +528,109 @@ class DatabaseService {
   }
 
   async upsertCampaignSettings(settings: CampaignSettings): Promise<void> {
-    const db = await this.getDb()
-    await db.execute(
-      `INSERT INTO campaign_settings (campaign_id, default_party_size, max_party_size, scene_mode, turn_order_mode, dice_enforcement, nsfw_intensity, world_charter, companion_combat_policy, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(campaign_id) DO UPDATE SET
-         default_party_size = excluded.default_party_size,
-         max_party_size = excluded.max_party_size,
-         scene_mode = excluded.scene_mode,
-         turn_order_mode = excluded.turn_order_mode,
-         dice_enforcement = excluded.dice_enforcement,
-         nsfw_intensity = excluded.nsfw_intensity,
-         world_charter = excluded.world_charter,
-        companion_combat_policy = excluded.companion_combat_policy,
-         updated_at = excluded.updated_at`,
-      [settings.campaignId, settings.defaultPartySize, settings.maxPartySize, settings.sceneMode, settings.turnOrderMode, settings.diceEnforcement, settings.nsfwIntensity, settings.worldCharter, settings.companionCombatPolicy, settings.createdAt, settings.updatedAt],
+    await this.enqueueWrite(`campaign settings upsert ${settings.campaignId}`, (db) =>
+      db.execute(
+        `INSERT INTO campaign_settings (campaign_id, default_party_size, max_party_size, scene_mode, turn_order_mode, dice_enforcement, nsfw_intensity, world_charter, gm_persona, companion_combat_policy, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(campaign_id) DO UPDATE SET
+           default_party_size = excluded.default_party_size,
+           max_party_size = excluded.max_party_size,
+           scene_mode = excluded.scene_mode,
+           turn_order_mode = excluded.turn_order_mode,
+           dice_enforcement = excluded.dice_enforcement,
+           nsfw_intensity = excluded.nsfw_intensity,
+           world_charter = excluded.world_charter,
+           gm_persona = excluded.gm_persona,
+           companion_combat_policy = excluded.companion_combat_policy,
+           updated_at = excluded.updated_at`,
+        [settings.campaignId, settings.defaultPartySize, settings.maxPartySize, settings.sceneMode, settings.turnOrderMode, settings.diceEnforcement, settings.nsfwIntensity, settings.worldCharter, settings.gmPersona, settings.companionCombatPolicy, settings.createdAt, settings.updatedAt],
+      ),
+    )
+  }
+
+  async updateCampaignSettings(
+    campaignId: string,
+    updates: Partial<Omit<CampaignSettings, 'campaignId' | 'createdAt' | 'updatedAt'>>,
+  ): Promise<void> {
+    const columnMap: Record<string, string> = {
+      defaultPartySize: 'default_party_size',
+      maxPartySize: 'max_party_size',
+      sceneMode: 'scene_mode',
+      turnOrderMode: 'turn_order_mode',
+      diceEnforcement: 'dice_enforcement',
+      nsfwIntensity: 'nsfw_intensity',
+      worldCharter: 'world_charter',
+      gmPersona: 'gm_persona',
+      companionCombatPolicy: 'companion_combat_policy',
+    }
+    const entries = Object.entries(updates).filter(([key, value]) => key in columnMap && value !== undefined)
+    if (entries.length === 0) return
+
+    const assignments = entries.map(([key]) => `${columnMap[key]} = ?`).join(', ')
+    const values = entries.map(([, value]) => value ?? null)
+    values.push(Date.now(), campaignId)
+    await this.enqueueWrite(`campaign settings update ${campaignId}`, (db) =>
+      db.execute(
+        `UPDATE campaign_settings SET ${assignments}, updated_at = ? WHERE campaign_id = ?`,
+        values,
+      ),
     )
   }
 
   async getSceneTurnState(campaignId: string, entryId: string | null = null): Promise<SceneTurnState | null> {
     const db = await this.getDb()
     const rows = entryId === null
-      ? await db.select<any[]>('SELECT * FROM scene_turn_states WHERE campaign_id = ? AND entry_id IS NULL', [campaignId])
+      ? await db.select<any[]>('SELECT * FROM scene_turn_states WHERE campaign_id = ? AND entry_id IS NULL ORDER BY updated_at DESC LIMIT 1', [campaignId])
       : await db.select<any[]>('SELECT * FROM scene_turn_states WHERE campaign_id = ? AND entry_id = ?', [campaignId, entryId])
     return rows.length > 0 ? this.mapSceneTurnState(rows[0]) : null
   }
 
   async upsertSceneTurnState(state: SceneTurnState): Promise<void> {
-    const db = await this.getDb()
-    await db.execute(
-      `INSERT INTO scene_turn_states (id, campaign_id, entry_id, scene_mode, turn_order_mode, active_actor_id, actor_order, turn_number, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(campaign_id, entry_id) DO UPDATE SET
-         scene_mode = excluded.scene_mode,
-         turn_order_mode = excluded.turn_order_mode,
-         active_actor_id = excluded.active_actor_id,
-         actor_order = excluded.actor_order,
-         turn_number = excluded.turn_number,
-         updated_at = excluded.updated_at`,
-      [state.id, state.campaignId, state.entryId, state.sceneMode, state.turnOrderMode,
-        state.activeActorId, JSON.stringify(state.actorOrder), state.turnNumber, state.createdAt, state.updatedAt],
-    )
+    await this.enqueueWrite(`scene turn state upsert ${state.campaignId}`, async (db) => {
+      const actorOrder = JSON.stringify(state.actorOrder)
+
+      if (state.entryId === null) {
+        const result = await db.execute(
+          `UPDATE scene_turn_states
+           SET scene_mode = ?, turn_order_mode = ?, active_actor_id = ?, actor_order = ?, turn_number = ?, updated_at = ?
+           WHERE campaign_id = ? AND entry_id IS NULL`,
+          [
+            state.sceneMode,
+            state.turnOrderMode,
+            state.activeActorId,
+            actorOrder,
+            state.turnNumber,
+            state.updatedAt,
+            state.campaignId,
+          ],
+        )
+        if (result.rowsAffected > 0) return
+      }
+
+      await db.execute(
+        `INSERT INTO scene_turn_states (id, campaign_id, entry_id, scene_mode, turn_order_mode, active_actor_id, actor_order, turn_number, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(campaign_id, entry_id) DO UPDATE SET
+           scene_mode = excluded.scene_mode,
+           turn_order_mode = excluded.turn_order_mode,
+           active_actor_id = excluded.active_actor_id,
+           actor_order = excluded.actor_order,
+           turn_number = excluded.turn_number,
+           updated_at = excluded.updated_at`,
+        [
+          state.id,
+          state.campaignId,
+          state.entryId,
+          state.sceneMode,
+          state.turnOrderMode,
+          state.activeActorId,
+          actorOrder,
+          state.turnNumber,
+          state.createdAt,
+          state.updatedAt,
+        ],
+      )
+    })
   }
 
   async getCampaignPartyMembers(campaignId: string): Promise<CampaignPartyMember[]> {
@@ -490,31 +652,32 @@ class DatabaseService {
   }
 
   async upsertCampaignPartyMember(member: CampaignPartyMember): Promise<void> {
-    const db = await this.getDb()
-    await db.execute(
-      `INSERT INTO party_members (id, campaign_id, character_id, display_order, joined_at, left_at, eligibility_status, actor_category, active, narrative_control_mode, combat_control_mode)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(campaign_id, character_id) DO UPDATE SET
-         display_order = excluded.display_order,
-         left_at = excluded.left_at,
-         eligibility_status = excluded.eligibility_status,
-         actor_category = excluded.actor_category,
-         active = excluded.active,
-         narrative_control_mode = excluded.narrative_control_mode,
-         combat_control_mode = excluded.combat_control_mode`,
-      [
-        member.id,
-        member.campaignId,
-        member.characterId,
-        member.displayOrder,
-        member.joinedAt,
-        member.leftAt,
-        member.eligibilityStatus,
-        member.actorCategory,
-        member.active ? 1 : 0,
-        member.narrativeControlMode,
-        member.combatControlMode,
-      ],
+    await this.enqueueWrite(`campaign party member upsert ${member.characterId}`, (db) =>
+      db.execute(
+        `INSERT INTO party_members (id, campaign_id, character_id, display_order, joined_at, left_at, eligibility_status, actor_category, active, narrative_control_mode, combat_control_mode)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(campaign_id, character_id) DO UPDATE SET
+           display_order = excluded.display_order,
+           left_at = excluded.left_at,
+           eligibility_status = excluded.eligibility_status,
+           actor_category = excluded.actor_category,
+           active = excluded.active,
+           narrative_control_mode = excluded.narrative_control_mode,
+           combat_control_mode = excluded.combat_control_mode`,
+        [
+          member.id,
+          member.campaignId,
+          member.characterId,
+          member.displayOrder,
+          member.joinedAt,
+          member.leftAt,
+          member.eligibilityStatus,
+          member.actorCategory,
+          member.active ? 1 : 0,
+          member.narrativeControlMode,
+          member.combatControlMode,
+        ],
+      ),
     )
   }
 
@@ -584,6 +747,127 @@ class DatabaseService {
     return rows.map(this.mapSessionPartyMember)
   }
 
+  async getCampaignThreads(
+    campaignId: string,
+    options?: { status?: CampaignThread['status']; visibility?: CampaignThread['visibility'] },
+  ): Promise<CampaignThread[]> {
+    const db = await this.getDb()
+    const clauses = ['campaign_id = ?']
+    const params: unknown[] = [campaignId]
+    if (options?.status) {
+      clauses.push('status = ?')
+      params.push(options.status)
+    }
+    if (options?.visibility) {
+      clauses.push('visibility = ?')
+      params.push(options.visibility)
+    }
+    const rows = await db.select<any[]>(
+      `SELECT * FROM campaign_threads WHERE ${clauses.join(' AND ')} ORDER BY priority DESC, updated_at DESC`,
+      params,
+    )
+    return rows.map(this.mapCampaignThread)
+  }
+
+  async upsertCampaignThread(thread: CampaignThread): Promise<void> {
+    await this.enqueueWrite(`campaign thread upsert ${thread.id}`, (db) =>
+      db.execute(
+        `INSERT INTO campaign_threads (id, campaign_id, title, summary, thread_type, status, visibility, priority, clock_value, clock_max, stakes, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           title = excluded.title,
+           summary = excluded.summary,
+           thread_type = excluded.thread_type,
+           status = excluded.status,
+           visibility = excluded.visibility,
+           priority = excluded.priority,
+           clock_value = excluded.clock_value,
+           clock_max = excluded.clock_max,
+           stakes = excluded.stakes,
+           updated_at = excluded.updated_at`,
+        [
+          thread.id,
+          thread.campaignId,
+          thread.title,
+          thread.summary,
+          thread.threadType,
+          thread.status,
+          thread.visibility,
+          thread.priority,
+          thread.clockValue,
+          thread.clockMax,
+          thread.stakes,
+          thread.createdAt,
+          thread.updatedAt,
+        ],
+      ),
+    )
+  }
+
+  async deleteCampaignThread(threadId: string): Promise<void> {
+    await this.enqueueWrite(`campaign thread delete ${threadId}`, (db) =>
+      db.execute('DELETE FROM campaign_threads WHERE id = ?', [threadId]),
+    )
+  }
+
+  async getCampaignThreadBeats(
+    campaignId: string,
+    options?: { threadId?: string; visibility?: CampaignThreadBeat['visibility'] },
+  ): Promise<CampaignThreadBeat[]> {
+    const db = await this.getDb()
+    const clauses = ['campaign_id = ?']
+    const params: unknown[] = [campaignId]
+    if (options?.threadId) {
+      clauses.push('thread_id = ?')
+      params.push(options.threadId)
+    }
+    if (options?.visibility) {
+      clauses.push('visibility = ?')
+      params.push(options.visibility)
+    }
+    const rows = await db.select<any[]>(
+      `SELECT * FROM campaign_thread_beats WHERE ${clauses.join(' AND ')} ORDER BY sort_order ASC, created_at ASC`,
+      params,
+    )
+    return rows.map(this.mapCampaignThreadBeat)
+  }
+
+  async upsertCampaignThreadBeat(beat: CampaignThreadBeat): Promise<void> {
+    await this.enqueueWrite(`campaign thread beat upsert ${beat.id}`, (db) =>
+      db.execute(
+        `INSERT INTO campaign_thread_beats (id, campaign_id, thread_id, title, summary, beat_type, visibility, sort_order, occurred_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           title = excluded.title,
+           summary = excluded.summary,
+           beat_type = excluded.beat_type,
+           visibility = excluded.visibility,
+           sort_order = excluded.sort_order,
+           occurred_at = excluded.occurred_at,
+           updated_at = excluded.updated_at`,
+        [
+          beat.id,
+          beat.campaignId,
+          beat.threadId,
+          beat.title,
+          beat.summary,
+          beat.beatType,
+          beat.visibility,
+          beat.sortOrder,
+          beat.occurredAt,
+          beat.createdAt,
+          beat.updatedAt,
+        ],
+      ),
+    )
+  }
+
+  async deleteCampaignThreadBeat(beatId: string): Promise<void> {
+    await this.enqueueWrite(`campaign thread beat delete ${beatId}`, (db) =>
+      db.execute('DELETE FROM campaign_thread_beats WHERE id = ?', [beatId]),
+    )
+  }
+
   // ===== Ruleset Operations (Phase 2) =====
 
   async getAllRulesets(): Promise<Ruleset[]> {
@@ -601,14 +885,17 @@ class DatabaseService {
   async upsertRuleset(ruleset: Ruleset): Promise<void> {
     const db = await this.getDb()
     await db.execute(
-      `INSERT INTO rulesets (id, name, description, is_builtin, dice_system, default_check_rule_key, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO rulesets (id, name, description, is_builtin, dice_system, default_check_rule_key, encumbrance_mode, encumbrance_capacity_formula, inventory_slot_capacity_formula, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          name = excluded.name,
          description = excluded.description,
          is_builtin = excluded.is_builtin,
          dice_system = excluded.dice_system,
          default_check_rule_key = excluded.default_check_rule_key,
+         encumbrance_mode = excluded.encumbrance_mode,
+         encumbrance_capacity_formula = excluded.encumbrance_capacity_formula,
+         inventory_slot_capacity_formula = excluded.inventory_slot_capacity_formula,
          updated_at = excluded.updated_at`,
       [
         ruleset.id,
@@ -617,9 +904,31 @@ class DatabaseService {
         ruleset.isBuiltin ? 1 : 0,
         ruleset.diceSystem,
         ruleset.defaultCheckRuleKey,
+        ruleset.encumbranceMode,
+        ruleset.encumbranceCapacityFormula,
+        ruleset.inventorySlotCapacityFormula,
         ruleset.createdAt,
         ruleset.updatedAt,
       ],
+    )
+  }
+
+  async countCampaignsUsingRuleset(rulesetId: string): Promise<number> {
+    const db = await this.getDb()
+    const rows = await db.select<Array<{ count: number }>>(
+      'SELECT COUNT(*) AS count FROM campaigns WHERE ruleset_id = ?',
+      [rulesetId],
+    )
+    return Number(rows[0]?.count ?? 0)
+  }
+
+  async deleteRuleset(rulesetId: string): Promise<void> {
+    const inUse = await this.countCampaignsUsingRuleset(rulesetId)
+    if (inUse > 0) {
+      throw new Error(`This ruleset is used by ${inUse} campaign${inUse === 1 ? '' : 's'}. Assign another ruleset before deleting it.`)
+    }
+    await this.enqueueWrite(`ruleset delete ${rulesetId}`, (db) =>
+      db.execute('DELETE FROM rulesets WHERE id = ? AND is_builtin = 0', [rulesetId]),
     )
   }
 
@@ -754,12 +1063,13 @@ class DatabaseService {
   async upsertRulesetSlot(slot: RulesetSlot): Promise<void> {
     const db = await this.getDb()
     await db.execute(
-      `INSERT INTO ruleset_slots (id, ruleset_id, key, label, sort_order)
-       VALUES (?, ?, ?, ?, ?)
+      `INSERT INTO ruleset_slots (id, ruleset_id, key, label, slot_type, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?)
        ON CONFLICT(ruleset_id, key) DO UPDATE SET
          label = excluded.label,
+         slot_type = excluded.slot_type,
          sort_order = excluded.sort_order`,
-      [slot.id, slot.rulesetId, slot.key, slot.label, slot.sortOrder],
+      [slot.id, slot.rulesetId, slot.key, slot.label, slot.slotType, slot.sortOrder],
     )
   }
 
@@ -834,6 +1144,38 @@ class DatabaseService {
     return rows.map(this.mapRulesetResource)
   }
 
+  async getRulesetSpells(rulesetId: string): Promise<RulesetSpell[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>('SELECT * FROM ruleset_spells WHERE ruleset_id = ? ORDER BY sort_order ASC', [rulesetId])
+    return rows.map(this.mapRulesetSpell)
+  }
+
+  async upsertRulesetSpell(spell: RulesetSpell): Promise<void> {
+    const db = await this.getDb()
+    await db.execute(
+      `INSERT INTO ruleset_spells (id, ruleset_id, key, label, description, level, notation, resource_cost, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(ruleset_id, key) DO UPDATE SET label = excluded.label, description = excluded.description, level = excluded.level, notation = excluded.notation, resource_cost = excluded.resource_cost, sort_order = excluded.sort_order`,
+      [spell.id, spell.rulesetId, spell.key, spell.label, spell.description, spell.level, spell.notation, spell.resourceCost, spell.sortOrder],
+    )
+  }
+
+  async getRulesetCreatures(rulesetId: string): Promise<RulesetCreature[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>('SELECT * FROM ruleset_creatures WHERE ruleset_id = ? ORDER BY sort_order ASC', [rulesetId])
+    return rows.map(this.mapRulesetCreature)
+  }
+
+  async upsertRulesetCreature(creature: RulesetCreature): Promise<void> {
+    const db = await this.getDb()
+    await db.execute(
+      `INSERT INTO ruleset_creatures (id, ruleset_id, key, label, description, creature_type, stat_block, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(ruleset_id, key) DO UPDATE SET label = excluded.label, description = excluded.description, creature_type = excluded.creature_type, stat_block = excluded.stat_block, sort_order = excluded.sort_order`,
+      [creature.id, creature.rulesetId, creature.key, creature.label, creature.description, creature.creatureType, JSON.stringify(creature.statBlock), creature.sortOrder],
+    )
+  }
+
   async upsertRulesetResource(resource: RulesetResource): Promise<void> {
     const db = await this.getDb()
     await db.execute(
@@ -853,6 +1195,27 @@ class DatabaseService {
         resource.minValue,
         resource.sortOrder,
       ],
+    )
+  }
+
+  async deleteRulesetDefinition(
+    kind: 'stat' | 'skill' | 'check_rule' | 'condition' | 'slot' | 'ability' | 'level' | 'resource' | 'spell' | 'creature',
+    id: string,
+  ): Promise<void> {
+    const tables = {
+      stat: 'ruleset_stats',
+      skill: 'ruleset_skills',
+      check_rule: 'ruleset_check_rules',
+      condition: 'ruleset_conditions',
+      slot: 'ruleset_slots',
+      ability: 'ruleset_abilities',
+      level: 'ruleset_levels',
+      resource: 'ruleset_resources',
+      spell: 'ruleset_spells',
+      creature: 'ruleset_creatures',
+    } as const
+    await this.enqueueWrite(`ruleset ${kind} delete ${id}`, (db) =>
+      db.execute(`DELETE FROM ${tables[kind]} WHERE id = ?`, [id]),
     )
   }
 
@@ -1801,6 +2164,10 @@ class DatabaseService {
     if (updates.quantity !== undefined) {
       setClauses.push('quantity = ?')
       values.push(updates.quantity)
+    }
+    if (updates.weight !== undefined) {
+      setClauses.push('weight = ?')
+      values.push(updates.weight)
     }
     if (updates.equipped !== undefined) {
       setClauses.push('equipped = ?')
@@ -2960,8 +3327,8 @@ class DatabaseService {
         id, story_id, name, type, description, hidden_info, aliases,
         state, adventure_state, creative_state, injection,
         first_mentioned, last_mentioned, mention_count, created_by,
-        created_at, updated_at, lore_management_blacklisted, branch_id, overrides_id, deleted
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        created_at, updated_at, lore_management_blacklisted, branch_id, overrides_id, deleted, ability_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         entry.id,
         entry.storyId,
@@ -2984,6 +3351,7 @@ class DatabaseService {
         entry.branchId || null,
         entry.overridesId || null,
         entry.deleted ? 1 : 0,
+        entry.abilityId ?? null,
       ],
     )
   }
@@ -3004,6 +3372,10 @@ class DatabaseService {
     if (updates.description !== undefined) {
       setClauses.push('description = ?')
       values.push(updates.description)
+    }
+    if (updates.abilityId !== undefined) {
+      setClauses.push('ability_id = ?')
+      values.push(updates.abilityId ?? null)
     }
     if (updates.hiddenInfo !== undefined) {
       setClauses.push('hidden_info = ?')
@@ -3735,7 +4107,42 @@ class DatabaseService {
       diceEnforcement: row.dice_enforcement,
       nsfwIntensity: row.nsfw_intensity,
       worldCharter: row.world_charter ?? null,
+      gmPersona: row.gm_persona ?? null,
       companionCombatPolicy: row.companion_combat_policy ?? 'companions_autonomous',
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }
+  }
+
+  private mapCampaignThread(row: any): CampaignThread {
+    return {
+      id: row.id,
+      campaignId: row.campaign_id,
+      title: row.title,
+      summary: row.summary ?? null,
+      threadType: row.thread_type ?? 'plot',
+      status: row.status ?? 'active',
+      visibility: row.visibility ?? 'player_safe',
+      priority: row.priority ?? 0,
+      clockValue: row.clock_value ?? 0,
+      clockMax: row.clock_max ?? null,
+      stakes: row.stakes ?? null,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }
+  }
+
+  private mapCampaignThreadBeat(row: any): CampaignThreadBeat {
+    return {
+      id: row.id,
+      campaignId: row.campaign_id,
+      threadId: row.thread_id,
+      title: row.title,
+      summary: row.summary ?? null,
+      beatType: row.beat_type ?? 'note',
+      visibility: row.visibility ?? 'player_safe',
+      sortOrder: row.sort_order ?? 0,
+      occurredAt: row.occurred_at ?? null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }
@@ -3838,6 +4245,9 @@ class DatabaseService {
       isBuiltin: Boolean(row.is_builtin),
       diceSystem: row.dice_system,
       defaultCheckRuleKey: row.default_check_rule_key ?? null,
+      encumbranceMode: row.encumbrance_mode === 'weight' ? 'weight' : 'slot',
+      encumbranceCapacityFormula: row.encumbrance_capacity_formula ?? '10 + strength + constitution + level',
+      inventorySlotCapacityFormula: row.inventory_slot_capacity_formula ?? '10 + strength + constitution + level',
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }
@@ -3898,6 +4308,7 @@ class DatabaseService {
       rulesetId: row.ruleset_id,
       key: row.key,
       label: row.label,
+      slotType: row.slot_type === 'inventory' ? 'inventory' : 'wearable',
       sortOrder: row.sort_order,
     }
   }
@@ -3911,6 +4322,40 @@ class DatabaseService {
       description: row.description ?? null,
       resourceKey: row.resource_key ?? null,
       resourceCost: row.resource_cost,
+      sortOrder: row.sort_order,
+    }
+  }
+
+  private mapRulesetSpell(row: any): RulesetSpell {
+    return {
+      id: row.id,
+      rulesetId: row.ruleset_id,
+      key: row.key,
+      label: row.label,
+      description: row.description ?? null,
+      level: row.level,
+      notation: row.notation ?? null,
+      resourceCost: row.resource_cost,
+      sortOrder: row.sort_order,
+    }
+  }
+
+  private mapRulesetCreature(row: any): RulesetCreature {
+    let statBlock: Record<string, unknown> = {}
+    try {
+      const parsed = JSON.parse(row.stat_block ?? '{}')
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) statBlock = parsed
+    } catch {
+      statBlock = {}
+    }
+    return {
+      id: row.id,
+      rulesetId: row.ruleset_id,
+      key: row.key,
+      label: row.label,
+      description: row.description ?? null,
+      creatureType: row.creature_type ?? null,
+      statBlock,
       sortOrder: row.sort_order,
     }
   }
@@ -4097,6 +4542,7 @@ class DatabaseService {
       name: row.name,
       description: row.description,
       quantity: row.quantity,
+      weight: Number(row.weight ?? 0),
       equipped: row.equipped === 1,
       location: row.location,
       ownerCharacterId: row.owner_character_id || null,

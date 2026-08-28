@@ -4,17 +4,22 @@
   import VariableCard from './VariableCard.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Plus, Variable } from 'lucide-svelte'
+  import { variableRegistry } from '$lib/services/templates/variables'
+  import { allSamples } from './sampleContext'
 
   interface Props {
     packId: string
     variables: CustomVariable[]
+    previewValues?: Record<string, string>
     onVariablesChanged: () => void
   }
 
-  let { packId, variables, onVariablesChanged }: Props = $props()
+  let { packId, variables, previewValues = allSamples, onVariablesChanged }: Props = $props()
 
   // Track newly created variable ID so its card renders expanded
   let newlyCreatedId = $state<string | null>(null)
+  const systemVariables = variableRegistry.getByCategory('system')
+  const promptRuntimeVariables = variableRegistry.getByCategory('runtime')
 
   function nextVariableName(): string {
     const existing = new Set(variables.map((v) => v.variableName))
@@ -112,4 +117,30 @@
       </div>
     {/if}
   </div>
+
+  <details class="border-b px-4 py-3 text-xs">
+    <summary class="cursor-pointer font-medium">Built-in prompt variables ({systemVariables.length})</summary>
+    <p class="text-muted-foreground mt-1">Available to every pack and injected by the campaign context.</p>
+    <div class="mt-2 grid max-h-48 grid-cols-1 gap-x-4 gap-y-1 overflow-y-auto sm:grid-cols-2">
+      {#each systemVariables as variable (variable.name)}
+        <div class="min-w-0">
+          <span class="font-mono text-[11px]">{variable.name}</span>
+          <span class="text-muted-foreground ml-1 break-words">= {previewValues[variable.name] ?? '(empty)'}</span>
+        </div>
+      {/each}
+    </div>
+  </details>
+
+  <details class="px-4 py-3 text-xs">
+    <summary class="cursor-pointer font-medium">Built-in runtime context ({promptRuntimeVariables.length})</summary>
+    <p class="text-muted-foreground mt-1">Rendered context blocks available to prompt templates.</p>
+    <div class="mt-2 grid max-h-48 grid-cols-1 gap-x-4 gap-y-1 overflow-y-auto sm:grid-cols-2">
+      {#each promptRuntimeVariables as variable (variable.name)}
+        <div class="min-w-0">
+          <span class="font-mono text-[11px]">{variable.name}</span>
+          <span class="text-muted-foreground ml-1 break-words">= {previewValues[variable.name] ?? '(empty)'}</span>
+        </div>
+      {/each}
+    </div>
+  </details>
 </div>

@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { tick } from 'svelte'
+  import { onDestroy, tick } from 'svelte'
   import { ui, type RetryLastMessageOptions } from '$lib/stores/ui.svelte'
   import { story } from '$lib/stores/story.svelte'
+  import { campaign } from '$lib/stores/campaign.svelte'
   import { settings } from '$lib/stores/settings.svelte'
   import { aiService } from '$lib/services/ai'
   import { database } from '$lib/services/database'
@@ -9,6 +10,7 @@
   import { type ImageGenerationContext } from '$lib/services/ai'
   import { hasRequiredCredentials, getProviderDisplayName } from '$lib/services/ai/image'
   import { TranslationService } from '$lib/services/ai/utils/TranslationService'
+  import { countTokens } from '$lib/services/tokenizer'
   import {
     Send,
     Wand2,
@@ -52,10 +54,143 @@
     type PipelineUICallbacks,
     type PipelineEventState,
   } from '$lib/services/generation'
+  import type { AventuraEvent } from '$lib/services/events'
   import { InlineImageTracker } from '$lib/services/ai/image'
+  import { handleInlineControlTags } from '$lib/services/generation/inline-control-handler'
 
   function log(...args: any[]) {
     console.log('[ActionInput]', ...args)
+  }
+
+  const MAX_CONTINUATIONS_PER_TURN = 3
+
+  async function executeInlineControlTags(
+    initialContent: string,
+    continuationCount = 0,
+    collectedRollIds: string[] = [],
+  ): Promise<{ narrative: string; rollIds: string[] }> {
+    const validActorIds = [
+      ...(campaign.sceneTurnState?.actorOrder ?? []),
+      ...story.characters.map((c) => c.id),
+      ...story.characters.map((c) => c.name),
+    ]
+    const result = handleInlineControlTags(initialContent, {
+      sceneModes: ['free', 'exploration', 'travel', 'camp', 'settlement', 'combat', 'social', 'downtime'],
+      actorIds: validActorIds,
+    })
+
+    for (const issue of result.issues) {
+      console.warn('[ActionInput] Ignoring invalid inline control tag:', issue.message)
+    }
+
+    const executedRollEntries: import('$lib/types').RollLedgerEntry[] = []
+
+    for (const intent of result.intents) {
+      if (!campaign.current) continue
+      if (intent.kind === 'roll') {
+        const notation = intent.notation || '1d20'
+        // Match actor by ID or name
+        let targetActorId = campaign.sceneTurnState?.activeActorId ?? null
+        if (intent.actorId) {
+          const matchChar = story.characters.find(
+            (c) => c.id === intent.actorId || c.name.toLowerCase() === intent.actorId?.toLowerCase(),
+          )
+          if (matchChar) targetActorId = matchChar.id
+        }
+        const rollResult = await (await import('$lib/services/dice')).roll({
+          campaignId: campaign.current.id,
+          sessionId: campaign.activeSession?.id ?? null,
+          actorId: targetActorId,
+          notation,
+          dc: intent.dc ?? null,
+          reason: intent.reason ?? 'Narrative roll request',
+          visibility: 'player_safe',
+        })
+        executedRollEntries.push(rollResult.entry)
+        if (!collectedRollIds.includes(rollResult.entry.id)) {
+          collectedRollIds.push(rollResult.entry.id)
+        }
+        eventBus.emit({
+          type: 'DiceRolled',
+          campaignId: rollResult.entry.campaignId,
+          sessionId: rollResult.entry.sessionId,
+          actorId: rollResult.entry.actorId,
+          notation: rollResult.entry.notation,
+          total: rollResult.entry.total,
+          dc: rollResult.entry.dc,
+          outcome: rollResult.entry.outcome,
+          entry: rollResult.entry,
+        })
+      } else if (intent.kind === 'scene' && intent.mode) {
+        const previousScene = campaign.sceneTurnState?.sceneMode ?? 'free'
+        await campaign.setSceneMode(intent.mode as Parameters<typeof campaign.setSceneMode>[0])
+        eventBus.emit({ type: 'SceneChanged', campaignId: campaign.current.id, fromScene: previousScene, toScene: intent.mode })
+      } else if (intent.kind === 'actor' && intent.actorId) {
+        const matchChar = story.characters.find(
+          (c) => c.id === intent.actorId || c.name.toLowerCase() === intent.actorId?.toLowerCase(),
+        )
+        const targetId = matchChar?.id ?? intent.actorId
+        await campaign.setActiveActor(targetId)
+        eventBus.emit({ type: 'ActorChanged', campaignId: campaign.current.id, actorId: targetId })
+      } else if (intent.kind === 'turn' && intent.action === 'advance') {
+        await campaign.advanceTurn()
+      }
+    }
+
+    let currentNarrative = result.narrative
+
+    // Continuation pass if rolls were executed and continuation limit not reached
+    if (
+      executedRollEntries.length > 0 &&
+      continuationCount < MAX_CONTINUATIONS_PER_TURN &&
+      !stopRequested &&
+      !activeAbortController?.signal.aborted
+    ) {
+      log('Continuing generation following roll execution', {
+        continuationCount: continuationCount + 1,
+        rollCount: executedRollEntries.length,
+      })
+
+      const rollSummary = executedRollEntries
+        .map((entry) => {
+          const actor = story.characters.find((c) => c.id === entry.actorId)?.name ?? entry.actorId ?? 'Actor'
+          const dcText = entry.dc !== null ? ` vs DC ${entry.dc}` : ''
+          const outcomeText = entry.outcome ? ` (${entry.outcome.replace('_', ' ')})` : ''
+          const reasonText = entry.reason ? `: ${entry.reason}` : ''
+          return `${actor} rolled ${entry.notation}${reasonText} = ${entry.total}${dcText}${outcomeText}`
+        })
+        .join('; ')
+
+      const continuationPrompt = `[DICE ROLL RESULT: ${rollSummary}]\n\nNarrate the outcome of the roll and continue the story naturally. Do not repeat previous narration.`
+
+      try {
+        const continuationText = await (await import('$lib/services/ai/sdk')).generatePlainText(
+          {
+            presetId: 'suggestions',
+            system: 'You are the narrator of an interactive adventure. Continue the narrative naturally based on the roll outcome. Keep safety and content rules intact.',
+            prompt: continuationPrompt,
+            signal: activeAbortController?.signal,
+          },
+          'narrativeContinuation',
+        )
+
+        if (continuationText && continuationText.trim()) {
+          const subResult = await executeInlineControlTags(
+            continuationText,
+            continuationCount + 1,
+            collectedRollIds,
+          )
+          currentNarrative += '\n\n' + subResult.narrative
+        }
+      } catch (err) {
+        log('Continuation generation failed (non-fatal)', err)
+      }
+    }
+
+    return {
+      narrative: currentNarrative,
+      rollIds: collectedRollIds,
+    }
   }
 
   // ============================================================================
@@ -91,17 +226,42 @@
   // ============================================================================
 
   let inputValue = $state('')
+  let pendingPlayerRoll = $state<{
+    notation: string
+    dc: number | null
+    reason: string | null
+  } | null>(null)
   let actionType = $state<'do' | 'say' | 'think' | 'story' | 'free'>('do')
   let isRawActionChoice = $state(false)
   let stopRequested = false
   let activeAbortController: AbortController | null = null
   let textareaRef: HTMLTextAreaElement | null = $state(null)
+  let actingAsId = $state<string | null>(null)
   let lastImageGenContext = $state<ImageGenerationContext | null>(null)
   let isManualImageGenRunning = $state(false)
   let showFindReplaceModal = $state(false)
   let findText = $state('')
   let replaceText = $state('"')
   let replacingAll = $state(false)
+
+  const unsubscribeRollRequested = eventBus.subscribe('RollRequested', ((event: Extract<AventuraEvent, { type: 'RollRequested' }>) => {
+    if (event.campaignId !== campaign.current?.id) return
+    pendingPlayerRoll = {
+      notation: event.notation,
+      dc: event.dc,
+      reason: event.reason,
+    }
+  }) as never)
+
+  const unsubscribeDiceRolled = eventBus.subscribe('DiceRolled', ((event: Extract<AventuraEvent, { type: 'DiceRolled' }>) => {
+    if (event.campaignId !== campaign.current?.id || !pendingPlayerRoll) return
+    pendingPlayerRoll = null
+  }) as never)
+
+  onDestroy(() => {
+    unsubscribeRollRequested()
+    unsubscribeDiceRolled()
+  })
 
   // ============================================================================
   // Derived State
@@ -155,6 +315,45 @@
 
   // Block generation when any service is missing a model or has an invalid profile
   const blockGeneration = $derived(settings.hasGenerationConfigIssues)
+  const blockFreeTextForRoll = $derived(pendingPlayerRoll !== null)
+
+  const turnActors = $derived.by(() => {
+    const actorIds = campaign.sceneTurnState?.actorOrder ?? []
+    return actorIds
+      .map((actorId) => {
+        const member = campaign.partyMembers.find((candidate) => candidate.characterId === actorId)
+        const name =
+          story.characters.find((character) => character.id === actorId)?.name ??
+          member?.characterId ??
+          actorId
+        return { id: actorId, name }
+      })
+      .filter((actor, index, list) => list.findIndex((candidate) => candidate.id === actor.id) === index)
+  })
+
+  $effect(() => {
+    const selected = campaign.sceneTurnState?.activeActorId ?? null
+    if (selected !== actingAsId) {
+      actingAsId = selected
+    }
+  })
+
+  async function handleActingAsChange(actorId: string) {
+    if (!actorId) return
+    actingAsId = actorId
+    await campaign.setActiveActor(actorId)
+    await regenerateActionChoicesForCurrentActor()
+  }
+
+  async function handleEndTurn() {
+    try {
+      await campaign.advanceTurn()
+      await regenerateActionChoicesForCurrentActor()
+    } catch (error) {
+      console.error('[ActionInput] Failed to advance the turn:', error)
+      ui.showToast('Unable to advance the current turn.', 'error')
+    }
+  }
 
   // ============================================================================
   // Action Type Configuration
@@ -203,15 +402,30 @@
   const protagonistName = $derived.by(
     () => story.characters.find((c) => c.relationship === 'self')?.name ?? 'The protagonist',
   )
+  const actingCharacterName = $derived.by(() => {
+    return getActingCharacter()?.name ?? protagonistName
+  })
+
+  function getActingCharacter() {
+    const actorId = actingAsId ?? campaign.sceneTurnState?.activeActorId ?? null
+    return actorId ? story.characters.find((character) => character.id === actorId) : undefined
+  }
+
+  function withActingCharacterDirective(content: string): string {
+    const actorName = actingCharacterName.trim()
+    if (!actorName) return content
+    return `[Acting character: ${actorName}. Resolve this as ${actorName}'s action.]\n${content}`
+  }
+
   const pov = $derived(story.pov)
 
   const actionPrefixes = $derived.by(() => {
     switch (pov) {
       case 'third':
         return {
-          do: `${protagonistName} `,
-          say: `${protagonistName} says, "`,
-          think: `${protagonistName} thinks, "`,
+          do: `${actingCharacterName} `,
+          say: `${actingCharacterName} says, "`,
+          think: `${actingCharacterName} thinks, "`,
           story: '',
           free: '',
         }
@@ -533,6 +747,8 @@
         chapters: story.currentBranchChapters,
         memoryConfig: story.memoryConfig,
         lorebookEntries: story.lorebookEntries,
+        actingProtagonistName: actingCharacterName,
+        actingProtagonistDescription: getActingCharacter()?.description ?? null,
         guidedRegenerationNudge: combinedGuidance || undefined,
         guidedRegenerationPreviousNarration:
           options?.guidedRegenerationPreviousNarration?.trim() || undefined,
@@ -542,6 +758,10 @@
       const activationTracker = ui.getActivationTracker(storyPosition) as SimpleActivationTracker
       const embeddedImages = await database.getEmbeddedImagesForStory(currentStoryRef.id)
       const protagonist = story.characters.find((c) => c.relationship === 'self')
+      const activeActorName =
+        getActingCharacter()?.name ??
+        protagonist?.name ??
+        'the protagonist'
 
       const ctx: GenerationContext = {
         story: currentStoryRef,
@@ -578,7 +798,8 @@
           mode: story.storyMode,
           pov: story.pov,
           tense: story.tense,
-          protagonistName: protagonist?.name || 'the protagonist',
+          protagonistName: activeActorName,
+          activeActorName,
           genre: currentStoryRef.genre ?? undefined,
           settingDescription: currentStoryRef.description ?? undefined,
           tone: currentStoryRef.settings?.tone ?? undefined,
@@ -660,10 +881,16 @@
         }
 
         if (event.type === 'phase_complete' && event.phase === 'narrative' && fullResponse.trim()) {
+          const controlResult = await executeInlineControlTags(fullResponse)
+          fullResponse = controlResult.narrative
+          const entryMetadata: import('$lib/types').EntryMetadata = {
+            tokenCount: countTokens(fullResponse),
+            ...(controlResult.rollIds.length > 0 ? { rollIds: controlResult.rollIds } : {}),
+          }
           narrationEntry = await story.addEntry(
             'narration',
             fullResponse,
-            undefined,
+            entryMetadata,
             fullReasoning || undefined,
             narrationEntryId,
           )
@@ -884,6 +1111,12 @@
    * when no previously saved actions were found on the restored entry.
    */
   async function regenerateActionsAfterDelete() {
+    await regenerateActionChoicesForCurrentActor({ persistToLastNarration: true })
+  }
+
+  async function regenerateActionChoicesForCurrentActor(
+    options: { persistToLastNarration?: boolean } = {},
+  ) {
     if (!story.currentStory || story.entries.length === 0) return
 
     // For adventure mode, generate new action choices.
@@ -898,12 +1131,15 @@
       }
 
       const protagonist = story.characters.find((c) => c.relationship === 'self')
+      const actingCharacter = getActingCharacter() ?? protagonist
+      const actingName = actingCharacter?.name ?? protagonist?.name ?? 'the protagonist'
       const promptContext: import('$lib/services/generation/phases/PostGenerationPhase').PromptContext =
         {
           mode: 'adventure',
           pov: story.pov,
           tense: story.tense,
-          protagonistName: protagonist?.name || 'the protagonist',
+          protagonistName: actingName,
+          activeActorName: actingName,
           genre: story.currentStory.genre ?? undefined,
           settingDescription: story.currentStory.description ?? undefined,
           tone: story.currentStory.settings?.tone ?? undefined,
@@ -930,14 +1166,17 @@
 
       if (result.choices.length > 0) {
         ui.setActionChoices(result.choices, story.currentStory!.id)
-        // Also save to the last narration entry for future time-travel
-        database
-          .updateStoryEntry(lastNarration.id, {
-            suggestedActions: JSON.stringify(result.choices),
-          })
-          .catch((err) =>
-            console.warn('[ActionInput] Failed to save regenerated action choices:', err),
-          )
+        // Only time-travel recovery should rewrite the narration's saved suggestions.
+        // Actor-change/end-turn regeneration is runtime state for the current actor.
+        if (options.persistToLastNarration) {
+          database
+            .updateStoryEntry(lastNarration.id, {
+              suggestedActions: JSON.stringify(result.choices),
+            })
+            .catch((err) =>
+              console.warn('[ActionInput] Failed to save regenerated action choices:', err),
+            )
+        }
       }
     } catch (error) {
       console.warn('[ActionInput] Failed to regenerate action choices after delete:', error)
@@ -976,9 +1215,13 @@
     const wasRawActionChoice = isRawActionChoice
     const forceFreeMode = settings.uiSettings.disableActionPrefixes
 
-    let content: string
-    if (wasRawActionChoice || forceFreeMode) content = rawInput
-    else content = actionPrefixes[actionType] + rawInput + actionSuffixes[actionType]
+    let displayContent: string
+    if (wasRawActionChoice || forceFreeMode) displayContent = rawInput
+    else displayContent = actionPrefixes[actionType] + rawInput + actionSuffixes[actionType]
+    const generationContent =
+      wasRawActionChoice || forceFreeMode
+        ? withActingCharacterDirective(displayContent)
+        : displayContent
 
     isRawActionChoice = false
     inputValue = ''
@@ -993,7 +1236,7 @@
       story.items,
       story.storyBeats,
       embeddedImages,
-      content,
+      displayContent,
       rawInput,
       actionType,
       wasRawActionChoice,
@@ -1001,7 +1244,7 @@
     )
 
     const { promptContent, originalInput } = await translateUserInput(
-      content,
+      displayContent,
       settings.translationSettings,
     )
 
@@ -1012,10 +1255,10 @@
       await story.refreshEntry(userActionEntry.id)
     }
 
-    emitUserInput(content, forceFreeMode ? 'free' : actionType)
+    emitUserInput(displayContent, forceFreeMode ? 'free' : actionType)
     await tick()
 
-    await generateResponse(userActionEntry.id, content)
+    await generateResponse(userActionEntry.id, generationContent)
   }
 
   async function handleStopGeneration() {
@@ -1223,6 +1466,28 @@
 
   <GrammarCheck text={inputValue} onApplySuggestion={(newText) => (inputValue = newText)} />
 
+  {#if campaign.current && campaign.sceneTurnState && turnActors.length > 0}
+    <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-700/80 bg-slate-900/60 px-2.5 py-2">
+      <label class="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400">
+        Acting as
+        <select
+          value={actingAsId ?? ''}
+          onchange={(event) => void handleActingAsChange(event.currentTarget.value)}
+          class="rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200 outline-none ring-0"
+        >
+          {#each turnActors as actor (actor.id)}
+            <option value={actor.id}>{actor.name}</option>
+          {/each}
+        </select>
+      </label>
+
+      <Button variant="secondary" size="sm" class="gap-2 text-xs" onclick={handleEndTurn}>
+        <Square class="h-3.5 w-3.5" />
+        End turn
+      </Button>
+    </div>
+  {/if}
+
   <div
     class="sm:border-border rounded-lg border-l-0 sm:border sm:border-l-4 sm:shadow-sm {ui.isGenerating
       ? 'sm:border-l-surface-60'
@@ -1254,9 +1519,12 @@
         <textarea
           bind:value={inputValue}
           bind:this={textareaRef}
+          disabled={blockFreeTextForRoll}
           use:autoResize={inputValue}
           onkeydown={handleKeydown}
-          placeholder={actionType === 'story'
+          placeholder={blockFreeTextForRoll
+            ? `Resolve ${pendingPlayerRoll?.notation ?? 'the outstanding roll'} to continue`
+            : actionType === 'story'
             ? 'Describe what happens...'
             : actionType === 'say'
               ? 'What do you say?'
@@ -1282,12 +1550,14 @@
           >{/if}
       {:else}<button
           onclick={handleSubmit}
-          disabled={!inputValue.trim() || blockGeneration}
+          disabled={!inputValue.trim() || blockGeneration || blockFreeTextForRoll}
           class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg p-0 transition-all active:scale-95 disabled:opacity-50 {actionButtonStyles[
             actionType
           ]} -translate-y-0.5 sm:translate-y-0"
-          title={blockGeneration
-            ? 'AI configuration incomplete — check Settings'
+          title={blockFreeTextForRoll
+            ? 'Resolve the outstanding roll before entering another action'
+            : blockGeneration
+              ? 'AI configuration incomplete — check Settings'
             : `Send (${sendKeyHint})`}><Send class="h-6 w-6" /></button
         >{/if}
     </div>

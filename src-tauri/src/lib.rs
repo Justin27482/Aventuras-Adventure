@@ -419,6 +419,54 @@ pub fn run() {
             sql: include_str!("../migrations/049_scene_turn_state.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 50,
+            description: "campaign_threads",
+            sql: include_str!("../migrations/050_campaign_threads.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 51,
+            description: "thread_beats_clocks",
+            sql: include_str!("../migrations/051_thread_beats_clocks.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 52,
+            description: "gm_persona",
+            sql: include_str!("../migrations/052_gm_persona.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 53,
+            description: "campaign_intensity_scale",
+            sql: include_str!("../migrations/053_campaign_intensity_scale.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 54,
+            description: "ruleset_spells_creatures",
+            sql: include_str!("../migrations/054_ruleset_spells_creatures.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 55,
+            description: "ruleset_encumbrance",
+            sql: include_str!("../migrations/055_ruleset_encumbrance.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 56,
+            description: "slot_capacity_configuration",
+            sql: include_str!("../migrations/056_slot_capacity_configuration.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 57,
+            description: "entry_ability_link",
+            sql: include_str!("../migrations/057_entry_ability_link.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     let mut builder = tauri::Builder::default();

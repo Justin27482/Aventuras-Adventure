@@ -22,6 +22,9 @@ const RULESET: FullRuleset = {
     isBuiltin: true,
     diceSystem: 'd20',
     defaultCheckRuleKey: 'standard-check',
+    encumbranceMode: 'slot',
+    encumbranceCapacityFormula: '10 + strength + constitution + level',
+    inventorySlotCapacityFormula: '10 + strength + constitution + level',
     createdAt: 0,
     updatedAt: 0,
   },
@@ -35,6 +38,8 @@ const RULESET: FullRuleset = {
   ],
   slots: [],
   abilities: [],
+  spells: [],
+  creatures: [],
   levels: [],
   resources: [
     { id: 'r1', rulesetId: 'd20-classic', key: 'health', label: 'Health', maxFormula: '10 + constitution + level * 5', minValue: 0, sortOrder: 0 },

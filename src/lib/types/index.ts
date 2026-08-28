@@ -86,6 +86,7 @@ export interface CampaignSettings {
   diceEnforcement: string
   nsfwIntensity: number
   worldCharter: string | null
+  gmPersona: string | null
   companionCombatPolicy: 'companions_autonomous' | 'tactical_delegate' | 'tactical_player'
   createdAt: number
   updatedAt: number
@@ -178,6 +179,57 @@ export interface CompanionDecisionProposal {
   createdAt: number
 }
 
+export type CampaignThreadType =
+  | 'plot'
+  | 'quest'
+  | 'faction'
+  | 'mystery'
+  | 'character'
+  | 'threat'
+  | 'custom'
+
+export type CampaignThreadStatus = 'active' | 'dormant' | 'resolved' | 'abandoned'
+
+export type CampaignThreadVisibility = 'player_safe' | 'director_only'
+
+export interface CampaignThread {
+  id: string
+  campaignId: string
+  title: string
+  summary: string | null
+  threadType: CampaignThreadType
+  status: CampaignThreadStatus
+  visibility: CampaignThreadVisibility
+  priority: number
+  clockValue: number
+  clockMax: number | null
+  stakes: string | null
+  createdAt: number
+  updatedAt: number
+}
+
+export type CampaignThreadBeatType =
+  | 'milestone'
+  | 'clue'
+  | 'complication'
+  | 'clock_tick'
+  | 'resolution'
+  | 'note'
+
+export interface CampaignThreadBeat {
+  id: string
+  campaignId: string
+  threadId: string
+  title: string
+  summary: string | null
+  beatType: CampaignThreadBeatType
+  visibility: CampaignThreadVisibility
+  sortOrder: number
+  occurredAt: number | null
+  createdAt: number
+  updatedAt: number
+}
+
 // ===== Ruleset Types (Phase 2) =====
 
 export interface Ruleset {
@@ -187,6 +239,9 @@ export interface Ruleset {
   isBuiltin: boolean
   diceSystem: string
   defaultCheckRuleKey: string | null
+  encumbranceMode: 'slot' | 'weight'
+  encumbranceCapacityFormula: string
+  inventorySlotCapacityFormula: string
   createdAt: number
   updatedAt: number
 }
@@ -244,6 +299,7 @@ export interface RulesetSlot {
   rulesetId: string
   key: string
   label: string
+  slotType: 'wearable' | 'inventory'
   sortOrder: number
 }
 
@@ -255,6 +311,29 @@ export interface RulesetAbility {
   description: string | null
   resourceKey: string | null
   resourceCost: number
+  sortOrder: number
+}
+
+export interface RulesetSpell {
+  id: string
+  rulesetId: string
+  key: string
+  label: string
+  description: string | null
+  level: number
+  notation: string | null
+  resourceCost: number
+  sortOrder: number
+}
+
+export interface RulesetCreature {
+  id: string
+  rulesetId: string
+  key: string
+  label: string
+  description: string | null
+  creatureType: string | null
+  statBlock: Record<string, unknown>
   sortOrder: number
 }
 
@@ -290,6 +369,8 @@ export interface FullRuleset {
   conditions: RulesetCondition[]
   slots: RulesetSlot[]
   abilities: RulesetAbility[]
+  spells: RulesetSpell[]
+  creatures: RulesetCreature[]
   levels: RulesetLevel[]
   resources: RulesetResource[]
 }
@@ -482,6 +563,8 @@ export interface EntryMetadata {
   timeEnd?: TimeTracker // Story time after classification applied time progression
   // Translation fields (for backwards compatibility, also stored in columns)
   originalInput?: string // For translateInput: original user text before translation to English
+  // Phase 7: Roll ledger entries associated with this story entry
+  rollIds?: string[]
 }
 
 export interface Character {
@@ -697,6 +780,7 @@ export interface Item {
   name: string
   description: string | null
   quantity: number
+  weight?: number
   equipped: boolean
   location: string
   ownerCharacterId?: string | null
@@ -921,6 +1005,7 @@ export interface Entry {
   storyId: string
   name: string
   type: EntryType
+  abilityId?: string | null
 
   // Static content
   description: string
@@ -1189,7 +1274,10 @@ export type ActivePanel =
   | 'memory'
   | 'vault'
   | 'gallery'
-export type SidebarTab = 'characters' | 'locations' | 'inventory' | 'quests' | 'time' | 'branches'
+  | 'gm'
+  | 'rulesets'
+  | 'worldbuilding'
+export type SidebarTab = 'characters' | 'locations' | 'inventory' | 'quests' | 'time' | 'branches' | 'gm'
 
 export interface UIState {
   activePanel: ActivePanel
@@ -1287,6 +1375,7 @@ export interface UISettings {
   autoSave: boolean
   spellcheckEnabled: boolean
   debugMode: boolean
+  gmMode: boolean
   disableSuggestions: boolean
   disableActionPrefixes: boolean
   showReasoning: boolean

@@ -27,6 +27,7 @@ export type GenerationPhase =
   | 'translation' // Narration and world state translation
   | 'image' // Image generation
   | 'post' // Suggestions, action choices, lore management
+  | 'mechanics' // Mechanics tool execution & validation
 
 // World state passed to pipeline
 export interface WorldState {
@@ -42,6 +43,8 @@ export interface WorldState {
   chapters: Chapter[]
   memoryConfig: MemoryConfig
   lorebookEntries: Entry[]
+  actingProtagonistName?: string
+  actingProtagonistDescription?: string | null
   guidedRegenerationNudge?: string
   guidedRegenerationPreviousNarration?: string
 }

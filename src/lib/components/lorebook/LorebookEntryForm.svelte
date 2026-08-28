@@ -7,6 +7,8 @@
     AdventureEntryState,
   } from '$lib/types'
   import { story } from '$lib/stores/story.svelte'
+  import { campaign } from '$lib/stores/campaign.svelte'
+  import { rulesetService } from '$lib/services/ruleset/ruleset-service'
   import { settings } from '$lib/stores/settings.svelte'
   import { ui } from '$lib/stores/ui.svelte'
   import { ChevronDown, ChevronUp, Plus, X, Sparkles, Loader2 } from 'lucide-svelte'
@@ -48,6 +50,8 @@
   let priority = $derived(entry?.injection.priority ?? 50)
   let showHiddenInfo = $derived(!!entry?.hiddenInfo)
   let loreManagementBlacklisted = $derived(entry?.loreManagementBlacklisted ?? false)
+  let abilityId = $state<string | null>(null)
+  let rulesetAbilities = $state<Array<{ id: string; key: string; label: string }>>([])
 
   // Tag input states
   let newAlias = $state('')
@@ -57,6 +61,17 @@
   let showAiOptions = $state(false)
   let aiGuidance = $state('')
   let isGenerating = $state(false)
+
+  $effect(() => {
+    abilityId = entry?.abilityId ?? null
+    if (!campaign.current?.rulesetId) {
+      rulesetAbilities = []
+      return
+    }
+    void rulesetService.getFullRuleset(campaign.current.rulesetId).then((full) => {
+      rulesetAbilities = full?.abilities ?? []
+    })
+  })
 
   const entryTypes: Array<{ value: EntryType; label: string }> = [
     { value: 'character', label: 'Character' },
@@ -213,6 +228,7 @@
         storyId: story.currentStory?.id ?? '',
         name: name.trim(),
         type,
+        abilityId,
         description: description.trim(),
         hiddenInfo: hiddenInfo.trim() || null,
         aliases,
@@ -315,6 +331,27 @@
       class="resize-none"
     />
   </div>
+
+  {#if rulesetAbilities.length > 0}
+    <div class="space-y-2">
+      <Label for="entry-ability">Linked ability</Label>
+      <Select
+        type="single"
+        value={abilityId ?? 'none'}
+        onValueChange={(value) => (abilityId = value === 'none' ? null : value)}
+      >
+        <SelectTrigger id="entry-ability">
+          {rulesetAbilities.find((ability) => ability.id === abilityId)?.label ?? 'None'}
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="none">None</SelectItem>
+          {#each rulesetAbilities as ability (ability.id)}
+            <SelectItem value={ability.id}>{ability.label}</SelectItem>
+          {/each}
+        </SelectContent>
+      </Select>
+    </div>
+  {/if}
 
   <!-- Aliases -->
   <div class="space-y-2">

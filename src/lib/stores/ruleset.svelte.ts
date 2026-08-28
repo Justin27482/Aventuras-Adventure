@@ -5,12 +5,20 @@ class RulesetStore {
   all = $state<Ruleset[]>([])
   current = $state<FullRuleset | null>(null)
   loaded = $state(false)
+  error = $state<string | null>(null)
 
   /** Seeds built-ins (idempotent) and loads the list of all available rulesets. */
   async loadAll(): Promise<void> {
-    await rulesetService.initialize()
-    this.all = await rulesetService.getAllRulesets()
-    this.loaded = true
+    this.error = null
+    try {
+      await rulesetService.initialize()
+      this.all = await rulesetService.getAllRulesets()
+      this.loaded = true
+    } catch (reason) {
+      this.error = reason instanceof Error ? reason.message : 'Failed to load rulesets'
+      this.loaded = false
+      throw reason
+    }
   }
 
   /** Loads a campaign's active ruleset definition, or clears it if none assigned. */

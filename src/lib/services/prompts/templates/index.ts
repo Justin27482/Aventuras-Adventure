@@ -7,6 +7,10 @@ import { wizardTemplates } from './wizard'
 import { translationTemplates } from './translation'
 import { imageTemplates } from './image'
 import { agencyTemplates } from './agency'
+import { mediaTemplates } from './media'
+import { sceneTemplates } from './scene'
+import { roleTemplates } from './roles'
+import { safetyTemplates } from './safety'
 
 export const PROMPT_TEMPLATES: PromptTemplate[] = [
   ...storyTemplates,
@@ -17,4 +21,8 @@ export const PROMPT_TEMPLATES: PromptTemplate[] = [
   ...translationTemplates,
   ...imageTemplates,
   ...agencyTemplates,
+  ...mediaTemplates,
+  ...sceneTemplates,
+  ...roleTemplates,
+  ...safetyTemplates,
 ]

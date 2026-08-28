@@ -43,6 +43,8 @@ export { InteractiveDirectorAssistantService } from './InteractiveDirectorAssist
 
 export { InteractiveEditorAssistantService } from './InteractiveEditorAssistantService'
 
+export { RulesetAssistantService } from '../ruleset/RulesetAssistantService'
+
 // Style analysis
 export {
   StyleReviewerService,

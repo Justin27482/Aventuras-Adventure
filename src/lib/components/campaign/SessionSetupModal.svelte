@@ -23,9 +23,7 @@
   let error = $state<string | null>(null)
 
   const partyCharacters = $derived(
-    story.characters.filter((character) =>
-      campaign.partyMembers.some((member) => member.characterId === character.id),
-    ),
+    story.characters.filter((character) => character.status !== 'deceased' && !character.deleted),
   )
 
   const activePartyIds = $derived(
@@ -44,7 +42,13 @@
   function togglePartyMember(characterId: string, active: boolean) {
     const character = story.characters.find((candidate) => candidate.id === characterId)
     if (!character) return
-    void campaign.setPartyMember(character, { active }).catch((reason) => {
+    const isPrimaryCharacter = character.relationship === 'self'
+    void campaign.setPartyMember(character, {
+      active,
+      actorCategory: isPrimaryCharacter ? 'primary_player_character' : 'active_companion',
+      narrativeControlMode: isPrimaryCharacter ? 'player_narrative' : 'autonomous',
+      combatControlMode: isPrimaryCharacter ? 'player_narrative' : 'autonomous',
+    }).catch((reason) => {
       error = reason instanceof Error ? reason.message : 'Unable to update party'
     })
   }
@@ -104,7 +108,11 @@
               <div class="min-w-0">
                 <p class="text-foreground truncate text-sm font-medium">{character.name}</p>
                 <p class="text-muted-foreground text-xs">
-                  {character.relationship === 'self' ? 'Lead character' : 'Autonomous companion'}
+                  {character.relationship === 'self'
+                    ? 'Lead character'
+                    : member
+                      ? 'Autonomous companion'
+                      : 'Available ally'}
                 </p>
               </div>
               <Switch

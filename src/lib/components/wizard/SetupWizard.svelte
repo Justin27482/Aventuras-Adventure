@@ -474,6 +474,7 @@
           class="flex items-center gap-2"
           onclick={() => wizard.createStory()}
           disabled={!wizard.narrative.storyTitle.trim() ||
+            wizard.isCreatingStory ||
             wizard.narrative.isGeneratingOpening ||
             wizard.narrative.isRefiningOpening ||
             wizard.narrative.isEditingOpening ||

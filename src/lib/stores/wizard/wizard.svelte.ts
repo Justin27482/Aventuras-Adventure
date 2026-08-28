@@ -1,4 +1,5 @@
 import { story } from '$lib/stores/story.svelte'
+import { campaign } from '$lib/stores/campaign.svelte'
 import { ui } from '$lib/stores/ui.svelte'
 import { settings } from '$lib/stores/settings.svelte'
 import { aiService } from '$lib/services/ai'
@@ -29,6 +30,29 @@ import { CharacterStore } from './characterStore.svelte'
 import { ImageStore } from './imageStore.svelte'
 import { SvelteSet } from 'svelte/reactivity'
 
+function buildWorldCharterFromWizard(data: WizardData): string {
+  const genre = data.genre === 'custom' ? data.customGenre : data.genre
+  const lines = [
+    `Campaign: ${data.title}`,
+    genre && `Genre: ${genre}`,
+    `POV/Tense: ${data.writingStyle.pov}, ${data.writingStyle.tense}`,
+    data.writingStyle.tone && `Tone: ${data.writingStyle.tone}`,
+    data.settingSeed && `Premise: ${data.settingSeed}`,
+    data.expandedSetting?.description && `Setting: ${data.expandedSetting.description}`,
+    data.expandedSetting?.atmosphere && `Atmosphere: ${data.expandedSetting.atmosphere}`,
+    data.expandedSetting?.themes?.length && `Themes: ${data.expandedSetting.themes.join(', ')}`,
+    data.protagonist?.name && `Primary character: ${data.protagonist.name}`,
+    data.characters?.length &&
+      `Important characters: ${data.characters
+        .map((character) => character.name)
+        .filter(Boolean)
+        .join(', ')}`,
+    data.openingGuidance && `Opening guidance: ${data.openingGuidance}`,
+  ].filter((line): line is string => typeof line === 'string' && line.trim().length > 0)
+
+  return lines.join('\n')
+}
+
 export class WizardStore {
   // Sub-stores
   narrative = new NarrativeStore()
@@ -39,6 +63,7 @@ export class WizardStore {
   // Wizard State
   currentStep = $state(1)
   totalSteps = 8
+  isCreatingStory = $state(false)
 
   // Pack selection state
   selectedPackId = $state<string>('default-pack')
@@ -487,7 +512,7 @@ export class WizardStore {
 
   // Create Story
   async createStory() {
-    if (!this.narrative.storyTitle.trim()) return
+    if (!this.narrative.storyTitle.trim() || this.isCreatingStory) return
 
     // Use manual opening if provided
     if (!this.narrative.generatedOpening && this.narrative.manualOpeningText.trim()) {
@@ -564,6 +589,8 @@ export class WizardStore {
       return
     }
 
+    this.isCreatingStory = true
+
     const processedCharacters = this.character.supportingCharacters.map((char) => ({
       ...char,
       name: replaceUserPlaceholders(char.name, protagonistName),
@@ -606,6 +633,7 @@ export class WizardStore {
     }
 
     const storyData = await scenarioService.prepareStoryData(wizardData, processedOpening)
+    const worldCharter = buildWorldCharterFromWizard(wizardData)
 
     if (storyData.protagonist) {
       storyData.protagonist.portrait = this.image.protagonistPortrait ?? undefined
@@ -758,26 +786,54 @@ export class WizardStore {
     }
 
     try {
+      console.info('[Wizard] Starting campaign persistence', {
+        title: storyData.title,
+        packId: this.selectedPackId,
+        customVariableCount: Object.keys(this.customVariableValues).length,
+      })
       const newStory = await story.createStoryFromWizard({
         ...storyData,
         importedEntries: processedEntries.length > 0 ? processedEntries : undefined,
         translations,
       })
+      console.info('[Wizard] Story transaction completed', { storyId: newStory.id })
 
       // Assign pack and save custom variable values
+      console.info('[Wizard] Assigning story pack', { storyId: newStory.id, packId: this.selectedPackId })
       await database.setStoryPack(newStory.id, this.selectedPackId)
+      console.info('[Wizard] Story pack assigned', { storyId: newStory.id })
       if (Object.keys(this.customVariableValues).length > 0) {
+        console.info('[Wizard] Saving custom variable values', {
+          storyId: newStory.id,
+          count: Object.keys(this.customVariableValues).length,
+        })
         await database.setStoryCustomVariables(newStory.id, this.customVariableValues)
+        console.info('[Wizard] Custom variable values saved', { storyId: newStory.id })
       }
 
+      console.info('[Wizard] Reloading created campaign', { storyId: newStory.id })
       await story.loadStory(newStory.id)
+      console.info('[Wizard] Created campaign reloaded', { storyId: newStory.id })
+      if (campaign.settings && !campaign.settings.worldCharter && worldCharter) {
+        console.info('[Wizard] Saving generated world charter', { storyId: newStory.id })
+        await campaign.updateSettings({ worldCharter })
+      }
       ui.setActivePanel('story')
       this.onClose()
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to create campaign'
-      console.error('[Wizard] Campaign creation failed:', error)
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === 'string'
+            ? error
+            : error && typeof error === 'object'
+              ? JSON.stringify(error)
+              : 'Failed to create campaign'
+      console.error('[Wizard] Campaign creation failed', { message, error })
       ui.showToast(message, 'error')
       // Do NOT close the modal on error - let user retry or cancel
+    } finally {
+      this.isCreatingStory = false
     }
   }
 }

@@ -41,17 +41,32 @@ export async function roll(request: RollRequest): Promise<RollResult> {
 
   const total = evaluation.total + (request.bias?.amount ?? 0)
 
-  const outcome = resolveOutcome(
+  const resolvedOutcome = resolveOutcome(
     { total, effectiveValues: evaluation.effectiveValues },
     request.dc ?? null,
     request.checkRule ?? null,
   )
+  const outcome =
+    resolvedOutcome ??
+    (request.dc === null || request.dc === undefined
+      ? null
+      : total >= request.dc
+        ? 'success'
+        : 'failure')
+
+  // Phase 4.9 attribution: if caller omitted actorId, fall back to the
+  // campaign's currently active actor from persisted turn state.
+  let actorId = request.actorId ?? null
+  if (!actorId) {
+    const sceneTurnState = await database.getSceneTurnState(request.campaignId, null)
+    actorId = sceneTurnState?.activeActorId ?? null
+  }
 
   const entry: RollLedgerEntry = {
     id: crypto.randomUUID(),
     campaignId: request.campaignId,
     sessionId: request.sessionId ?? null,
-    actorId: request.actorId ?? null,
+    actorId,
     notation: request.notation,
     seed,
     rolls: evaluation.rolls,

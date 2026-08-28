@@ -26,6 +26,7 @@ import {
   TranslationPhase,
   ImagePhase,
   PostGenerationPhase,
+  MechanicsPhase,
   type RetrievalDependencies,
   type NarrativeDependencies,
   type ClassificationDependencies,
@@ -38,6 +39,7 @@ import {
   type TranslationResult2,
   type ImageResult,
   type PostGenerationResult,
+  type MechanicsPhaseResult,
   type PromptContext,
   type ImageSettings,
 } from './phases'
@@ -48,6 +50,7 @@ import {
   type BackgroundImageSettings,
 } from './phases/BackgroundImagePhase'
 import { mergeGenerators } from '$lib/utils/async'
+import { stripInlineControlTags } from '$lib/utils/inlineControlParser'
 
 export interface PipelineDependencies
   extends
@@ -86,6 +89,7 @@ export interface PipelineResult {
   translation: TranslationResult2 | null
   image: ImageResult | null
   postGeneration: PostGenerationResult | null
+  mechanics: MechanicsPhaseResult | null
   aborted: boolean
   fatalError: Error | null
 }
@@ -99,6 +103,7 @@ export class GenerationPipeline {
   private translationPhase: TranslationPhase
   private imagePhase: ImagePhase
   private postPhase: PostGenerationPhase
+  private mechanicsPhase = new MechanicsPhase()
 
   constructor(private deps: PipelineDependencies) {
     this.narrativePhase = new NarrativePhase(deps)
@@ -121,6 +126,7 @@ export class GenerationPipeline {
       translation: null,
       image: null,
       postGeneration: null,
+      mechanics: null,
       aborted: false,
       fatalError: null,
     }
@@ -163,6 +169,10 @@ export class GenerationPipeline {
         abortSignal: ctx.abortSignal,
       })
       if (!r.narrative || ctx.abortSignal?.aborted) return { ...r, aborted: true }
+      // Control tags are executable metadata, not narrative prose. Remove them
+      // before classification, translation, image, and suggestion phases consume
+      // the narrative result. ActionInput executes the parsed tags once at the UI boundary.
+      r.narrative = { ...r.narrative, content: stripInlineControlTags(r.narrative.content) }
 
       // All post-narrative phases run in parallel. Image needs classification
       // + translation results, so it chains after them via imagePipeline.
@@ -194,6 +204,13 @@ export class GenerationPipeline {
           translationSettings: cfg.translationSettings,
           abortSignal: ctx.abortSignal,
         }),
+        mechanics: this.mechanicsPhase.execute({
+          narrativeContent: r.narrative.content,
+          worldState: ctx.worldState,
+          story: ctx.story,
+          campaignId: ctx.story.id,
+          abortSignal: ctx.abortSignal,
+        }),
       })
 
       r.classification = allPhases.imagePipeline.classification
@@ -201,6 +218,7 @@ export class GenerationPipeline {
       r.image = allPhases.imagePipeline.image
       r.background = allPhases.background
       r.postGeneration = allPhases.postGeneration
+      r.mechanics = allPhases.mechanics
       if (ctx.abortSignal?.aborted) return { ...r, aborted: true }
 
       return r

@@ -9,6 +9,7 @@
     Settings2,
     RotateCcw,
     Loader2,
+    Check,
     Key,
     Cpu,
     Palette,
@@ -53,17 +54,18 @@
 
   const campaignTab = { id: 'campaign-settings' as const, label: 'Campaign', icon: Swords }
   let tabs = $derived(
-    story.currentStory?.templateId === 'wizard-generated'
+    story.currentStory
       ? [campaignTab, storyTab, ...baseTabs]
-      : story.currentStory
-        ? [storyTab, ...baseTabs]
-        : baseTabs,
+      : baseTabs,
   )
   let activeTab = $derived(tabs.find((t) => t.id === ui.settingsTab) ?? tabs[0])
 
   // Fall back to 'api' if story tab is active but story is unloaded
   $effect(() => {
-    if (ui.settingsTab === 'story-settings' && !story.currentStory) {
+    if (
+      (ui.settingsTab === 'story-settings' || ui.settingsTab === 'campaign-settings') &&
+      !story.currentStory
+    ) {
       ui.setSettingsTab('api')
     }
   })
@@ -74,6 +76,11 @@
   let manualBodyEditorSave = $state<(value: string) => void>((_) => {})
 
   let isResettingSettings = $state(false)
+  let campaignSaveStatus = $state<'idle' | 'saving' | 'saved' | 'error'>('idle')
+
+  function handleCampaignSaveStatus(status: 'saving' | 'saved' | 'error') {
+    campaignSaveStatus = status
+  }
 
   // Swipe handling
   let touchStartX = $state(0)
@@ -200,6 +207,21 @@
           <p class="text-muted-foreground hidden text-sm md:block">
             Configure your Campaign Engine workspace
           </p>
+          {#if ui.settingsTab === 'campaign-settings' && campaignSaveStatus !== 'idle'}
+            <p
+              class="mt-1 inline-flex items-center gap-1 text-xs"
+              class:text-emerald-500={campaignSaveStatus === 'saved'}
+              class:text-destructive={campaignSaveStatus === 'error'}
+            >
+              {#if campaignSaveStatus === 'saving'}
+                <Loader2 class="h-3 w-3 animate-spin" /> Saving campaign settings...
+              {:else if campaignSaveStatus === 'saved'}
+                <Check class="h-3 w-3" /> Campaign settings saved
+              {:else}
+                Campaign settings could not be saved
+              {/if}
+            </p>
+          {/if}
         </div>
       </div>
     </ResponsiveModal.Header>
@@ -259,7 +281,7 @@
               {#if activeTab.id === 'story-settings'}
                 <StorySettingsTab />
               {:else if activeTab.id === 'campaign-settings'}
-                <CampaignSettingsTab />
+                <CampaignSettingsTab onSaveStatus={handleCampaignSaveStatus} />
               {:else if activeTab.id === 'api'}
                 <ApiConnectionTab />
               {:else if activeTab.id === 'generation'}

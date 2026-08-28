@@ -10,6 +10,7 @@
     Search,
     Bug,
     Code2,
+    Crown,
     Layers,
     ListTree,
     Sparkles,
@@ -41,6 +42,10 @@
     settings.setDebugMode(checked)
   }
 
+  function handleGMModeToggle(checked: boolean) {
+    settings.setGMMode(checked)
+  }
+
   async function handleOpenDebugLogsWindow() {
     await debug.popOutDebug()
   }
@@ -69,6 +74,25 @@
         checked={settings.advancedRequestSettings.manualMode}
         onCheckedChange={handleManualModeToggle}
       />
+    </div>
+
+    <!-- GM Mode -->
+    <div class="flex flex-row items-center justify-between">
+      <div class="space-y-0.5">
+        <div class="flex items-center gap-2">
+          <Crown class="text-muted-foreground h-4 w-4" />
+          <Label>GM Mode</Label>
+        </div>
+        <p class="text-muted-foreground text-xs">
+          Enable director-level controls for scene, roll, party, and world-state changes.
+        </p>
+        {#if settings.uiSettings.gmMode}
+          <p class="pt-1 text-xs font-medium text-amber-500">
+            GM Mode active. Manual campaign control surfaces may appear during play.
+          </p>
+        {/if}
+      </div>
+      <Switch checked={settings.uiSettings.gmMode} onCheckedChange={handleGMModeToggle} />
     </div>
 
     <!-- Debug Mode -->

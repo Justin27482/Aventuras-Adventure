@@ -122,8 +122,10 @@ describe('campaign rules', () => {
 
     expect(delegated[0].combatControlMode).toBe('player_narrative')
     expect(delegated[1].combatControlMode).toBe('tactical_delegate')
+    expect(delegated[1].narrativeControlMode).toBe('autonomous')
     expect(direct[0].combatControlMode).toBe('player_narrative')
     expect(direct[1].combatControlMode).toBe('tactical_player')
+    expect(direct[1].narrativeControlMode).toBe('autonomous')
   })
 
   it('requires the primary character to be in the active party snapshot', () => {

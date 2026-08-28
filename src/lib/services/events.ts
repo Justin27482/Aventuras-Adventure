@@ -35,6 +35,11 @@ export type EventType =
   | 'ModeChanged' // Story mode changed
   | 'CompanionDecisionProposed' // Companion or delegated action proposal created
   | 'CompanionDecisionResolved' // Companion proposal accepted or rejected
+  | 'DiceRolled' // Inline or mechanics roll resolved
+  | 'RollRequested' // Narrative requested a player roll
+  | 'TurnTypeChanged' // Narrative turn type resolved
+  | 'SceneChanged' // Scene mode changed
+  | 'ActorChanged' // Active actor changed
   | 'BackgroundImageAnalysisStarted' // Started analyzing narrative for background image
   | 'BackgroundImageAnalysisComplete' // Finished analyzing narrative for background image
   | 'BackgroundImageAnalysisFailed' // Background image analysis or generation failed
@@ -143,6 +148,50 @@ export interface CompanionDecisionResolvedEvent {
   accepted: boolean
 }
 
+import type { RollLedgerEntry } from '$lib/types'
+
+export interface DiceRolledEvent {
+  type: 'DiceRolled'
+  campaignId: string
+  sessionId: string | null
+  actorId: string | null
+  notation: string
+  total: number
+  dc: number | null
+  outcome: string | null
+  entry?: RollLedgerEntry
+}
+
+export interface RollRequestedEvent {
+  type: 'RollRequested'
+  campaignId: string
+  sessionId: string | null
+  actorId: string | null
+  notation: string
+  dc: number | null
+  reason: string | null
+}
+
+export interface TurnTypeChangedEvent {
+  type: 'TurnTypeChanged'
+  campaignId: string
+  turnType: string
+  actorId: string | null
+}
+
+export interface SceneChangedEvent {
+  type: 'SceneChanged'
+  campaignId: string
+  fromScene: string
+  toScene: string
+}
+
+export interface ActorChangedEvent {
+  type: 'ActorChanged'
+  campaignId: string
+  actorId: string | null
+}
+
 export interface SaveCompleteEvent {
   type: 'SaveComplete'
   storyId: string
@@ -227,6 +276,11 @@ export type AventuraEvent =
   | ModeChangedEvent
   | CompanionDecisionProposedEvent
   | CompanionDecisionResolvedEvent
+  | DiceRolledEvent
+  | RollRequestedEvent
+  | TurnTypeChangedEvent
+  | SceneChangedEvent
+  | ActorChangedEvent
   | SaveCompleteEvent
   | ImageAnalysisStartedEvent
   | ImageAnalysisCompleteEvent

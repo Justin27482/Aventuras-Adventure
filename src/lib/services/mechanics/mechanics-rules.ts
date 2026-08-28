@@ -4,7 +4,7 @@
  * No I/O here — callers (mechanics-service.ts) persist the results.
  */
 
-import type { CampaignPartyMember, Item, ResourceValue, RulesetSlot } from '$lib/types'
+import type { CampaignPartyMember, Item, ResourceValue, Ruleset, RulesetSlot } from '$lib/types'
 import { validateItemOwnership } from '$lib/services/campaign/campaign-rules'
 
 /** Clamps a value into [min, max] (max may be omitted for unbounded resources). */
@@ -97,6 +97,48 @@ export function validateSlotCarryLimit(
   if (occupants.length > 1) {
     throw new Error(`More than one item is equipped in slot "${slotKey}" for this character`)
   }
+}
+
+export function validateEncumbrance(
+  ownerCharacterId: string,
+  items: Item[],
+  ruleset: Pick<Ruleset, 'encumbranceMode' | 'encumbranceCapacityFormula'>,
+  capacity: number,
+): void {
+  if (ruleset.encumbranceMode === 'slot') return
+  const carriedWeight = items
+    .filter((item) => item.ownerCharacterId === ownerCharacterId && item.location === 'inventory')
+    .reduce((total, item) => total + Math.max(0, item.weight ?? 0) * Math.max(0, item.quantity), 0)
+  if (carriedWeight > capacity) {
+    throw new Error(`Carrying capacity exceeded (${carriedWeight} / ${capacity})`)
+  }
+}
+
+/** Counts carried item stacks against a ruleset's slot capacity; equipped wearable items use named slots instead. */
+export function validateInventorySlotCapacity(
+  ownerCharacterId: string,
+  items: Item[],
+  capacity: number,
+): void {
+  const carriedSlots = items.filter(
+    (item) =>
+      item.ownerCharacterId === ownerCharacterId &&
+      item.location === 'inventory' &&
+      (!item.equipped || isArmorItem(item)),
+  ).length
+  if (carriedSlots > capacity) {
+    throw new Error(`Inventory slot capacity exceeded (${carriedSlots} / ${capacity})`)
+  }
+}
+
+/** Armor occupies carry capacity even when equipped; ordinary clothing only uses wearable slots. */
+export function isArmorItem(item: Pick<Item, 'name' | 'metadata'>): boolean {
+  const metadata = item.metadata?.armor
+  if (typeof metadata === 'boolean') return metadata
+  if (metadata && typeof metadata === 'object' && 'isArmor' in metadata) {
+    return metadata.isArmor === true
+  }
+  return /\b(armor|armour|breastplate|cuirass|chainmail|mail|plate armor|scale armor|shield)\b/i.test(item.name)
 }
 
 /**

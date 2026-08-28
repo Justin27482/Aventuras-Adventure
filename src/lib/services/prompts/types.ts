@@ -1,5 +1,12 @@
 /** Prompt template category */
-export type PromptCategory = 'story' | 'service' | 'wizard' | 'image-style' | 'agency'
+export type PromptCategory =
+  | 'story'
+  | 'service'
+  | 'wizard'
+  | 'image-style'
+  | 'agency'
+  | 'gm'
+  | 'safety'
 
 /** Prompt template definition with Liquid syntax content resolved at runtime via ContextBuilder. */
 export interface PromptTemplate {

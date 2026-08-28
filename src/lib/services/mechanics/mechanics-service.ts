@@ -125,6 +125,36 @@ class MechanicsService {
     return updated
   }
 
+  async grantXP(characterId: string, amount: number): Promise<CharacterSheet> {
+    assertNoCoercedConsentMutation({ kind: 'grant_xp', note: String(amount) })
+    const sheet = await this.requireSheet(characterId)
+    const newXP = Math.max(0, sheet.xp + amount)
+    // Basic level calculation: level up every 1000 XP
+    const newLevel = Math.max(1, Math.floor(newXP / 1000) + 1)
+    const updated: CharacterSheet = {
+      ...sheet,
+      xp: newXP,
+      level: newLevel,
+      updatedAt: Date.now(),
+    }
+    await database.upsertCharacterSheet(updated)
+    return updated
+  }
+
+  async adjustMoney(storyId: string, delta: number, reason: string): Promise<number> {
+    assertNoCoercedConsentMutation({ kind: 'adjust_money', note: String(delta) })
+    const storyData = await database.getStory(storyId)
+    if (!storyData) throw new Error(`Story not found: "${storyId}"`)
+    const current = Math.max(0, Math.floor(storyData.settings?.moneyAmount ?? 0))
+    const updated = current + delta
+    if (updated < 0) {
+      throw new Error(`Insufficient funds: needed ${Math.abs(delta)}, have ${current}`)
+    }
+    const nextSettings = { ...(storyData.settings ?? {}), moneyAmount: updated }
+    await database.updateStory(storyId, { settings: nextSettings })
+    return updated
+  }
+
   private async requireSheet(characterId: string): Promise<CharacterSheet> {
     const sheet = await database.getCharacterSheet(characterId)
     if (!sheet) throw new Error(`No character sheet exists for character "${characterId}"`)

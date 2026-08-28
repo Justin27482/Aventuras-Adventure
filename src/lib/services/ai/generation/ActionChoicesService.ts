@@ -21,6 +21,7 @@ export interface ActionChoicesContext {
   userAction: string
   recentEntries: StoryEntry[]
   protagonistName: string
+  activeActorName?: string | null
   protagonistDescription?: string | null
   mode: string
   pov: string
@@ -98,6 +99,8 @@ export class ActionChoicesService extends BaseAIService {
       ? ` (${context.protagonistDescription})`
       : ''
 
+    const actingCharacterName = context.activeActorName?.trim() || context.protagonistName
+
     // Style guidance based on recent user actions
     const userActions = context.recentEntries.filter((e) => e.type === 'user_action').slice(-3)
     let styleGuidance = ''
@@ -135,6 +138,7 @@ export class ActionChoicesService extends BaseAIService {
         pov: context.pov,
         tense: context.tense,
         protagonistName: context.protagonistName,
+        activeActorName: actingCharacterName,
       })
     }
 
@@ -147,6 +151,7 @@ export class ActionChoicesService extends BaseAIService {
       inventory,
       activeQuests,
       lorebookContext,
+      activeActorName: actingCharacterName,
       protagonistDescription,
       styleGuidance,
       povInstruction,

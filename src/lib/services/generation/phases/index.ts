@@ -29,6 +29,9 @@ export type {
 export { ImagePhase } from './ImagePhase'
 export type { ImageDependencies, ImageSettings, ImageInput, ImageResult } from './ImagePhase'
 
+export { MechanicsPhase } from './MechanicsPhase'
+export type { MechanicsInput, MechanicsPhaseResult } from './MechanicsPhase'
+
 export { PostGenerationPhase } from './PostGenerationPhase'
 export type {
   PromptContext,

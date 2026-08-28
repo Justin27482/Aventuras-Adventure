@@ -14,6 +14,8 @@
     MessageSquareShare,
     FolderPlus,
     FolderOpen,
+    Swords,
+    Globe2,
     Pencil,
     Trash2,
   } from 'lucide-svelte'
@@ -232,6 +234,20 @@
           variant="outline"
           title="Vault"
           onclick={() => ui.setActivePanel('vault')}
+        />
+        <Button
+          icon={Swords}
+          label="Rulesets"
+          variant="outline"
+          title="Create and edit reusable rulesets"
+          onclick={() => ui.setActivePanel('rulesets')}
+        />
+        <Button
+          icon={Globe2}
+          label="Worldbuilding"
+          variant="outline"
+          title="Shape a world before creating a campaign"
+          onclick={() => ui.setActivePanel('worldbuilding')}
         />
         <DropdownMenu.Root bind:open={showImportMenu}>
           <DropdownMenu.Trigger>
