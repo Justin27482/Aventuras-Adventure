@@ -1,5 +1,6 @@
 <script lang="ts">
   import { type DebugLogEntry } from '$lib/stores/debug.svelte'
+  import { SvelteSet } from 'svelte/reactivity'
   import {
     ArrowUpCircle,
     ArrowDownCircle,
@@ -33,7 +34,7 @@
   let selectedCategories = $state<string[]>([])
   let scrollContainer: HTMLDivElement | null = $state(null)
   let userScrolledAway = $state(false)
-  let expandedRecords = $state(new Set<string>())
+  let expandedRecords = new SvelteSet<string>()
 
   // Pagination
   let currentPage = $state(1)
@@ -191,10 +192,8 @@
   }
 
   function toggleRecord(id: string) {
-    const next = new Set(expandedRecords)
-    if (next.has(id)) next.delete(id)
-    else next.add(id)
-    expandedRecords = next
+    if (expandedRecords.has(id)) expandedRecords.delete(id)
+    else expandedRecords.add(id)
   }
 
   $effect(() => {

@@ -22,9 +22,13 @@ describe('safety prompt-pack variants', () => {
   })
 
   it('contains the mechanics boundary in the mechanics safety variant', () => {
-    const template = safetyTemplates.find((candidate) => candidate.id === 'safety-mechanics-constraints')
+    const template = safetyTemplates.find(
+      (candidate) => candidate.id === 'safety-mechanics-constraints',
+    )
     expect(template).toBeDefined()
-    expect(templateEngine.render(template!.content, safetyContext)).toContain('Mechanics may not mutate consent')
+    expect(templateEngine.render(template!.content, safetyContext)).toContain(
+      'Mechanics may not mutate consent',
+    )
   })
 
   it('enforces hard safety bans at max intensity level 8', () => {
@@ -33,7 +37,9 @@ describe('safety prompt-pack variants', () => {
       nsfwIntensity: 8,
       nsfwIntensityLabel: 'Maximum Mature',
     }
-    const template = safetyTemplates.find((candidate) => candidate.id === 'safety-content-intensity')
+    const template = safetyTemplates.find(
+      (candidate) => candidate.id === 'safety-content-intensity',
+    )
     expect(template).toBeDefined()
 
     const rendered = templateEngine.render(template!.content, maxIntensityContext)
@@ -41,6 +47,8 @@ describe('safety prompt-pack variants', () => {
     expect(rendered).toContain('Maximum Mature')
     expect(rendered).toContain('graphic consensual adult sexual content')
     expect(rendered).toContain('HARD BAN')
-    expect(rendered).toContain('Compelled sexual acts and consent override remain strictly prohibited at every intensity level')
+    expect(rendered).toContain(
+      'Compelled sexual acts and consent override remain strictly prohibited at every intensity level',
+    )
   })
 })

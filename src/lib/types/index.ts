@@ -1277,7 +1277,14 @@ export type ActivePanel =
   | 'gm'
   | 'rulesets'
   | 'worldbuilding'
-export type SidebarTab = 'characters' | 'locations' | 'inventory' | 'quests' | 'time' | 'branches' | 'gm'
+export type SidebarTab =
+  | 'characters'
+  | 'locations'
+  | 'inventory'
+  | 'quests'
+  | 'time'
+  | 'branches'
+  | 'gm'
 
 export interface UIState {
   activePanel: ActivePanel

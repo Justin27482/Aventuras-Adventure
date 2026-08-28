@@ -27,7 +27,17 @@
   import * as Select from '$lib/components/ui/select'
   import { Check, Copy, Plus, Save, Settings2, Trash2, X } from 'lucide-svelte'
 
-  type DefinitionKind = 'stat' | 'skill' | 'check_rule' | 'condition' | 'slot' | 'ability' | 'level' | 'resource' | 'spell' | 'creature'
+  type DefinitionKind =
+    | 'stat'
+    | 'skill'
+    | 'check_rule'
+    | 'condition'
+    | 'slot'
+    | 'ability'
+    | 'level'
+    | 'resource'
+    | 'spell'
+    | 'creature'
   type DefinitionDraft = {
     kind: DefinitionKind
     id: string | null
@@ -62,8 +72,12 @@
   let saved = $state(false)
   let draft = $state<DefinitionDraft | null>(null)
 
-  const selectedRuleset = $derived(ruleset.all.find((candidate) => candidate.id === selectedId) ?? null)
-  const selectedFullRuleset = $derived(ruleset.current?.ruleset.id === selectedId ? ruleset.current : null)
+  const selectedRuleset = $derived(
+    ruleset.all.find((candidate) => candidate.id === selectedId) ?? null,
+  )
+  const selectedFullRuleset = $derived(
+    ruleset.current?.ruleset.id === selectedId ? ruleset.current : null,
+  )
 
   function selectRuleset(candidate: Ruleset) {
     selectedId = candidate.id
@@ -94,7 +108,26 @@
   }
 
   function emptyDraft(kind: DefinitionKind): DefinitionDraft {
-    return { kind, id: null, key: '', label: '', description: '', notation: '1d20', defaultValue: '10', minValue: '', maxValue: '', governingStatKey: '', resourceKey: '', resourceCost: '0', level: '1', xpThreshold: '0', maxFormula: '10 + level', creatureType: '', statBlock: '{}', slotType: 'wearable' }
+    return {
+      kind,
+      id: null,
+      key: '',
+      label: '',
+      description: '',
+      notation: '1d20',
+      defaultValue: '10',
+      minValue: '',
+      maxValue: '',
+      governingStatKey: '',
+      resourceKey: '',
+      resourceCost: '0',
+      level: '1',
+      xpThreshold: '0',
+      maxFormula: '10 + level',
+      creatureType: '',
+      statBlock: '{}',
+      slotType: 'wearable',
+    }
   }
 
   function editDefinition(kind: DefinitionKind, value?: Record<string, unknown>) {
@@ -103,7 +136,14 @@
       Object.assign(next, value)
       next.id = typeof value.id === 'string' ? value.id : null
       next.description = typeof value.description === 'string' ? value.description : ''
-      for (const field of ['defaultValue', 'minValue', 'maxValue', 'resourceCost', 'level', 'xpThreshold'] as const) {
+      for (const field of [
+        'defaultValue',
+        'minValue',
+        'maxValue',
+        'resourceCost',
+        'level',
+        'xpThreshold',
+      ] as const) {
         const current = value[field] as string | number | null | undefined
         if (current !== undefined) next[field] = current === null ? '' : String(current)
       }
@@ -124,28 +164,89 @@
       return
     }
     const id = draft.id ?? crypto.randomUUID()
-    const base = { id, rulesetId: selectedId, key: draft.key.trim(), label: draft.label.trim(), sortOrder: 999 }
+    const base = {
+      id,
+      rulesetId: selectedId,
+      key: draft.key.trim(),
+      label: draft.label.trim(),
+      sortOrder: 999,
+    }
     try {
-      if (draft.kind === 'stat') await database.upsertRulesetStat({ ...base, defaultValue: Number(draft.defaultValue) || 0, minValue: numberOrNull(draft.minValue), maxValue: numberOrNull(draft.maxValue) } as RulesetStat)
-      if (draft.kind === 'skill') await database.upsertRulesetSkill({ ...base, governingStatKey: draft.governingStatKey.trim() || null } as RulesetSkill)
-      if (draft.kind === 'condition') await database.upsertRulesetCondition({ ...base, description: draft.description.trim() || null } as RulesetCondition)
-      if (draft.kind === 'slot') await database.upsertRulesetSlot({ ...base, slotType: draft.slotType } as RulesetSlot)
-      if (draft.kind === 'ability') await database.upsertRulesetAbility({ ...base, description: draft.description.trim() || null, resourceKey: draft.resourceKey.trim() || null, resourceCost: Number(draft.resourceCost) || 0 } as RulesetAbility)
-      if (draft.kind === 'level') await database.upsertRulesetLevel({ id, rulesetId: selectedId, level: Number(draft.level) || 1, label: draft.label.trim() || null, xpThreshold: numberOrNull(draft.xpThreshold), statBonuses: null } as RulesetLevel)
-      if (draft.kind === 'resource') await database.upsertRulesetResource({ ...base, maxFormula: draft.maxFormula.trim() || '0', minValue: Number(draft.minValue) || 0 } as RulesetResource)
-      if (draft.kind === 'check_rule') await database.upsertRulesetCheckRule({ ...base, notation: draft.notation.trim() || '1d20', criticalSuccessThreshold: numberOrNull(draft.maxValue), criticalFailureThreshold: numberOrNull(draft.minValue), outcomeBands: [], } as RulesetCheckRule)
-      if (draft.kind === 'spell') await database.upsertRulesetSpell({ ...base, description: draft.description.trim() || null, level: Number(draft.level) || 0, notation: draft.notation.trim() || null, resourceCost: Number(draft.resourceCost) || 0 } as RulesetSpell)
+      if (draft.kind === 'stat')
+        await database.upsertRulesetStat({
+          ...base,
+          defaultValue: Number(draft.defaultValue) || 0,
+          minValue: numberOrNull(draft.minValue),
+          maxValue: numberOrNull(draft.maxValue),
+        } as RulesetStat)
+      if (draft.kind === 'skill')
+        await database.upsertRulesetSkill({
+          ...base,
+          governingStatKey: draft.governingStatKey.trim() || null,
+        } as RulesetSkill)
+      if (draft.kind === 'condition')
+        await database.upsertRulesetCondition({
+          ...base,
+          description: draft.description.trim() || null,
+        } as RulesetCondition)
+      if (draft.kind === 'slot')
+        await database.upsertRulesetSlot({ ...base, slotType: draft.slotType } as RulesetSlot)
+      if (draft.kind === 'ability')
+        await database.upsertRulesetAbility({
+          ...base,
+          description: draft.description.trim() || null,
+          resourceKey: draft.resourceKey.trim() || null,
+          resourceCost: Number(draft.resourceCost) || 0,
+        } as RulesetAbility)
+      if (draft.kind === 'level')
+        await database.upsertRulesetLevel({
+          id,
+          rulesetId: selectedId,
+          level: Number(draft.level) || 1,
+          label: draft.label.trim() || null,
+          xpThreshold: numberOrNull(draft.xpThreshold),
+          statBonuses: null,
+        } as RulesetLevel)
+      if (draft.kind === 'resource')
+        await database.upsertRulesetResource({
+          ...base,
+          maxFormula: draft.maxFormula.trim() || '0',
+          minValue: Number(draft.minValue) || 0,
+        } as RulesetResource)
+      if (draft.kind === 'check_rule')
+        await database.upsertRulesetCheckRule({
+          ...base,
+          notation: draft.notation.trim() || '1d20',
+          criticalSuccessThreshold: numberOrNull(draft.maxValue),
+          criticalFailureThreshold: numberOrNull(draft.minValue),
+          outcomeBands: [],
+        } as RulesetCheckRule)
+      if (draft.kind === 'spell')
+        await database.upsertRulesetSpell({
+          ...base,
+          description: draft.description.trim() || null,
+          level: Number(draft.level) || 0,
+          notation: draft.notation.trim() || null,
+          resourceCost: Number(draft.resourceCost) || 0,
+        } as RulesetSpell)
       if (draft.kind === 'creature') {
         let statBlock: Record<string, unknown> = {}
         try {
           const parsed = JSON.parse(draft.statBlock)
-          if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Monster stat block must be a JSON object.')
+          if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+            throw new Error('Monster stat block must be a JSON object.')
           statBlock = parsed
         } catch (reason) {
-          error = reason instanceof Error ? reason.message : 'Monster stat block must be valid JSON.'
+          error =
+            reason instanceof Error ? reason.message : 'Monster stat block must be valid JSON.'
           return
         }
-        await database.upsertRulesetCreature({ ...base, description: draft.description.trim() || null, creatureType: draft.creatureType.trim() || null, statBlock } as RulesetCreature)
+        await database.upsertRulesetCreature({
+          ...base,
+          description: draft.description.trim() || null,
+          creatureType: draft.creatureType.trim() || null,
+          statBlock,
+        } as RulesetCreature)
       }
       await ruleset.loadForCampaign(selectedId)
       draft = null
@@ -185,7 +286,9 @@
 
   function exportSelectedRuleset() {
     if (!selectedFullRuleset) return
-    const blob = new Blob([JSON.stringify(selectedFullRuleset, null, 2)], { type: 'application/json' })
+    const blob = new Blob([JSON.stringify(selectedFullRuleset, null, 2)], {
+      type: 'application/json',
+    })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
@@ -208,7 +311,11 @@
       }
       await rulesetService.importFullRuleset(bundle)
       await ruleset.loadAll()
-      const imported = ruleset.all.find((candidate) => candidate.name === (bundle.ruleset.isBuiltin ? `${bundle.ruleset.name} (Imported)` : bundle.ruleset.name))
+      const imported = ruleset.all.find(
+        (candidate) =>
+          candidate.name ===
+          (bundle.ruleset.isBuiltin ? `${bundle.ruleset.name} (Imported)` : bundle.ruleset.name),
+      )
       if (imported) selectRuleset(imported)
       saved = true
     } catch (reason) {
@@ -245,10 +352,18 @@
         await database.upsertRulesetSkill({ ...skill, id: crypto.randomUUID(), rulesetId: id })
       }
       for (const checkRule of selectedFullRuleset.checkRules) {
-        await database.upsertRulesetCheckRule({ ...checkRule, id: crypto.randomUUID(), rulesetId: id })
+        await database.upsertRulesetCheckRule({
+          ...checkRule,
+          id: crypto.randomUUID(),
+          rulesetId: id,
+        })
       }
       for (const condition of selectedFullRuleset.conditions) {
-        await database.upsertRulesetCondition({ ...condition, id: crypto.randomUUID(), rulesetId: id })
+        await database.upsertRulesetCondition({
+          ...condition,
+          id: crypto.randomUUID(),
+          rulesetId: id,
+        })
       }
       for (const slot of selectedFullRuleset.slots) {
         await database.upsertRulesetSlot({ ...slot, id: crypto.randomUUID(), rulesetId: id })
@@ -260,13 +375,21 @@
         await database.upsertRulesetLevel({ ...level, id: crypto.randomUUID(), rulesetId: id })
       }
       for (const resource of selectedFullRuleset.resources) {
-        await database.upsertRulesetResource({ ...resource, id: crypto.randomUUID(), rulesetId: id })
+        await database.upsertRulesetResource({
+          ...resource,
+          id: crypto.randomUUID(),
+          rulesetId: id,
+        })
       }
       for (const spell of selectedFullRuleset.spells) {
         await database.upsertRulesetSpell({ ...spell, id: crypto.randomUUID(), rulesetId: id })
       }
       for (const creature of selectedFullRuleset.creatures) {
-        await database.upsertRulesetCreature({ ...creature, id: crypto.randomUUID(), rulesetId: id })
+        await database.upsertRulesetCreature({
+          ...creature,
+          id: crypto.randomUUID(),
+          rulesetId: id,
+        })
       }
       await ruleset.loadAll()
       const cloned = ruleset.all.find((candidate) => candidate.id === id)
@@ -283,7 +406,11 @@
     { kind: 'stat' as const, label: 'Stats', items: selectedFullRuleset?.stats ?? [] },
     { kind: 'skill' as const, label: 'Skills', items: selectedFullRuleset?.skills ?? [] },
     { kind: 'check_rule' as const, label: 'Checks', items: selectedFullRuleset?.checkRules ?? [] },
-    { kind: 'condition' as const, label: 'Conditions', items: selectedFullRuleset?.conditions ?? [] },
+    {
+      kind: 'condition' as const,
+      label: 'Conditions',
+      items: selectedFullRuleset?.conditions ?? [],
+    },
     { kind: 'slot' as const, label: 'Slots', items: selectedFullRuleset?.slots ?? [] },
     { kind: 'ability' as const, label: 'Abilities', items: selectedFullRuleset?.abilities ?? [] },
     { kind: 'level' as const, label: 'Levels', items: selectedFullRuleset?.levels ?? [] },
@@ -336,14 +463,34 @@
 <div class="h-full min-h-0 space-y-6 overflow-y-auto p-1 pb-8">
   <div class="flex items-start justify-between gap-3">
     <div>
-    <h2 class="text-foreground text-xl font-semibold">Ruleset Authoring</h2>
-    <p class="text-muted-foreground mt-1 text-sm">Create and maintain the mechanical foundation used by campaign character sheets and checks.</p>
+      <h2 class="text-foreground text-xl font-semibold">Ruleset Authoring</h2>
+      <p class="text-muted-foreground mt-1 text-sm">
+        Create and maintain the mechanical foundation used by campaign character sheets and checks.
+      </p>
     </div>
     <div class="flex flex-wrap justify-end gap-2">
-      <input id="ruleset-import" class="hidden" type="file" accept="application/json,.json" onchange={importRuleset} />
-      <Button variant="outline" size="sm" onclick={() => document.getElementById('ruleset-import')?.click()} disabled={isSaving}>Import</Button>
-      <Button variant="outline" size="sm" onclick={exportSelectedRuleset} disabled={!selectedFullRuleset}>Export</Button>
-      <Button variant="outline" size="sm" onclick={() => ui.setActivePanel('library')}>Back to Library</Button>
+      <input
+        id="ruleset-import"
+        class="hidden"
+        type="file"
+        accept="application/json,.json"
+        onchange={importRuleset}
+      />
+      <Button
+        variant="outline"
+        size="sm"
+        onclick={() => document.getElementById('ruleset-import')?.click()}
+        disabled={isSaving}>Import</Button
+      >
+      <Button
+        variant="outline"
+        size="sm"
+        onclick={exportSelectedRuleset}
+        disabled={!selectedFullRuleset}>Export</Button
+      >
+      <Button variant="outline" size="sm" onclick={() => ui.setActivePanel('library')}
+        >Back to Library</Button
+      >
     </div>
   </div>
 
@@ -351,7 +498,13 @@
     <Card>
       <CardHeader class="flex-row items-center justify-between space-y-0">
         <CardTitle class="text-sm">Rulesets</CardTitle>
-        <Button variant="outline" size="icon" class="h-7 w-7" onclick={newRuleset} title="Create ruleset">
+        <Button
+          variant="outline"
+          size="icon"
+          class="h-7 w-7"
+          onclick={newRuleset}
+          title="Create ruleset"
+        >
           <Plus class="h-3.5 w-3.5" />
         </Button>
       </CardHeader>
@@ -359,7 +512,12 @@
         {#if ruleset.error}
           <div class="space-y-2 p-2">
             <p class="text-destructive text-xs">{ruleset.error}</p>
-            <Button variant="outline" size="sm" class="h-7 text-xs" onclick={() => void ruleset.loadAll()}>Retry</Button>
+            <Button
+              variant="outline"
+              size="sm"
+              class="h-7 text-xs"
+              onclick={() => void ruleset.loadAll()}>Retry</Button
+            >
           </div>
         {:else if ruleset.all.length === 0}
           <p class="text-muted-foreground p-2 text-xs">Loading rulesets...</p>
@@ -367,11 +525,16 @@
           {#each ruleset.all as candidate (candidate.id)}
             <button
               type="button"
-              class="hover:bg-muted flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left text-sm {selectedId === candidate.id ? 'bg-primary/10 text-primary' : ''}"
+              class="hover:bg-muted flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left text-sm {selectedId ===
+              candidate.id
+                ? 'bg-primary/10 text-primary'
+                : ''}"
               onclick={() => selectRuleset(candidate)}
             >
               <span class="truncate">{candidate.name}</span>
-              {#if candidate.isBuiltin}<Badge variant="outline" class="shrink-0 text-[10px]">Built-in</Badge>{/if}
+              {#if candidate.isBuiltin}<Badge variant="outline" class="shrink-0 text-[10px]"
+                  >Built-in</Badge
+                >{/if}
             </button>
           {/each}
         {/if}
@@ -383,34 +546,66 @@
         <CardTitle class="flex items-center gap-2 text-sm">
           <Settings2 class="text-primary h-4 w-4" />
           {selectedId ? 'Ruleset Details' : 'New Ruleset'}
-          {#if selectedRuleset?.isBuiltin}<Badge variant="secondary" class="text-[10px]">Read-only structure</Badge>{/if}
+          {#if selectedRuleset?.isBuiltin}<Badge variant="secondary" class="text-[10px]"
+              >Read-only structure</Badge
+            >{/if}
         </CardTitle>
       </CardHeader>
       <CardContent class="space-y-4">
-        {#if error}<p class="text-destructive rounded-md border border-destructive/30 p-2 text-xs">{error}</p>{/if}
+        {#if error}<p class="text-destructive border-destructive/30 rounded-md border p-2 text-xs">
+            {error}
+          </p>{/if}
         <div class="space-y-1.5">
           <label for="ruleset-name" class="text-sm font-medium">Name</label>
-          <Input id="ruleset-name" bind:value={name} disabled={selectedRuleset?.isBuiltin ?? false} />
+          <Input
+            id="ruleset-name"
+            bind:value={name}
+            disabled={selectedRuleset?.isBuiltin ?? false}
+          />
         </div>
         <div class="space-y-1.5">
           <label for="ruleset-description" class="text-sm font-medium">Description</label>
-          <Textarea id="ruleset-description" bind:value={description} disabled={selectedRuleset?.isBuiltin ?? false} rows={3} />
+          <Textarea
+            id="ruleset-description"
+            bind:value={description}
+            disabled={selectedRuleset?.isBuiltin ?? false}
+            rows={3}
+          />
         </div>
         <div class="grid gap-3 sm:grid-cols-2">
           <div class="space-y-1.5">
             <label for="ruleset-dice" class="text-sm font-medium">Dice system</label>
-            <Input id="ruleset-dice" bind:value={diceSystem} disabled={selectedRuleset?.isBuiltin ?? false} placeholder="d20" />
+            <Input
+              id="ruleset-dice"
+              bind:value={diceSystem}
+              disabled={selectedRuleset?.isBuiltin ?? false}
+              placeholder="d20"
+            />
           </div>
           <div class="space-y-1.5">
             <label for="ruleset-default-check" class="text-sm font-medium">Default check key</label>
-            <Input id="ruleset-default-check" bind:value={defaultCheckRuleKey} disabled={selectedRuleset?.isBuiltin ?? false} placeholder="standard-check" />
+            <Input
+              id="ruleset-default-check"
+              bind:value={defaultCheckRuleKey}
+              disabled={selectedRuleset?.isBuiltin ?? false}
+              placeholder="standard-check"
+            />
           </div>
         </div>
         <div class="grid gap-3 sm:grid-cols-2">
           <div class="space-y-1.5">
-            <label for="ruleset-encumbrance-mode" class="text-sm font-medium">Encumbrance mode</label>
-            <Select.Root type="single" value={encumbranceMode} onValueChange={(value) => (encumbranceMode = value as 'slot' | 'weight')} disabled={selectedRuleset?.isBuiltin ?? false}>
-              <Select.Trigger id="ruleset-encumbrance-mode" class="w-full">{encumbranceMode === 'weight' ? 'Weight based' : 'Inventory slots'}</Select.Trigger>
+            <label for="ruleset-encumbrance-mode" class="text-sm font-medium"
+              >Encumbrance mode</label
+            >
+            <Select.Root
+              type="single"
+              value={encumbranceMode}
+              onValueChange={(value) => (encumbranceMode = value as 'slot' | 'weight')}
+              disabled={selectedRuleset?.isBuiltin ?? false}
+            >
+              <Select.Trigger id="ruleset-encumbrance-mode" class="w-full"
+                >{encumbranceMode === 'weight' ? 'Weight based' : 'Inventory slots'}</Select.Trigger
+              >
               <Select.Content>
                 <Select.Item value="slot" label="Inventory slots">Inventory slots</Select.Item>
                 <Select.Item value="weight" label="Weight based">Weight based</Select.Item>
@@ -420,32 +615,62 @@
           {#if encumbranceMode === 'weight'}
             <div class="space-y-1.5">
               <label for="ruleset-capacity" class="text-sm font-medium">Capacity formula</label>
-              <Input id="ruleset-capacity" bind:value={encumbranceCapacityFormula} disabled={selectedRuleset?.isBuiltin ?? false} placeholder="10 + strength + constitution + level" />
+              <Input
+                id="ruleset-capacity"
+                bind:value={encumbranceCapacityFormula}
+                disabled={selectedRuleset?.isBuiltin ?? false}
+                placeholder="10 + strength + constitution + level"
+              />
             </div>
           {/if}
         </div>
         {#if selectedFullRuleset}
-          <div class="rounded-md border border-border/50 bg-muted/20 p-3 text-xs text-muted-foreground">
-            {selectedFullRuleset.stats.length} stats · {selectedFullRuleset.skills.length} skills · {selectedFullRuleset.checkRules.length} checks · {selectedFullRuleset.conditions.length} conditions · {selectedFullRuleset.abilities.length} abilities
+          <div
+            class="border-border/50 bg-muted/20 text-muted-foreground rounded-md border p-3 text-xs"
+          >
+            {selectedFullRuleset.stats.length} stats · {selectedFullRuleset.skills.length} skills · {selectedFullRuleset
+              .checkRules.length} checks · {selectedFullRuleset.conditions.length} conditions · {selectedFullRuleset
+              .abilities.length} abilities
           </div>
         {/if}
         {#if selectedRuleset?.isBuiltin && selectedFullRuleset}
-          <div class="flex items-center justify-between gap-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs">
-            <span class="text-muted-foreground">Built-in definitions are protected. Create an editable copy to add or change rules.</span>
-            <Button variant="outline" size="sm" class="shrink-0 gap-1.5" onclick={() => void customizeBuiltIn()} disabled={isSaving}>
+          <div
+            class="flex items-center justify-between gap-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs"
+          >
+            <span class="text-muted-foreground"
+              >Built-in definitions are protected. Create an editable copy to add or change rules.</span
+            >
+            <Button
+              variant="outline"
+              size="sm"
+              class="shrink-0 gap-1.5"
+              onclick={() => void customizeBuiltIn()}
+              disabled={isSaving}
+            >
               <Copy class="h-3.5 w-3.5" /> Customize
             </Button>
           </div>
         {/if}
         <div class="flex items-center justify-between gap-3 border-t pt-3">
-          {#if saved}<span class="inline-flex items-center gap-1 text-xs text-emerald-500"><Check class="h-3 w-3" /> Saved</span>{:else}<span></span>{/if}
+          {#if saved}<span class="inline-flex items-center gap-1 text-xs text-emerald-500"
+              ><Check class="h-3 w-3" /> Saved</span
+            >{:else}<span></span>{/if}
           <div class="flex gap-2">
             {#if selectedRuleset && !selectedRuleset.isBuiltin}
-              <Button variant="outline" onclick={() => void deleteSelectedRuleset()} disabled={isSaving} class="gap-2 text-destructive">
+              <Button
+                variant="outline"
+                onclick={() => void deleteSelectedRuleset()}
+                disabled={isSaving}
+                class="text-destructive gap-2"
+              >
                 <Trash2 class="h-3.5 w-3.5" /> Delete
               </Button>
             {/if}
-            <Button onclick={saveRuleset} disabled={isSaving || (selectedRuleset?.isBuiltin ?? false)} class="gap-2">
+            <Button
+              onclick={saveRuleset}
+              disabled={isSaving || (selectedRuleset?.isBuiltin ?? false)}
+              class="gap-2"
+            >
               <Save class="h-3.5 w-3.5" />
               {isSaving ? 'Saving...' : 'Save Ruleset'}
             </Button>
@@ -461,7 +686,14 @@
         <Card>
           <CardHeader class="flex-row items-center justify-between space-y-0 py-3">
             <CardTitle class="text-sm">{group.label} ({group.items.length})</CardTitle>
-            <Button variant="outline" size="icon" class="h-7 w-7" disabled={selectedRuleset?.isBuiltin ?? true} onclick={() => editDefinition(group.kind)} title={`Add ${group.label.toLowerCase()}`}>
+            <Button
+              variant="outline"
+              size="icon"
+              class="h-7 w-7"
+              disabled={selectedRuleset?.isBuiltin ?? true}
+              onclick={() => editDefinition(group.kind)}
+              title={`Add ${group.label.toLowerCase()}`}
+            >
               <Plus class="h-3.5 w-3.5" />
             </Button>
           </CardHeader>
@@ -470,16 +702,35 @@
               <p class="text-muted-foreground text-xs">No {group.label.toLowerCase()} defined.</p>
             {:else}
               {#each group.items as item (item.id)}
-                <div class="flex items-center justify-between gap-2 rounded border border-border/40 px-2 py-1.5 text-xs">
+                <div
+                  class="border-border/40 flex items-center justify-between gap-2 rounded border px-2 py-1.5 text-xs"
+                >
                   <div class="min-w-0">
-                    <span class="text-foreground font-medium">{'key' in item ? item.key : `Level ${item.level}`}</span>
+                    <span class="text-foreground font-medium"
+                      >{'key' in item ? item.key : `Level ${item.level}`}</span
+                    >
                     <span class="text-muted-foreground ml-2">{item.label ?? ''}</span>
                   </div>
                   <div class="flex shrink-0 gap-1">
-                    <Button variant="ghost" size="icon" class="h-6 w-6" disabled={selectedRuleset?.isBuiltin ?? true} onclick={() => editDefinition(group.kind, item as unknown as Record<string, unknown>)} title="Edit definition">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="h-6 w-6"
+                      disabled={selectedRuleset?.isBuiltin ?? true}
+                      onclick={() =>
+                        editDefinition(group.kind, item as unknown as Record<string, unknown>)}
+                      title="Edit definition"
+                    >
                       <Settings2 class="h-3 w-3" />
                     </Button>
-                    <Button variant="ghost" size="icon" class="h-6 w-6 text-destructive" disabled={selectedRuleset?.isBuiltin ?? true} onclick={() => void deleteDefinition(group.kind, item.id)} title="Delete definition">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="text-destructive h-6 w-6"
+                      disabled={selectedRuleset?.isBuiltin ?? true}
+                      onclick={() => void deleteDefinition(group.kind, item.id)}
+                      title="Delete definition"
+                    >
                       <Trash2 class="h-3 w-3" />
                     </Button>
                   </div>
@@ -495,44 +746,191 @@
   {#if draft}
     <Card>
       <CardHeader class="flex-row items-center justify-between space-y-0">
-        <CardTitle class="text-sm">{draft.id ? 'Edit' : 'Add'} {draft.kind.replace('_', ' ')}</CardTitle>
-        <Button variant="ghost" size="icon" class="h-7 w-7" onclick={() => (draft = null)} title="Cancel"><X class="h-4 w-4" /></Button>
+        <CardTitle class="text-sm"
+          >{draft.id ? 'Edit' : 'Add'} {draft.kind.replace('_', ' ')}</CardTitle
+        >
+        <Button
+          variant="ghost"
+          size="icon"
+          class="h-7 w-7"
+          onclick={() => (draft = null)}
+          title="Cancel"><X class="h-4 w-4" /></Button
+        >
       </CardHeader>
       <CardContent class="grid gap-3 sm:grid-cols-2">
-        <div class="space-y-1"><label for="definition-key" class="text-xs font-medium">Key</label><Input id="definition-key" bind:value={draft.key} /></div>
-        <div class="space-y-1"><label for="definition-label" class="text-xs font-medium">Label</label><Input id="definition-label" bind:value={draft.label} /></div>
+        <div class="space-y-1">
+          <label for="definition-key" class="text-xs font-medium">Key</label><Input
+            id="definition-key"
+            bind:value={draft.key}
+          />
+        </div>
+        <div class="space-y-1">
+          <label for="definition-label" class="text-xs font-medium">Label</label><Input
+            id="definition-label"
+            bind:value={draft.label}
+          />
+        </div>
         {#if draft.kind === 'stat'}
-          <div class="space-y-1"><label for="definition-default" class="text-xs font-medium">Default value</label><Input id="definition-default" type="number" bind:value={draft.defaultValue} /></div>
-          <div class="space-y-1"><label for="definition-min" class="text-xs font-medium">Minimum</label><Input id="definition-min" type="number" bind:value={draft.minValue} /></div>
-          <div class="space-y-1"><label for="definition-max" class="text-xs font-medium">Maximum</label><Input id="definition-max" type="number" bind:value={draft.maxValue} /></div>
+          <div class="space-y-1">
+            <label for="definition-default" class="text-xs font-medium">Default value</label><Input
+              id="definition-default"
+              type="number"
+              bind:value={draft.defaultValue}
+            />
+          </div>
+          <div class="space-y-1">
+            <label for="definition-min" class="text-xs font-medium">Minimum</label><Input
+              id="definition-min"
+              type="number"
+              bind:value={draft.minValue}
+            />
+          </div>
+          <div class="space-y-1">
+            <label for="definition-max" class="text-xs font-medium">Maximum</label><Input
+              id="definition-max"
+              type="number"
+              bind:value={draft.maxValue}
+            />
+          </div>
         {:else if draft.kind === 'skill'}
-          <div class="space-y-1"><label for="definition-stat" class="text-xs font-medium">Governing stat key</label><Input id="definition-stat" bind:value={draft.governingStatKey} /></div>
+          <div class="space-y-1">
+            <label for="definition-stat" class="text-xs font-medium">Governing stat key</label
+            ><Input id="definition-stat" bind:value={draft.governingStatKey} />
+          </div>
         {:else if draft.kind === 'slot'}
-          <div class="space-y-1"><label for="definition-slot-type" class="text-xs font-medium">Slot type</label><Select.Root type="single" value={draft!.slotType} onValueChange={(value) => (draft!.slotType = value as 'wearable' | 'inventory')}><Select.Trigger id="definition-slot-type" class="w-full">{draft!.slotType === 'wearable' ? 'Wearable equipment' : 'Carried inventory'}</Select.Trigger><Select.Content><Select.Item value="wearable" label="Wearable equipment">Wearable equipment</Select.Item><Select.Item value="inventory" label="Carried inventory">Carried inventory</Select.Item></Select.Content></Select.Root></div>
+          <div class="space-y-1">
+            <label for="definition-slot-type" class="text-xs font-medium">Slot type</label
+            ><Select.Root
+              type="single"
+              value={draft!.slotType}
+              onValueChange={(value) => (draft!.slotType = value as 'wearable' | 'inventory')}
+              ><Select.Trigger id="definition-slot-type" class="w-full"
+                >{draft!.slotType === 'wearable'
+                  ? 'Wearable equipment'
+                  : 'Carried inventory'}</Select.Trigger
+              ><Select.Content
+                ><Select.Item value="wearable" label="Wearable equipment"
+                  >Wearable equipment</Select.Item
+                ><Select.Item value="inventory" label="Carried inventory"
+                  >Carried inventory</Select.Item
+                ></Select.Content
+              ></Select.Root
+            >
+          </div>
         {:else if draft.kind === 'condition' || draft.kind === 'ability'}
-          <div class="space-y-1 sm:col-span-2"><label for="definition-description" class="text-xs font-medium">Description</label><Textarea id="definition-description" bind:value={draft.description} rows={2} /></div>
-          {#if draft.kind === 'ability'}<div class="space-y-1"><label for="definition-resource" class="text-xs font-medium">Resource key</label><Input id="definition-resource" bind:value={draft.resourceKey} /></div><div class="space-y-1"><label for="definition-cost" class="text-xs font-medium">Resource cost</label><Input id="definition-cost" type="number" bind:value={draft.resourceCost} /></div>{/if}
+          <div class="space-y-1 sm:col-span-2">
+            <label for="definition-description" class="text-xs font-medium">Description</label
+            ><Textarea id="definition-description" bind:value={draft.description} rows={2} />
+          </div>
+          {#if draft.kind === 'ability'}<div class="space-y-1">
+              <label for="definition-resource" class="text-xs font-medium">Resource key</label
+              ><Input id="definition-resource" bind:value={draft.resourceKey} />
+            </div>
+            <div class="space-y-1">
+              <label for="definition-cost" class="text-xs font-medium">Resource cost</label><Input
+                id="definition-cost"
+                type="number"
+                bind:value={draft.resourceCost}
+              />
+            </div>{/if}
         {:else if draft.kind === 'check_rule'}
-          <div class="space-y-1"><label for="definition-notation" class="text-xs font-medium">Notation</label><Input id="definition-notation" bind:value={draft.notation} /></div>
-          <div class="space-y-1"><label for="definition-critical-success" class="text-xs font-medium">Critical success threshold</label><Input id="definition-critical-success" type="number" bind:value={draft.maxValue} /></div>
-          <div class="space-y-1"><label for="definition-critical-failure" class="text-xs font-medium">Critical failure threshold</label><Input id="definition-critical-failure" type="number" bind:value={draft.minValue} /></div>
+          <div class="space-y-1">
+            <label for="definition-notation" class="text-xs font-medium">Notation</label><Input
+              id="definition-notation"
+              bind:value={draft.notation}
+            />
+          </div>
+          <div class="space-y-1">
+            <label for="definition-critical-success" class="text-xs font-medium"
+              >Critical success threshold</label
+            ><Input id="definition-critical-success" type="number" bind:value={draft.maxValue} />
+          </div>
+          <div class="space-y-1">
+            <label for="definition-critical-failure" class="text-xs font-medium"
+              >Critical failure threshold</label
+            ><Input id="definition-critical-failure" type="number" bind:value={draft.minValue} />
+          </div>
         {:else if draft.kind === 'level'}
-          <div class="space-y-1"><label for="definition-level" class="text-xs font-medium">Level</label><Input id="definition-level" type="number" bind:value={draft.level} /></div>
-          <div class="space-y-1"><label for="definition-xp" class="text-xs font-medium">XP threshold</label><Input id="definition-xp" type="number" bind:value={draft.xpThreshold} /></div>
+          <div class="space-y-1">
+            <label for="definition-level" class="text-xs font-medium">Level</label><Input
+              id="definition-level"
+              type="number"
+              bind:value={draft.level}
+            />
+          </div>
+          <div class="space-y-1">
+            <label for="definition-xp" class="text-xs font-medium">XP threshold</label><Input
+              id="definition-xp"
+              type="number"
+              bind:value={draft.xpThreshold}
+            />
+          </div>
         {:else if draft.kind === 'resource'}
-          <div class="space-y-1 sm:col-span-2"><label for="definition-formula" class="text-xs font-medium">Maximum formula</label><Input id="definition-formula" bind:value={draft.maxFormula} placeholder="10 + constitution + level * 5" /></div>
-          <div class="space-y-1"><label for="definition-min-resource" class="text-xs font-medium">Minimum value</label><Input id="definition-min-resource" type="number" bind:value={draft.minValue} /></div>
+          <div class="space-y-1 sm:col-span-2">
+            <label for="definition-formula" class="text-xs font-medium">Maximum formula</label
+            ><Input
+              id="definition-formula"
+              bind:value={draft.maxFormula}
+              placeholder="10 + constitution + level * 5"
+            />
+          </div>
+          <div class="space-y-1">
+            <label for="definition-min-resource" class="text-xs font-medium">Minimum value</label
+            ><Input id="definition-min-resource" type="number" bind:value={draft.minValue} />
+          </div>
         {:else if draft.kind === 'spell'}
-          <div class="space-y-1"><label for="definition-spell-level" class="text-xs font-medium">Spell level</label><Input id="definition-spell-level" type="number" bind:value={draft.level} /></div>
-          <div class="space-y-1"><label for="definition-spell-notation" class="text-xs font-medium">Effect notation</label><Input id="definition-spell-notation" bind:value={draft.notation} placeholder="1d8" /></div>
-          <div class="space-y-1 sm:col-span-2"><label for="definition-spell-description" class="text-xs font-medium">Description</label><Textarea id="definition-spell-description" bind:value={draft.description} rows={2} /></div>
-          <div class="space-y-1"><label for="definition-spell-cost" class="text-xs font-medium">Resource cost</label><Input id="definition-spell-cost" type="number" bind:value={draft.resourceCost} /></div>
+          <div class="space-y-1">
+            <label for="definition-spell-level" class="text-xs font-medium">Spell level</label
+            ><Input id="definition-spell-level" type="number" bind:value={draft.level} />
+          </div>
+          <div class="space-y-1">
+            <label for="definition-spell-notation" class="text-xs font-medium"
+              >Effect notation</label
+            ><Input id="definition-spell-notation" bind:value={draft.notation} placeholder="1d8" />
+          </div>
+          <div class="space-y-1 sm:col-span-2">
+            <label for="definition-spell-description" class="text-xs font-medium">Description</label
+            ><Textarea id="definition-spell-description" bind:value={draft.description} rows={2} />
+          </div>
+          <div class="space-y-1">
+            <label for="definition-spell-cost" class="text-xs font-medium">Resource cost</label
+            ><Input id="definition-spell-cost" type="number" bind:value={draft.resourceCost} />
+          </div>
         {:else if draft.kind === 'creature'}
-          <div class="space-y-1"><label for="definition-creature-type" class="text-xs font-medium">Creature type</label><Input id="definition-creature-type" bind:value={draft.creatureType} placeholder="beast, undead, humanoid" /></div>
-          <div class="space-y-1 sm:col-span-2"><label for="definition-creature-description" class="text-xs font-medium">Description</label><Textarea id="definition-creature-description" bind:value={draft.description} rows={2} /></div>
-          <div class="space-y-1 sm:col-span-2"><label for="definition-stat-block" class="text-xs font-medium">Stat block JSON</label><Textarea id="definition-stat-block" bind:value={draft.statBlock} rows={6} class="font-mono text-xs" placeholder={'{"health": 10, "defense": 12}'} /></div>
+          <div class="space-y-1">
+            <label for="definition-creature-type" class="text-xs font-medium">Creature type</label
+            ><Input
+              id="definition-creature-type"
+              bind:value={draft.creatureType}
+              placeholder="beast, undead, humanoid"
+            />
+          </div>
+          <div class="space-y-1 sm:col-span-2">
+            <label for="definition-creature-description" class="text-xs font-medium"
+              >Description</label
+            ><Textarea
+              id="definition-creature-description"
+              bind:value={draft.description}
+              rows={2}
+            />
+          </div>
+          <div class="space-y-1 sm:col-span-2">
+            <label for="definition-stat-block" class="text-xs font-medium">Stat block JSON</label
+            ><Textarea
+              id="definition-stat-block"
+              bind:value={draft.statBlock}
+              rows={6}
+              class="font-mono text-xs"
+              placeholder={'{"health": 10, "defense": 12}'}
+            />
+          </div>
         {/if}
-        <div class="flex justify-end gap-2 sm:col-span-2"><Button variant="ghost" onclick={() => (draft = null)}>Cancel</Button><Button onclick={() => void saveDefinition()} class="gap-2"><Save class="h-3.5 w-3.5" />Save Definition</Button></div>
+        <div class="flex justify-end gap-2 sm:col-span-2">
+          <Button variant="ghost" onclick={() => (draft = null)}>Cancel</Button><Button
+            onclick={() => void saveDefinition()}
+            class="gap-2"><Save class="h-3.5 w-3.5" />Save Definition</Button
+          >
+        </div>
       </CardContent>
     </Card>
   {/if}

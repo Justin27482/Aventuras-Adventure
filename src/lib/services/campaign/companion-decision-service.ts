@@ -27,16 +27,10 @@ export class CompanionDecisionService {
   private proposals: CompanionDecisionProposal[] = []
 
   propose(input: CompanionDecisionInput): CompanionDecisionProposal {
-    if (
-      input.source !== 'gm' &&
-      input.actorCategory !== 'active_companion'
-    ) {
+    if (input.source !== 'gm' && input.actorCategory !== 'active_companion') {
       throw new Error('Only active companions may receive non-GM companion decisions')
     }
-    if (
-      input.controlMode === 'tactical_player' &&
-      input.actorCategory !== 'active_companion'
-    ) {
+    if (input.controlMode === 'tactical_player' && input.actorCategory !== 'active_companion') {
       throw new Error('Enemies and ordinary NPCs cannot receive player tactical control')
     }
 

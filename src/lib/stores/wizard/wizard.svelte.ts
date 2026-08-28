@@ -799,7 +799,10 @@ export class WizardStore {
       console.info('[Wizard] Story transaction completed', { storyId: newStory.id })
 
       // Assign pack and save custom variable values
-      console.info('[Wizard] Assigning story pack', { storyId: newStory.id, packId: this.selectedPackId })
+      console.info('[Wizard] Assigning story pack', {
+        storyId: newStory.id,
+        packId: this.selectedPackId,
+      })
       await database.setStoryPack(newStory.id, this.selectedPackId)
       console.info('[Wizard] Story pack assigned', { storyId: newStory.id })
       if (Object.keys(this.customVariableValues).length > 0) {

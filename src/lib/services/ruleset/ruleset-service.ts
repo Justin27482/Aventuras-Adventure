@@ -138,21 +138,43 @@ class RulesetService {
     const rulesetRow = await database.getRuleset(id)
     if (!rulesetRow) return null
 
-    const [stats, skills, checkRules, conditions, slots, abilities, levels, resources, spells, creatures] =
-      await Promise.all([
-        database.getRulesetStats(id),
-        database.getRulesetSkills(id),
-        database.getRulesetCheckRules(id),
-        database.getRulesetConditions(id),
-        database.getRulesetSlots(id),
-        database.getRulesetAbilities(id),
-        database.getRulesetLevels(id),
-        database.getRulesetResources(id),
-        database.getRulesetSpells(id),
-        database.getRulesetCreatures(id),
-      ])
+    const [
+      stats,
+      skills,
+      checkRules,
+      conditions,
+      slots,
+      abilities,
+      levels,
+      resources,
+      spells,
+      creatures,
+    ] = await Promise.all([
+      database.getRulesetStats(id),
+      database.getRulesetSkills(id),
+      database.getRulesetCheckRules(id),
+      database.getRulesetConditions(id),
+      database.getRulesetSlots(id),
+      database.getRulesetAbilities(id),
+      database.getRulesetLevels(id),
+      database.getRulesetResources(id),
+      database.getRulesetSpells(id),
+      database.getRulesetCreatures(id),
+    ])
 
-    return { ruleset: rulesetRow, stats, skills, checkRules, conditions, slots, abilities, levels, resources, spells, creatures }
+    return {
+      ruleset: rulesetRow,
+      stats,
+      skills,
+      checkRules,
+      conditions,
+      slots,
+      abilities,
+      levels,
+      resources,
+      spells,
+      creatures,
+    }
   }
 
   async importFullRuleset(bundle: FullRuleset): Promise<void> {
@@ -165,16 +187,52 @@ class RulesetService {
     }
     await database.upsertRuleset(imported)
     await Promise.all([
-      ...bundle.stats.map((item) => database.upsertRulesetStat({ ...item, rulesetId: imported.id, id: crypto.randomUUID() })),
-      ...bundle.skills.map((item) => database.upsertRulesetSkill({ ...item, rulesetId: imported.id, id: crypto.randomUUID() })),
-      ...bundle.checkRules.map((item) => database.upsertRulesetCheckRule({ ...item, rulesetId: imported.id, id: crypto.randomUUID() })),
-      ...bundle.conditions.map((item) => database.upsertRulesetCondition({ ...item, rulesetId: imported.id, id: crypto.randomUUID() })),
-      ...bundle.slots.map((item) => database.upsertRulesetSlot({ ...item, rulesetId: imported.id, id: crypto.randomUUID() })),
-      ...bundle.abilities.map((item) => database.upsertRulesetAbility({ ...item, rulesetId: imported.id, id: crypto.randomUUID() })),
-      ...bundle.levels.map((item) => database.upsertRulesetLevel({ ...item, rulesetId: imported.id, id: crypto.randomUUID() })),
-      ...bundle.resources.map((item) => database.upsertRulesetResource({ ...item, rulesetId: imported.id, id: crypto.randomUUID() })),
-      ...bundle.spells.map((item) => database.upsertRulesetSpell({ ...item, rulesetId: imported.id, id: crypto.randomUUID() })),
-      ...bundle.creatures.map((item) => database.upsertRulesetCreature({ ...item, rulesetId: imported.id, id: crypto.randomUUID() })),
+      ...bundle.stats.map((item) =>
+        database.upsertRulesetStat({ ...item, rulesetId: imported.id, id: crypto.randomUUID() }),
+      ),
+      ...bundle.skills.map((item) =>
+        database.upsertRulesetSkill({ ...item, rulesetId: imported.id, id: crypto.randomUUID() }),
+      ),
+      ...bundle.checkRules.map((item) =>
+        database.upsertRulesetCheckRule({
+          ...item,
+          rulesetId: imported.id,
+          id: crypto.randomUUID(),
+        }),
+      ),
+      ...bundle.conditions.map((item) =>
+        database.upsertRulesetCondition({
+          ...item,
+          rulesetId: imported.id,
+          id: crypto.randomUUID(),
+        }),
+      ),
+      ...bundle.slots.map((item) =>
+        database.upsertRulesetSlot({ ...item, rulesetId: imported.id, id: crypto.randomUUID() }),
+      ),
+      ...bundle.abilities.map((item) =>
+        database.upsertRulesetAbility({ ...item, rulesetId: imported.id, id: crypto.randomUUID() }),
+      ),
+      ...bundle.levels.map((item) =>
+        database.upsertRulesetLevel({ ...item, rulesetId: imported.id, id: crypto.randomUUID() }),
+      ),
+      ...bundle.resources.map((item) =>
+        database.upsertRulesetResource({
+          ...item,
+          rulesetId: imported.id,
+          id: crypto.randomUUID(),
+        }),
+      ),
+      ...bundle.spells.map((item) =>
+        database.upsertRulesetSpell({ ...item, rulesetId: imported.id, id: crypto.randomUUID() }),
+      ),
+      ...bundle.creatures.map((item) =>
+        database.upsertRulesetCreature({
+          ...item,
+          rulesetId: imported.id,
+          id: crypto.randomUUID(),
+        }),
+      ),
     ])
   }
 }

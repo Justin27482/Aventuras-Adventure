@@ -56,8 +56,8 @@ export interface AventuraExport {
 // v1.5.0 - Added character portraits
 // v1.6.0 - Added checkpoints and branches
 // v1.7.0 - Added chapters (memory system)
-  // v1.9.0 - Added chapterSources (raw imported chapter text)
-  // v2.0.0 - Added campaign settings, planning threads, and scene state
+// v1.9.0 - Added chapterSources (raw imported chapter text)
+// v2.0.0 - Added campaign settings, planning threads, and scene state
 
 class ExportService {
   private readonly VERSION = '1.9.0'
@@ -145,7 +145,10 @@ class ExportService {
     chapters: Chapter[] = [],
     chapterSources: ChapterSource[] = [],
     currentBgImage: string | null = null,
-    campaignData: Pick<AventuraExport, 'campaign' | 'campaignSettings' | 'campaignThreads' | 'campaignThreadBeats' | 'sceneTurnState'> = {},
+    campaignData: Pick<
+      AventuraExport,
+      'campaign' | 'campaignSettings' | 'campaignThreads' | 'campaignThreadBeats' | 'sceneTurnState'
+    > = {},
   ): Promise<boolean> {
     const exportData: AventuraExport = {
       version: this.VERSION,
@@ -882,11 +885,15 @@ class ExportService {
             ...data.sceneTurnState,
             id: crypto.randomUUID(),
             campaignId: importedCampaignId,
-            entryId: data.sceneTurnState.entryId ? (oldToNewId.get(data.sceneTurnState.entryId) ?? null) : null,
+            entryId: data.sceneTurnState.entryId
+              ? (oldToNewId.get(data.sceneTurnState.entryId) ?? null)
+              : null,
             activeActorId: data.sceneTurnState.activeActorId
               ? (oldToNewId.get(data.sceneTurnState.activeActorId) ?? null)
               : null,
-            actorOrder: data.sceneTurnState.actorOrder.map((actorId) => oldToNewId.get(actorId) ?? actorId),
+            actorOrder: data.sceneTurnState.actorOrder.map(
+              (actorId) => oldToNewId.get(actorId) ?? actorId,
+            ),
             updatedAt: Date.now(),
           })
         }

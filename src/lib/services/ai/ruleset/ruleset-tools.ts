@@ -37,7 +37,8 @@ export function createRulesetTools(context: RulesetToolContext) {
 
   return {
     read_ruleset: tool({
-      description: 'Read the complete current ruleset, including stats, skills, checks, conditions, slots, abilities, levels, resources, spells, and monster stat blocks.',
+      description:
+        'Read the complete current ruleset, including stats, skills, checks, conditions, slots, abilities, levels, resources, spells, and monster stat blocks.',
       inputSchema: z.object({}),
       execute: async () => ({
         ruleset: context.ruleset,
@@ -45,7 +46,8 @@ export function createRulesetTools(context: RulesetToolContext) {
     }),
 
     list_definitions: tool({
-      description: 'List definitions of one category from the current ruleset. Use this before proposing updates.',
+      description:
+        'List definitions of one category from the current ruleset. Use this before proposing updates.',
       inputSchema: z.object({
         kind: z.enum(definitionKinds),
       }),
@@ -67,11 +69,17 @@ export function createRulesetTools(context: RulesetToolContext) {
     }),
 
     propose_definition: tool({
-      description: 'Propose a new or updated ruleset definition. Proposals require approval and are never applied automatically.',
+      description:
+        'Propose a new or updated ruleset definition. Proposals require approval and are never applied automatically.',
       inputSchema: z.object({
         kind: z.enum(definitionKinds),
-        definition: z.record(z.unknown()).describe('Definition fields appropriate to the selected category.'),
-        existingId: z.string().optional().describe('Existing definition ID to update instead of creating a new definition.'),
+        definition: z
+          .record(z.unknown())
+          .describe('Definition fields appropriate to the selected category.'),
+        existingId: z
+          .string()
+          .optional()
+          .describe('Existing definition ID to update instead of creating a new definition.'),
         reason: z.string().describe('Why this definition should be added or changed.'),
       }),
       execute: async ({ kind, definition, existingId, reason }) => {
@@ -83,25 +91,44 @@ export function createRulesetTools(context: RulesetToolContext) {
           reason,
         }
         context.onProposal(proposal)
-        return { success: true, proposal, message: 'Ruleset definition proposal created; approval is required before applying it.' }
+        return {
+          success: true,
+          proposal,
+          message: 'Ruleset definition proposal created; approval is required before applying it.',
+        }
       },
     }),
 
     propose_ruleset_update: tool({
-      description: 'Propose changes to ruleset metadata or encumbrance configuration. Changes require approval.',
+      description:
+        'Propose changes to ruleset metadata or encumbrance configuration. Changes require approval.',
       inputSchema: z.object({
-        updates: z.record(z.unknown()).describe('Allowed fields include name, description, diceSystem, defaultCheckRuleKey, encumbranceMode, encumbranceCapacityFormula, and inventorySlotCapacityFormula.'),
+        updates: z
+          .record(z.unknown())
+          .describe(
+            'Allowed fields include name, description, diceSystem, defaultCheckRuleKey, encumbranceMode, encumbranceCapacityFormula, and inventorySlotCapacityFormula.',
+          ),
         reason: z.string().describe('Why this ruleset change is needed.'),
       }),
       execute: async ({ updates, reason }) => {
-        const proposal: RulesetProposal = { id: generateId(), type: 'update_ruleset', updates, reason }
+        const proposal: RulesetProposal = {
+          id: generateId(),
+          type: 'update_ruleset',
+          updates,
+          reason,
+        }
         context.onProposal(proposal)
-        return { success: true, proposal, message: 'Ruleset update proposal created; approval is required before applying it.' }
+        return {
+          success: true,
+          proposal,
+          message: 'Ruleset update proposal created; approval is required before applying it.',
+        }
       },
     }),
 
     finish_ruleset_assistant: tool({
-      description: 'Finish the ruleset design conversation after answering the user or creating proposals.',
+      description:
+        'Finish the ruleset design conversation after answering the user or creating proposals.',
       inputSchema: z.object({ summary: z.string() }),
       execute: async ({ summary }) => ({ completed: true, summary }),
     }),

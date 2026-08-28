@@ -467,7 +467,7 @@ function createStoryTools(context: StoryToolContext) {
 
   return {
     /**
-    * List available sessions for querying.
+     * List available sessions for querying.
      */
     list_sessions: tool({
       description:
@@ -494,7 +494,7 @@ function createStoryTools(context: StoryToolContext) {
     }),
 
     /**
-    * Ask a question about a specific session.
+     * Ask a question about a specific session.
      */
     query_session: tool({
       description:

@@ -207,7 +207,8 @@ Write an immersive opening that drops the reader into the story. Remember: descr
 const openingRefinementAdventurePromptTemplate: PromptTemplate = {
   id: 'opening-refinement-adventure',
   name: 'Opening Refinement (Adventure)',
-  category: 'wizard',  description: 'Refines the opening scene for adventure mode (player controls the protagonist)',
+  category: 'wizard',
+  description: 'Refines the opening scene for adventure mode (player controls the protagonist)',
   content: `You are refining the opening scene of an interactive {{ genreLabel }} adventure.
 
 <critical_constraints>

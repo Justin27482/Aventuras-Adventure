@@ -75,7 +75,16 @@
       ...story.characters.map((c) => c.name),
     ]
     const result = handleInlineControlTags(initialContent, {
-      sceneModes: ['free', 'exploration', 'travel', 'camp', 'settlement', 'combat', 'social', 'downtime'],
+      sceneModes: [
+        'free',
+        'exploration',
+        'travel',
+        'camp',
+        'settlement',
+        'combat',
+        'social',
+        'downtime',
+      ],
       actorIds: validActorIds,
     })
 
@@ -93,11 +102,14 @@
         let targetActorId = campaign.sceneTurnState?.activeActorId ?? null
         if (intent.actorId) {
           const matchChar = story.characters.find(
-            (c) => c.id === intent.actorId || c.name.toLowerCase() === intent.actorId?.toLowerCase(),
+            (c) =>
+              c.id === intent.actorId || c.name.toLowerCase() === intent.actorId?.toLowerCase(),
           )
           if (matchChar) targetActorId = matchChar.id
         }
-        const rollResult = await (await import('$lib/services/dice')).roll({
+        const rollResult = await (
+          await import('$lib/services/dice')
+        ).roll({
           campaignId: campaign.current.id,
           sessionId: campaign.activeSession?.id ?? null,
           actorId: targetActorId,
@@ -124,7 +136,12 @@
       } else if (intent.kind === 'scene' && intent.mode) {
         const previousScene = campaign.sceneTurnState?.sceneMode ?? 'free'
         await campaign.setSceneMode(intent.mode as Parameters<typeof campaign.setSceneMode>[0])
-        eventBus.emit({ type: 'SceneChanged', campaignId: campaign.current.id, fromScene: previousScene, toScene: intent.mode })
+        eventBus.emit({
+          type: 'SceneChanged',
+          campaignId: campaign.current.id,
+          fromScene: previousScene,
+          toScene: intent.mode,
+        })
       } else if (intent.kind === 'actor' && intent.actorId) {
         const matchChar = story.characters.find(
           (c) => c.id === intent.actorId || c.name.toLowerCase() === intent.actorId?.toLowerCase(),
@@ -153,7 +170,8 @@
 
       const rollSummary = executedRollEntries
         .map((entry) => {
-          const actor = story.characters.find((c) => c.id === entry.actorId)?.name ?? entry.actorId ?? 'Actor'
+          const actor =
+            story.characters.find((c) => c.id === entry.actorId)?.name ?? entry.actorId ?? 'Actor'
           const dcText = entry.dc !== null ? ` vs DC ${entry.dc}` : ''
           const outcomeText = entry.outcome ? ` (${entry.outcome.replace('_', ' ')})` : ''
           const reasonText = entry.reason ? `: ${entry.reason}` : ''
@@ -164,10 +182,13 @@
       const continuationPrompt = `[DICE ROLL RESULT: ${rollSummary}]\n\nNarrate the outcome of the roll and continue the story naturally. Do not repeat previous narration.`
 
       try {
-        const continuationText = await (await import('$lib/services/ai/sdk')).generatePlainText(
+        const continuationText = await (
+          await import('$lib/services/ai/sdk')
+        ).generatePlainText(
           {
             presetId: 'suggestions',
-            system: 'You are the narrator of an interactive adventure. Continue the narrative naturally based on the roll outcome. Keep safety and content rules intact.',
+            system:
+              'You are the narrator of an interactive adventure. Continue the narrative naturally based on the roll outcome. Keep safety and content rules intact.',
             prompt: continuationPrompt,
             signal: activeAbortController?.signal,
           },
@@ -244,7 +265,9 @@
   let replaceText = $state('"')
   let replacingAll = $state(false)
 
-  const unsubscribeRollRequested = eventBus.subscribe('RollRequested', ((event: Extract<AventuraEvent, { type: 'RollRequested' }>) => {
+  const unsubscribeRollRequested = eventBus.subscribe('RollRequested', ((
+    event: Extract<AventuraEvent, { type: 'RollRequested' }>,
+  ) => {
     if (event.campaignId !== campaign.current?.id) return
     pendingPlayerRoll = {
       notation: event.notation,
@@ -253,7 +276,9 @@
     }
   }) as never)
 
-  const unsubscribeDiceRolled = eventBus.subscribe('DiceRolled', ((event: Extract<AventuraEvent, { type: 'DiceRolled' }>) => {
+  const unsubscribeDiceRolled = eventBus.subscribe('DiceRolled', ((
+    event: Extract<AventuraEvent, { type: 'DiceRolled' }>,
+  ) => {
     if (event.campaignId !== campaign.current?.id || !pendingPlayerRoll) return
     pendingPlayerRoll = null
   }) as never)
@@ -328,7 +353,9 @@
           actorId
         return { id: actorId, name }
       })
-      .filter((actor, index, list) => list.findIndex((candidate) => candidate.id === actor.id) === index)
+      .filter(
+        (actor, index, list) => list.findIndex((candidate) => candidate.id === actor.id) === index,
+      )
   })
 
   $effect(() => {
@@ -758,10 +785,7 @@
       const activationTracker = ui.getActivationTracker(storyPosition) as SimpleActivationTracker
       const embeddedImages = await database.getEmbeddedImagesForStory(currentStoryRef.id)
       const protagonist = story.characters.find((c) => c.relationship === 'self')
-      const activeActorName =
-        getActingCharacter()?.name ??
-        protagonist?.name ??
-        'the protagonist'
+      const activeActorName = getActingCharacter()?.name ?? protagonist?.name ?? 'the protagonist'
 
       const ctx: GenerationContext = {
         story: currentStoryRef,
@@ -1467,13 +1491,17 @@
   <GrammarCheck text={inputValue} onApplySuggestion={(newText) => (inputValue = newText)} />
 
   {#if campaign.current && campaign.sceneTurnState && turnActors.length > 0}
-    <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-700/80 bg-slate-900/60 px-2.5 py-2">
-      <label class="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400">
+    <div
+      class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-700/80 bg-slate-900/60 px-2.5 py-2"
+    >
+      <label
+        class="flex items-center gap-2 text-[11px] font-medium tracking-[0.12em] text-slate-400 uppercase"
+      >
         Acting as
         <select
           value={actingAsId ?? ''}
           onchange={(event) => void handleActingAsChange(event.currentTarget.value)}
-          class="rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200 outline-none ring-0"
+          class="rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200 ring-0 outline-none"
         >
           {#each turnActors as actor (actor.id)}
             <option value={actor.id}>{actor.name}</option>
@@ -1525,14 +1553,14 @@
           placeholder={blockFreeTextForRoll
             ? `Resolve ${pendingPlayerRoll?.notation ?? 'the outstanding roll'} to continue`
             : actionType === 'story'
-            ? 'Describe what happens...'
-            : actionType === 'say'
-              ? 'What do you say?'
-              : actionType === 'think'
-                ? 'What are you thinking?'
-                : actionType === 'free'
-                  ? 'Write anything...'
-                  : 'What do you do?'}
+              ? 'Describe what happens...'
+              : actionType === 'say'
+                ? 'What do you say?'
+                : actionType === 'think'
+                  ? 'What are you thinking?'
+                  : actionType === 'free'
+                    ? 'Write anything...'
+                    : 'What do you do?'}
           class="text-surface-200 placeholder-surface-500 max-h-[160px] min-h-[24px] w-full resize-none border-none bg-transparent px-2 text-base leading-relaxed focus:ring-0 focus:outline-none sm:min-h-[24px]"
           rows="1"
         ></textarea>
@@ -1558,7 +1586,7 @@
             ? 'Resolve the outstanding roll before entering another action'
             : blockGeneration
               ? 'AI configuration incomplete — check Settings'
-            : `Send (${sendKeyHint})`}><Send class="h-6 w-6" /></button
+              : `Send (${sendKeyHint})`}><Send class="h-6 w-6" /></button
         >{/if}
     </div>
   </div>

@@ -106,10 +106,7 @@
       ui.setActivePanel('story')
     } catch (error) {
       console.error('[LibraryView] Failed to open story:', error)
-      ui.showToast(
-        error instanceof Error ? error.message : 'Failed to open campaign',
-        'error',
-      )
+      ui.showToast(error instanceof Error ? error.message : 'Failed to open campaign', 'error')
     }
   }
 
@@ -368,11 +365,9 @@
       <EmptyState
         icon={libraryView === 'campaigns' ? BookOpen : Archive}
         title={libraryView === 'campaigns' ? 'No active campaigns yet' : 'Legacy archive is empty'}
-        description={
-          libraryView === 'campaigns'
-            ? 'Create your first campaign to get started.'
-            : 'Older story content remains separate from the active Campaign Engine.'
-        }
+        description={libraryView === 'campaigns'
+          ? 'Create your first campaign to get started.'
+          : 'Older story content remains separate from the active Campaign Engine.'}
         actionLabel={libraryView === 'campaigns' ? 'Create Campaign' : undefined}
         onAction={libraryView === 'campaigns' ? openSetupWizard : undefined}
         class="pb-20"
@@ -426,13 +421,6 @@
           </section>
         {/if}
       </div>
-    {:else if filteredStories.length === 0}
-      <EmptyState
-        icon={FolderOpen}
-        title="No campaigns in this view"
-        description="Move campaigns into this folder from the card dropdown."
-        class="pb-20"
-      />
     {:else}
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {#each filteredStories as s (s.id)}

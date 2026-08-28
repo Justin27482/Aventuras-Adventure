@@ -11,7 +11,10 @@ export interface InventoryGroup {
 }
 
 /** `characterId: null` is the shared stash bucket for unowned items. */
-export function groupInventoryByOwner(items: Item[], members: CampaignPartyMember[]): InventoryGroup[] {
+export function groupInventoryByOwner(
+  items: Item[],
+  members: CampaignPartyMember[],
+): InventoryGroup[] {
   const orderedOwnerIds = members
     .sort((a, b) => a.displayOrder - b.displayOrder)
     .map((member) => member.characterId)

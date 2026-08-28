@@ -30,7 +30,9 @@ describe('RulesValidatorService', () => {
     expect(invalidResult.valid).toBe(false)
     expect(invalidResult.errors).toContain('Level must be at least 1')
     expect(invalidResult.errors).toContain('XP cannot be negative')
-    expect(invalidResult.errors).toContain('Resource "health" current value (-5) cannot be negative')
+    expect(invalidResult.errors).toContain(
+      'Resource "health" current value (-5) cannot be negative',
+    )
   })
 
   it('validates negative money protection', () => {

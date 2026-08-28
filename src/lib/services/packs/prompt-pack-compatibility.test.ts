@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PackTemplate } from './types'
 import { checkPromptPackCompatibility } from './prompt-pack-compatibility'
-import { PROMPT_TEMPLATES } from '$lib/services/prompts/templates'
 
 function template(templateId: string, content: string): PackTemplate {
   return {
@@ -29,12 +28,7 @@ describe('checkPromptPackCompatibility', () => {
 
   it('reports unknown variables while allowing registered campaign variables', () => {
     const report = checkPromptPackCompatibility(
-      [
-        template(
-          'turn-order-context',
-          '{{ activeActorName }} {{ sceneMode }} {{ notRegistered }}',
-        ),
-      ],
+      [template('turn-order-context', '{{ activeActorName }} {{ sceneMode }} {{ notRegistered }}')],
       ['turn-order-context'],
     )
 

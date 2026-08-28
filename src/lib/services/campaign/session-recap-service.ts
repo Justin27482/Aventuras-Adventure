@@ -23,15 +23,24 @@ export function buildSessionRecapSource(input: SessionRecapInput): string {
     .join('\n')
   const chapterBlock = input.chapters
     .slice(-8)
-    .map((chapter) => `- ${chapter.title ?? `Chapter ${chapter.number}`}: ${compact(chapter.summary, 500)}`)
+    .map(
+      (chapter) =>
+        `- ${chapter.title ?? `Chapter ${chapter.number}`}: ${compact(chapter.summary, 500)}`,
+    )
     .join('\n')
   const rollBlock = input.rolls
     .slice(0, 20)
-    .map((roll) => `- ${roll.actorId ?? 'unknown actor'} rolled ${roll.notation} = ${roll.total}${roll.dc === null ? '' : ` vs DC ${roll.dc}`} (${roll.outcome ?? 'unresolved'})${roll.reason ? `: ${roll.reason}` : ''}`)
+    .map(
+      (roll) =>
+        `- ${roll.actorId ?? 'unknown actor'} rolled ${roll.notation} = ${roll.total}${roll.dc === null ? '' : ` vs DC ${roll.dc}`} (${roll.outcome ?? 'unresolved'})${roll.reason ? `: ${roll.reason}` : ''}`,
+    )
     .join('\n')
   const threadBlock = input.threads
     .filter((thread) => thread.status === 'active' || thread.status === 'dormant')
-    .map((thread) => `- [${thread.visibility}] ${thread.title}: ${compact(thread.summary, 400) ?? 'No summary'}; clock ${thread.clockValue}${thread.clockMax === null ? '' : `/${thread.clockMax}`}`)
+    .map(
+      (thread) =>
+        `- [${thread.visibility}] ${thread.title}: ${compact(thread.summary, 400) ?? 'No summary'}; clock ${thread.clockValue}${thread.clockMax === null ? '' : `/${thread.clockMax}`}`,
+    )
     .join('\n')
 
   return [

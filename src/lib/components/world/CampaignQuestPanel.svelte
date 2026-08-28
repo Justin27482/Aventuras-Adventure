@@ -17,7 +17,9 @@
         database.getCampaignThreads(campaign.current.id, { visibility: 'player_safe' }),
         database.getCampaignThreadBeats(campaign.current.id, { visibility: 'player_safe' }),
       ])
-      threads = nextThreads.filter((thread) => thread.status === 'active' || thread.status === 'dormant')
+      threads = nextThreads.filter(
+        (thread) => thread.status === 'active' || thread.status === 'dormant',
+      )
       beats = nextBeats
     } catch (error) {
       console.warn('[CampaignQuestPanel] Failed to load campaign threads:', error)
@@ -56,7 +58,9 @@
             <p class="text-muted-foreground mt-1 text-xs">{thread.summary}</p>
           {/if}
           {#if thread.clockMax !== null}
-            <p class="text-muted-foreground mt-1 text-[11px]">Progress: {thread.clockValue}/{thread.clockMax}</p>
+            <p class="text-muted-foreground mt-1 text-[11px]">
+              Progress: {thread.clockValue}/{thread.clockMax}
+            </p>
           {/if}
           {#if threadBeats(thread.id).length > 0}
             <div class="mt-2 space-y-1">

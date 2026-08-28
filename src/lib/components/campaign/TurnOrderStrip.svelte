@@ -8,7 +8,8 @@
 
   const activeActorName = $derived(
     activeActor
-      ? story.characters.find((character) => character.id === activeActor.id)?.name ?? activeActor.name
+      ? (story.characters.find((character) => character.id === activeActor.id)?.name ??
+          activeActor.name)
       : 'No active actor',
   )
 
@@ -28,11 +29,15 @@
   <div class="border-border bg-card/80 border-b px-3 py-2 backdrop-blur-sm sm:px-6">
     <div class="mx-auto flex max-w-6xl items-center justify-between gap-3">
       <div class="flex min-w-0 items-center gap-2 text-sm text-slate-200">
-        <div class="bg-primary/15 text-primary flex h-8 w-8 items-center justify-center rounded-full">
+        <div
+          class="bg-primary/15 text-primary flex h-8 w-8 items-center justify-center rounded-full"
+        >
           <Sword class="h-4 w-4" />
         </div>
         <div class="min-w-0">
-          <div class="flex items-center gap-2 text-[11px] uppercase tracking-[0.12em] text-slate-400">
+          <div
+            class="flex items-center gap-2 text-[11px] tracking-[0.12em] text-slate-400 uppercase"
+          >
             <span>Scene</span>
             <span class="text-slate-300">{sceneLabel}</span>
             <span class="text-slate-500">•</span>

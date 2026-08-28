@@ -49,7 +49,8 @@ export function validateItemOwnership(
   if (ownership.ownerCharacterId !== null) {
     const owner = members.find(
       (member) =>
-        member.characterId === ownership.ownerCharacterId && member.eligibilityStatus !== 'deceased',
+        member.characterId === ownership.ownerCharacterId &&
+        member.eligibilityStatus !== 'deceased',
     )
     if (!owner) throw new Error('Item owner must be an eligible campaign character')
   }

@@ -53,11 +53,7 @@
   const storyTab = { id: 'story-settings' as const, label: 'Story', icon: BookOpen }
 
   const campaignTab = { id: 'campaign-settings' as const, label: 'Campaign', icon: Swords }
-  let tabs = $derived(
-    story.currentStory
-      ? [campaignTab, storyTab, ...baseTabs]
-      : baseTabs,
-  )
+  let tabs = $derived(story.currentStory ? [campaignTab, storyTab, ...baseTabs] : baseTabs)
   let activeTab = $derived(tabs.find((t) => t.id === ui.settingsTab) ?? tabs[0])
 
   // Fall back to 'api' if story tab is active but story is unloaded

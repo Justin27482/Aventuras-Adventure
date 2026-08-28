@@ -50,7 +50,9 @@ export function buildWorldCharterDraft(input: WorldCharterDraftInput): string {
     list([
       protagonist?.name ? `The primary character is ${protagonist.name}.` : '',
       currentLocation?.name ? `The current location is ${currentLocation.name}.` : '',
-      ...input.lorebookEntries.slice(0, 6).map((entry) => `${entry.name}: ${preview(entry.description, 160) ?? ''}`),
+      ...input.lorebookEntries
+        .slice(0, 6)
+        .map((entry) => `${entry.name}: ${preview(entry.description, 160) ?? ''}`),
     ]),
     '',
     `## Tone and Themes`,
@@ -61,22 +63,35 @@ export function buildWorldCharterDraft(input: WorldCharterDraftInput): string {
     '',
     `## Important Characters`,
     list([
-      protagonist ? `${protagonist.name}: ${preview(protagonist.description, 160) ?? 'Primary character.'}` : '',
-      ...companions.slice(0, 8).map((character) => `${character.name}: ${preview(character.description, 160) ?? character.relationship ?? 'Companion or known character.'}`),
+      protagonist
+        ? `${protagonist.name}: ${preview(protagonist.description, 160) ?? 'Primary character.'}`
+        : '',
+      ...companions
+        .slice(0, 8)
+        .map(
+          (character) =>
+            `${character.name}: ${preview(character.description, 160) ?? character.relationship ?? 'Companion or known character.'}`,
+        ),
     ]),
     '',
     `## Places`,
     list(
       input.locations
         .slice(0, 8)
-        .map((location) => `${location.name}${location.current ? ' (current)' : ''}: ${preview(location.description, 160) ?? 'No description yet.'}`),
+        .map(
+          (location) =>
+            `${location.name}${location.current ? ' (current)' : ''}: ${preview(location.description, 160) ?? 'No description yet.'}`,
+        ),
     ),
     '',
     `## Active Threads`,
     list(
       activeBeats
         .slice(0, 8)
-        .map((beat) => `${beat.title} [${beat.status}]: ${preview(beat.description, 160) ?? 'No description yet.'}`),
+        .map(
+          (beat) =>
+            `${beat.title} [${beat.status}]: ${preview(beat.description, 160) ?? 'No description yet.'}`,
+        ),
     ),
     '',
     `## Recent Direction`,

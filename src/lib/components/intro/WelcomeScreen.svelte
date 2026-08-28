@@ -138,8 +138,14 @@
   out:fade={{ duration: 300 }}
 >
   <div class="mb-8 flex flex-col items-center space-y-3">
-    <img src="/campaign-engine-mark.svg" alt="Campaign Engine" class="h-20 w-20 drop-shadow-[0_0_28px_hsl(32_92%_54%_/_0.28)]" />
-    <h1 class="text-foreground text-4xl font-bold tracking-tight">Welcome to the Campaign Engine</h1>
+    <img
+      src="/campaign-engine-mark.svg"
+      alt="Campaign Engine"
+      class="h-20 w-20 drop-shadow-[0_0_28px_hsl(32_92%_54%_/_0.28)]"
+    />
+    <h1 class="text-foreground text-4xl font-bold tracking-tight">
+      Welcome to the Campaign Engine
+    </h1>
     <p class="text-muted-foreground text-lg">
       {#if step === 'interface'}
         Configure your GM workspace and begin your next campaign

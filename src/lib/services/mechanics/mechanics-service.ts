@@ -141,7 +141,7 @@ class MechanicsService {
     return updated
   }
 
-  async adjustMoney(storyId: string, delta: number, reason: string): Promise<number> {
+  async adjustMoney(storyId: string, delta: number, _reason: string): Promise<number> {
     assertNoCoercedConsentMutation({ kind: 'adjust_money', note: String(delta) })
     const storyData = await database.getStory(storyId)
     if (!storyData) throw new Error(`Story not found: "${storyId}"`)

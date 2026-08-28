@@ -5,12 +5,8 @@
  * inventory ownership, money balances, party limits, and content safety guardrails.
  */
 
-import type { CampaignPartyMember, CharacterSheet, Item } from '$lib/types'
-import {
-  assertNoCoercedConsentMutation,
-  clampResourceValue,
-  validateMoneyAmount,
-} from './mechanics-rules'
+import type { CampaignPartyMember, CharacterSheet } from '$lib/types'
+import { assertNoCoercedConsentMutation, validateMoneyAmount } from './mechanics-rules'
 
 export interface ValidationResult {
   valid: boolean
@@ -35,7 +31,9 @@ export class RulesValidatorService {
         errors.push(`Resource "${key}" max value (${resource.max}) cannot be negative`)
       }
       if (resource.current > resource.max) {
-        warnings.push(`Resource "${key}" current (${resource.current}) exceeds max (${resource.max})`)
+        warnings.push(
+          `Resource "${key}" current (${resource.current}) exceeds max (${resource.max})`,
+        )
       }
     }
 

@@ -671,5 +671,4 @@ export class NarrativeService {
 
     return prompt
   }
-
 }

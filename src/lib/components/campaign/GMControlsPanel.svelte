@@ -1,7 +1,6 @@
 <script lang="ts">
   import { campaign } from '$lib/stores/campaign.svelte'
   import { story } from '$lib/stores/story.svelte'
-  import { ui } from '$lib/stores/ui.svelte'
   import { roll, type RollResult } from '$lib/services/dice'
   import { Button } from '$lib/components/ui/button'
   import { Input } from '$lib/components/ui/input'
@@ -241,7 +240,11 @@
 
         <div class="space-y-1.5">
           <Label for="gm-roll-actor">Roll as</Label>
-          <Select.Root type="single" value={rollActorId ?? undefined} onValueChange={(value) => (rollActorId = value ?? null)}>
+          <Select.Root
+            type="single"
+            value={rollActorId ?? undefined}
+            onValueChange={(value) => (rollActorId = value ?? null)}
+          >
             <Select.Trigger id="gm-roll-actor" class="w-full">
               {actorName(rollActorId)}
             </Select.Trigger>
@@ -253,7 +256,13 @@
           </Select.Root>
         </div>
 
-        <Button variant="default" size="sm" class="w-full gap-2" onclick={testRoll} disabled={isRolling}>
+        <Button
+          variant="default"
+          size="sm"
+          class="w-full gap-2"
+          onclick={testRoll}
+          disabled={isRolling}
+        >
           <Dice5 class="h-4 w-4" />
           {isRolling ? 'Rolling...' : `Roll as ${actorName(rollActorId)}`}
         </Button>
@@ -283,10 +292,11 @@
   {/if}
 
   {#if error}
-    <p class="text-destructive rounded-md border border-destructive/30 p-2 text-xs">{error}</p>
+    <p class="text-destructive border-destructive/30 rounded-md border p-2 text-xs">{error}</p>
   {/if}
 
   <p class="text-muted-foreground text-[11px]">
-    These controls are gated by GM Mode and are intended for QA, recovery, and deliberate director-level play.
+    These controls are gated by GM Mode and are intended for QA, recovery, and deliberate
+    director-level play.
   </p>
 </div>

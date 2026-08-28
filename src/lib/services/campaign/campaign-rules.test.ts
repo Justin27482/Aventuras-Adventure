@@ -8,7 +8,10 @@ import {
   validateSpotlightCharacter,
 } from './campaign-rules'
 
-function member(characterId: string, overrides: Partial<CampaignPartyMember> = {}): CampaignPartyMember {
+function member(
+  characterId: string,
+  overrides: Partial<CampaignPartyMember> = {},
+): CampaignPartyMember {
   return {
     id: `member-${characterId}`,
     campaignId: 'campaign-1',
@@ -65,20 +68,27 @@ describe('campaign rules', () => {
   })
 
   it('supports character ownership and shared stash ownership', () => {
-    expect(() => validateItemOwnership(item(), 'story-1', [member('a')], { ownerCharacterId: 'a' })).not.toThrow()
-    expect(() => validateItemOwnership(item(), 'story-1', [member('a')], { ownerCharacterId: null })).not.toThrow()
-    expect(() => validateItemOwnership(item(), 'story-1', [member('a')], { ownerCharacterId: 'missing' })).toThrow(
-      'Item owner must be an eligible campaign character',
-    )
+    expect(() =>
+      validateItemOwnership(item(), 'story-1', [member('a')], { ownerCharacterId: 'a' }),
+    ).not.toThrow()
+    expect(() =>
+      validateItemOwnership(item(), 'story-1', [member('a')], { ownerCharacterId: null }),
+    ).not.toThrow()
+    expect(() =>
+      validateItemOwnership(item(), 'story-1', [member('a')], { ownerCharacterId: 'missing' }),
+    ).toThrow('Item owner must be an eligible campaign character')
   })
 
   it('rejects cross-story and self-container assignments', () => {
-    expect(() => validateItemOwnership(item(), 'other-story', [member('a')], { ownerCharacterId: null })).toThrow(
-      'Item does not belong to the active campaign',
-    )
-    expect(() => validateItemOwnership(item(), 'story-1', [member('a')], { ownerCharacterId: 'a', containerItemId: 'item-1' })).toThrow(
-      'An item cannot contain itself',
-    )
+    expect(() =>
+      validateItemOwnership(item(), 'other-story', [member('a')], { ownerCharacterId: null }),
+    ).toThrow('Item does not belong to the active campaign')
+    expect(() =>
+      validateItemOwnership(item(), 'story-1', [member('a')], {
+        ownerCharacterId: 'a',
+        containerItemId: 'item-1',
+      }),
+    ).toThrow('An item cannot contain itself')
   })
 
   it('builds an ordered session snapshot with primary and autonomous companions', () => {

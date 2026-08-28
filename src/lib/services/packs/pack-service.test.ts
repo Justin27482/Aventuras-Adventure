@@ -25,11 +25,15 @@ vi.mock('$lib/services/prompts/templates', () => ({
       content: 'AGENCY_CORE_CONTENT_V2',
       userContent: 'AGENCY_CORE_USER_V2',
     },
-    { id: 'new-template', name: 'New Template', category: 'story', content: 'NEW_TEMPLATE_CONTENT' },
+    {
+      id: 'new-template',
+      name: 'New Template',
+      category: 'story',
+      content: 'NEW_TEMPLATE_CONTENT',
+    },
   ],
 }))
 
-import { database } from '$lib/services/database'
 import { packService } from './pack-service'
 
 function templateRow(templateId: string, content: string) {

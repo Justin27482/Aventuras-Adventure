@@ -514,16 +514,19 @@ class DatabaseService {
 
   async updateCampaignSpotlight(campaignId: string, characterId: string | null): Promise<void> {
     await this.enqueueWrite(`campaign spotlight ${campaignId}`, (db) =>
-      db.execute(
-        'UPDATE campaigns SET spotlight_character_id = ?, updated_at = ? WHERE id = ?',
-        [characterId, Date.now(), campaignId],
-      ),
+      db.execute('UPDATE campaigns SET spotlight_character_id = ?, updated_at = ? WHERE id = ?', [
+        characterId,
+        Date.now(),
+        campaignId,
+      ]),
     )
   }
 
   async getCampaignSettings(campaignId: string): Promise<CampaignSettings | null> {
     const db = await this.getDb()
-    const rows = await db.select<any[]>('SELECT * FROM campaign_settings WHERE campaign_id = ?', [campaignId])
+    const rows = await db.select<any[]>('SELECT * FROM campaign_settings WHERE campaign_id = ?', [
+      campaignId,
+    ])
     return rows.length > 0 ? this.mapCampaignSettings(rows[0]) : null
   }
 
@@ -543,7 +546,20 @@ class DatabaseService {
            gm_persona = excluded.gm_persona,
            companion_combat_policy = excluded.companion_combat_policy,
            updated_at = excluded.updated_at`,
-        [settings.campaignId, settings.defaultPartySize, settings.maxPartySize, settings.sceneMode, settings.turnOrderMode, settings.diceEnforcement, settings.nsfwIntensity, settings.worldCharter, settings.gmPersona, settings.companionCombatPolicy, settings.createdAt, settings.updatedAt],
+        [
+          settings.campaignId,
+          settings.defaultPartySize,
+          settings.maxPartySize,
+          settings.sceneMode,
+          settings.turnOrderMode,
+          settings.diceEnforcement,
+          settings.nsfwIntensity,
+          settings.worldCharter,
+          settings.gmPersona,
+          settings.companionCombatPolicy,
+          settings.createdAt,
+          settings.updatedAt,
+        ],
       ),
     )
   }
@@ -563,7 +579,9 @@ class DatabaseService {
       gmPersona: 'gm_persona',
       companionCombatPolicy: 'companion_combat_policy',
     }
-    const entries = Object.entries(updates).filter(([key, value]) => key in columnMap && value !== undefined)
+    const entries = Object.entries(updates).filter(
+      ([key, value]) => key in columnMap && value !== undefined,
+    )
     if (entries.length === 0) return
 
     const assignments = entries.map(([key]) => `${columnMap[key]} = ?`).join(', ')
@@ -577,11 +595,21 @@ class DatabaseService {
     )
   }
 
-  async getSceneTurnState(campaignId: string, entryId: string | null = null): Promise<SceneTurnState | null> {
+  async getSceneTurnState(
+    campaignId: string,
+    entryId: string | null = null,
+  ): Promise<SceneTurnState | null> {
     const db = await this.getDb()
-    const rows = entryId === null
-      ? await db.select<any[]>('SELECT * FROM scene_turn_states WHERE campaign_id = ? AND entry_id IS NULL ORDER BY updated_at DESC LIMIT 1', [campaignId])
-      : await db.select<any[]>('SELECT * FROM scene_turn_states WHERE campaign_id = ? AND entry_id = ?', [campaignId, entryId])
+    const rows =
+      entryId === null
+        ? await db.select<any[]>(
+            'SELECT * FROM scene_turn_states WHERE campaign_id = ? AND entry_id IS NULL ORDER BY updated_at DESC LIMIT 1',
+            [campaignId],
+          )
+        : await db.select<any[]>(
+            'SELECT * FROM scene_turn_states WHERE campaign_id = ? AND entry_id = ?',
+            [campaignId, entryId],
+          )
     return rows.length > 0 ? this.mapSceneTurnState(rows[0]) : null
   }
 
@@ -710,8 +738,10 @@ class DatabaseService {
     )
   }
 
-  async endCampaignSession(sessionId: string, status: 'completed' | 'abandoned' = 'completed'):
-    Promise<void> {
+  async endCampaignSession(
+    sessionId: string,
+    status: 'completed' | 'abandoned' = 'completed',
+  ): Promise<void> {
     const db = await this.getDb()
     await db.execute(
       'UPDATE campaign_sessions SET status = ?, ended_at = ? WHERE id = ? AND status = ?',
@@ -925,7 +955,9 @@ class DatabaseService {
   async deleteRuleset(rulesetId: string): Promise<void> {
     const inUse = await this.countCampaignsUsingRuleset(rulesetId)
     if (inUse > 0) {
-      throw new Error(`This ruleset is used by ${inUse} campaign${inUse === 1 ? '' : 's'}. Assign another ruleset before deleting it.`)
+      throw new Error(
+        `This ruleset is used by ${inUse} campaign${inUse === 1 ? '' : 's'}. Assign another ruleset before deleting it.`,
+      )
     }
     await this.enqueueWrite(`ruleset delete ${rulesetId}`, (db) =>
       db.execute('DELETE FROM rulesets WHERE id = ? AND is_builtin = 0', [rulesetId]),
@@ -1146,7 +1178,10 @@ class DatabaseService {
 
   async getRulesetSpells(rulesetId: string): Promise<RulesetSpell[]> {
     const db = await this.getDb()
-    const rows = await db.select<any[]>('SELECT * FROM ruleset_spells WHERE ruleset_id = ? ORDER BY sort_order ASC', [rulesetId])
+    const rows = await db.select<any[]>(
+      'SELECT * FROM ruleset_spells WHERE ruleset_id = ? ORDER BY sort_order ASC',
+      [rulesetId],
+    )
     return rows.map(this.mapRulesetSpell)
   }
 
@@ -1156,13 +1191,26 @@ class DatabaseService {
       `INSERT INTO ruleset_spells (id, ruleset_id, key, label, description, level, notation, resource_cost, sort_order)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(ruleset_id, key) DO UPDATE SET label = excluded.label, description = excluded.description, level = excluded.level, notation = excluded.notation, resource_cost = excluded.resource_cost, sort_order = excluded.sort_order`,
-      [spell.id, spell.rulesetId, spell.key, spell.label, spell.description, spell.level, spell.notation, spell.resourceCost, spell.sortOrder],
+      [
+        spell.id,
+        spell.rulesetId,
+        spell.key,
+        spell.label,
+        spell.description,
+        spell.level,
+        spell.notation,
+        spell.resourceCost,
+        spell.sortOrder,
+      ],
     )
   }
 
   async getRulesetCreatures(rulesetId: string): Promise<RulesetCreature[]> {
     const db = await this.getDb()
-    const rows = await db.select<any[]>('SELECT * FROM ruleset_creatures WHERE ruleset_id = ? ORDER BY sort_order ASC', [rulesetId])
+    const rows = await db.select<any[]>(
+      'SELECT * FROM ruleset_creatures WHERE ruleset_id = ? ORDER BY sort_order ASC',
+      [rulesetId],
+    )
     return rows.map(this.mapRulesetCreature)
   }
 
@@ -1172,7 +1220,16 @@ class DatabaseService {
       `INSERT INTO ruleset_creatures (id, ruleset_id, key, label, description, creature_type, stat_block, sort_order)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(ruleset_id, key) DO UPDATE SET label = excluded.label, description = excluded.description, creature_type = excluded.creature_type, stat_block = excluded.stat_block, sort_order = excluded.sort_order`,
-      [creature.id, creature.rulesetId, creature.key, creature.label, creature.description, creature.creatureType, JSON.stringify(creature.statBlock), creature.sortOrder],
+      [
+        creature.id,
+        creature.rulesetId,
+        creature.key,
+        creature.label,
+        creature.description,
+        creature.creatureType,
+        JSON.stringify(creature.statBlock),
+        creature.sortOrder,
+      ],
     )
   }
 
@@ -1199,7 +1256,17 @@ class DatabaseService {
   }
 
   async deleteRulesetDefinition(
-    kind: 'stat' | 'skill' | 'check_rule' | 'condition' | 'slot' | 'ability' | 'level' | 'resource' | 'spell' | 'creature',
+    kind:
+      | 'stat'
+      | 'skill'
+      | 'check_rule'
+      | 'condition'
+      | 'slot'
+      | 'ability'
+      | 'level'
+      | 'resource'
+      | 'spell'
+      | 'creature',
     id: string,
   ): Promise<void> {
     const tables = {
@@ -4246,8 +4313,10 @@ class DatabaseService {
       diceSystem: row.dice_system,
       defaultCheckRuleKey: row.default_check_rule_key ?? null,
       encumbranceMode: row.encumbrance_mode === 'weight' ? 'weight' : 'slot',
-      encumbranceCapacityFormula: row.encumbrance_capacity_formula ?? '10 + strength + constitution + level',
-      inventorySlotCapacityFormula: row.inventory_slot_capacity_formula ?? '10 + strength + constitution + level',
+      encumbranceCapacityFormula:
+        row.encumbrance_capacity_formula ?? '10 + strength + constitution + level',
+      inventorySlotCapacityFormula:
+        row.inventory_slot_capacity_formula ?? '10 + strength + constitution + level',
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }

@@ -163,29 +163,29 @@ describe('campaign store session boundaries', () => {
     })
 
     await story.createStoryFromWizard({
-        title: 'Brightness Dimmed',
-        genre: 'Fantasy',
-        description: 'A quiet lantern-lit mystery',
-        mode: 'adventure',
-        settings: {
-          pov: 'third',
-          tense: 'present',
-          tone: 'moody',
-          themes: ['mystery'],
-        },
-        protagonist: {
-          name: 'Kyra',
-          description: 'A weary investigator',
-          traits: ['careful'],
-        },
-        startingLocation: {
-          name: 'Ashen Square',
-          description: 'A quiet courtyard beneath dim lamps.',
-        },
-        initialItems: [],
-        openingScene: 'The lamps burned low as the city listened.',
-        characters: [{ name: 'Lys', relationship: 'ally', traits: ['sharp'] }],
-      })
+      title: 'Brightness Dimmed',
+      genre: 'Fantasy',
+      description: 'A quiet lantern-lit mystery',
+      mode: 'adventure',
+      settings: {
+        pov: 'third',
+        tense: 'present',
+        tone: 'moody',
+        themes: ['mystery'],
+      },
+      protagonist: {
+        name: 'Kyra',
+        description: 'A weary investigator',
+        traits: ['careful'],
+      },
+      startingLocation: {
+        name: 'Ashen Square',
+        description: 'A quiet courtyard beneath dim lamps.',
+      },
+      initialItems: [],
+      openingScene: 'The lamps burned low as the city listened.',
+      characters: [{ name: 'Lys', relationship: 'ally', traits: ['sharp'] }],
+    })
 
     expect(database.withTransaction).not.toHaveBeenCalled()
     expect(database.createStory).toHaveBeenCalledTimes(1)
@@ -262,9 +262,9 @@ describe('campaign store session boundaries', () => {
       characters: [],
     })
 
-    await expect(
-      campaign.updateSettings({ defaultPartySize: 6, maxPartySize: 4 }),
-    ).rejects.toThrow('Maximum party size cannot be smaller than the default party size')
+    await expect(campaign.updateSettings({ defaultPartySize: 6, maxPartySize: 4 })).rejects.toThrow(
+      'Maximum party size cannot be smaller than the default party size',
+    )
   })
 
   it('prevents starting a second active session and requires an active primary character', async () => {

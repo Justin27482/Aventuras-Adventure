@@ -209,10 +209,13 @@ export const BUILTIN_RULESETS: BuiltinRulesetSeed[] = [
   {
     id: 'freeform-lite',
     name: 'Freeform Lite',
-    description: 'A minimal system for GMs who want narrative freedom with an occasional d20 check.',
+    description:
+      'A minimal system for GMs who want narrative freedom with an occasional d20 check.',
     diceSystem: 'd20',
     defaultCheckRuleKey: 'simple-check',
-    stats: [{ key: 'aptitude', label: 'Aptitude', defaultValue: 0, minValue: null, maxValue: null }],
+    stats: [
+      { key: 'aptitude', label: 'Aptitude', defaultValue: 0, minValue: null, maxValue: null },
+    ],
     skills: [],
     checkRules: [
       {
@@ -233,7 +236,8 @@ export const BUILTIN_RULESETS: BuiltinRulesetSeed[] = [
   {
     id: 'savage-worlds-style',
     name: 'Savage Worlds Style',
-    description: 'A dice-ladder inspired system using exploding checks against a fixed target number.',
+    description:
+      'A dice-ladder inspired system using exploding checks against a fixed target number.',
     diceSystem: 'd20',
     defaultCheckRuleKey: 'exploding-check',
     stats: SIX_STATS,

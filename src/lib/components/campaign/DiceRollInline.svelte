@@ -3,7 +3,7 @@
   import { campaign } from '$lib/stores/campaign.svelte'
   import { Badge } from '$lib/components/ui/badge'
   import { Button } from '$lib/components/ui/button'
-  import { Dice5, CheckCircle2, XCircle, Sparkles, RefreshCw } from 'lucide-svelte'
+  import { Dice5, RefreshCw } from 'lucide-svelte'
   import { cn } from '$lib/utils/cn'
   import type { RollLedgerEntry } from '$lib/types'
 
@@ -54,7 +54,8 @@
 
   function outcomeColor(outcome: string | null): string {
     if (!outcome) return 'text-muted-foreground border-border'
-    if (outcome === 'critical_success') return 'text-emerald-400 border-emerald-500/50 bg-emerald-500/10'
+    if (outcome === 'critical_success')
+      return 'text-emerald-400 border-emerald-500/50 bg-emerald-500/10'
     if (outcome === 'success') return 'text-green-400 border-green-500/40 bg-green-500/10'
     if (outcome === 'critical_failure') return 'text-red-400 border-red-500/50 bg-red-500/10'
     if (outcome === 'failure') return 'text-rose-400 border-rose-500/40 bg-rose-500/10'
@@ -62,11 +63,16 @@
   }
 </script>
 
-<div class={cn('inline-flex items-center gap-2 rounded-md border border-border/60 bg-card/60 px-2.5 py-1 text-xs shadow-sm', compact && 'py-0.5 px-2')}>
+<div
+  class={cn(
+    'border-border/60 bg-card/60 inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs shadow-sm',
+    compact && 'px-2 py-0.5',
+  )}
+>
   <Button
     variant="ghost"
     size="sm"
-    class="h-6 gap-1.5 px-1.5 font-mono text-[11px] text-primary hover:bg-primary/10"
+    class="text-primary hover:bg-primary/10 h-6 gap-1.5 px-1.5 font-mono text-[11px]"
     disabled={isRolling || !campaign.current}
     onclick={handleRoll}
   >
@@ -78,16 +84,22 @@
   </Button>
 
   {#if actorName || reason}
-    <span class="text-muted-foreground truncate max-w-[120px]">
+    <span class="text-muted-foreground max-w-[120px] truncate">
       {actorName ?? reason}
     </span>
   {/if}
 
   {#if lastResult}
-    <div class="flex items-center gap-1.5 border-l border-border/40 pl-2">
-      <span class="font-bold text-foreground tabular-nums">{lastResult.total}</span>
+    <div class="border-border/40 flex items-center gap-1.5 border-l pl-2">
+      <span class="text-foreground font-bold tabular-nums">{lastResult.total}</span>
       {#if lastResult.outcome}
-        <Badge variant="outline" class={cn('text-[9px] px-1 py-0 uppercase tracking-wider', outcomeColor(lastResult.outcome))}>
+        <Badge
+          variant="outline"
+          class={cn(
+            'px-1 py-0 text-[9px] tracking-wider uppercase',
+            outcomeColor(lastResult.outcome),
+          )}
+        >
           {lastResult.outcome.replace('_', ' ')}
         </Badge>
       {/if}

@@ -28,7 +28,7 @@ const safetyContentIntensity: PromptTemplate = {
   name: 'Safety Content Intensity',
   category: 'safety',
   description: 'Intensity cannot weaken safety boundaries',
-   content: `{% if nsfwIntensity != '' %}# Content Intensity
+  content: `{% if nsfwIntensity != '' %}# Content Intensity
   - Setting: Level {{ nsfwIntensity }} ({% if nsfwIntensityLabel != '' %}{{ nsfwIntensityLabel }}{% else %}Level {{ nsfwIntensity }}{% endif %})
   {% if nsfwIntensity == 0 %}- Guidance: Keep romance non-sexual and suitable for a family adventure. Fade out before sexual content.
   {% elsif nsfwIntensity == 1 %}- Guidance: Allow flirtation, crushes, kissing, and mild sensual tension. Keep sexual content off-screen.

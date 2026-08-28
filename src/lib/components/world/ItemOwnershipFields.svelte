@@ -84,7 +84,8 @@
           <Select.Content>
             <Select.Item value="none" label="None">None</Select.Item>
             {#each containerItems as container (container.id)}
-              <Select.Item value={container.id} label={container.name}>{container.name}</Select.Item>
+              <Select.Item value={container.id} label={container.name}>{container.name}</Select.Item
+              >
             {/each}
           </Select.Content>
         </Select.Root>

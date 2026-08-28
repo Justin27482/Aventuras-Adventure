@@ -44,7 +44,7 @@ Your role:
 {% if pov == 'third' %}- Refer to the currently acting character as {{ activeActorName }} or they/them.
 {% else %}- Describe what the player experiences as the currently acting character.
 {% endif %}
-- Begin by resolving the current action and leave a natural opening for the next action.`
+- Begin by resolving the current action and leave a natural opening for the next action.`,
 }
 
 export const roleTemplates: PromptTemplate[] = [

@@ -105,14 +105,22 @@
 {:else if showProviderSetup}
   <WelcomeScreen onComplete={handleProviderSetupComplete} />
 {:else if !initialized}
-  <div class="bg-background relative flex h-screen w-screen items-center justify-center overflow-hidden">
-    <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,hsl(32_92%_54%_/_0.12),transparent_42%)]"></div>
+  <div
+    class="bg-background relative flex h-screen w-screen items-center justify-center overflow-hidden"
+  >
+    <div
+      class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,hsl(32_92%_54%_/_0.12),transparent_42%)]"
+    ></div>
     <div class="relative flex flex-col items-center gap-5">
-      <div class="h-24 w-24 animate-pulse rounded-2xl border border-primary/30 bg-card/80 p-4 shadow-[0_0_60px_hsl(32_92%_54%_/_0.18)]">
+      <div
+        class="border-primary/30 bg-card/80 h-24 w-24 animate-pulse rounded-2xl border p-4 shadow-[0_0_60px_hsl(32_92%_54%_/_0.18)]"
+      >
         <img src="/campaign-engine-mark.svg" alt="Campaign Engine" class="h-full w-full" />
       </div>
       <div class="flex flex-col items-center gap-1">
-        <p class="text-foreground text-sm font-semibold tracking-[0.18em] uppercase">Campaign Engine</p>
+        <p class="text-foreground text-sm font-semibold tracking-[0.18em] uppercase">
+          Campaign Engine
+        </p>
         <p class="text-muted-foreground text-xs">Preparing your campaign workspace...</p>
       </div>
     </div>

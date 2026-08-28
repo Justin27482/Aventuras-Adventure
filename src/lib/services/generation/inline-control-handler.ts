@@ -64,7 +64,8 @@ export function handleInlineControlTags(
       } else if (tag.name === 'scene') {
         intent.mode = attributes.mode || attributes.scene || attributes.type
       } else {
-        intent.actorId = attributes.id || attributes.actor || attributes.character || attributes.name
+        intent.actorId =
+          attributes.id || attributes.actor || attributes.character || attributes.name
       }
       return intent
     })

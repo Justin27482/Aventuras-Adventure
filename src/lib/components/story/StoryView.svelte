@@ -625,7 +625,11 @@
       {/if}
 
       <Dialog.Footer>
-        <Button variant="outline" onclick={() => (showOpeningEditor = false)} disabled={isSavingOpening}>
+        <Button
+          variant="outline"
+          onclick={() => (showOpeningEditor = false)}
+          disabled={isSavingOpening}
+        >
           Cancel
         </Button>
         <Button onclick={saveOpeningScene} disabled={!openingDraft.trim() || isSavingOpening}>

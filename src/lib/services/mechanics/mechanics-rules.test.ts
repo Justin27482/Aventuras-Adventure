@@ -30,7 +30,9 @@ function buildItem(overrides: Partial<Item> & Pick<Item, 'id'>): Item {
   }
 }
 
-function buildMember(overrides: Partial<CampaignPartyMember> & Pick<CampaignPartyMember, 'characterId'>): CampaignPartyMember {
+function buildMember(
+  overrides: Partial<CampaignPartyMember> & Pick<CampaignPartyMember, 'characterId'>,
+): CampaignPartyMember {
   return {
     id: crypto.randomUUID(),
     campaignId: 'campaign-1',
@@ -87,7 +89,16 @@ describe('useAbilityResource', () => {
 })
 
 describe('validateEquipSlot', () => {
-  const slots: RulesetSlot[] = [{ id: 's1', rulesetId: 'r1', key: 'weapon', label: 'Weapon', slotType: 'wearable', sortOrder: 0 }]
+  const slots: RulesetSlot[] = [
+    {
+      id: 's1',
+      rulesetId: 'r1',
+      key: 'weapon',
+      label: 'Weapon',
+      slotType: 'wearable',
+      sortOrder: 0,
+    },
+  ]
 
   it('allows equipping into a known, unoccupied slot', () => {
     const item = buildItem({ id: 'item-1', ownerCharacterId: 'char-1' })
@@ -162,7 +173,9 @@ describe('applyClothingDurabilityDelta', () => {
 
 describe('validateSlotCarryLimit', () => {
   it('allows a single equipped item per slot per owner', () => {
-    const items = [buildItem({ id: 'item-1', ownerCharacterId: 'char-1', slotKey: 'weapon', equipped: true })]
+    const items = [
+      buildItem({ id: 'item-1', ownerCharacterId: 'char-1', slotKey: 'weapon', equipped: true }),
+    ]
     expect(() => validateSlotCarryLimit('char-1', 'weapon', items)).not.toThrow()
   })
 
@@ -178,20 +191,59 @@ describe('validateSlotCarryLimit', () => {
 describe('validateInventorySlotCapacity', () => {
   it('counts carried stacks and equipped armor, but not equipped clothing', () => {
     const items = [
-      { id: 'bag', storyId: 's', name: 'Potion', description: null, quantity: 1, equipped: false, location: 'inventory', ownerCharacterId: 'pc', metadata: null, branchId: null },
-      { id: 'armor', storyId: 's', name: 'Leather Armor', description: null, quantity: 1, equipped: true, location: 'inventory', ownerCharacterId: 'pc', metadata: null, branchId: null },
-      { id: 'cloak', storyId: 's', name: 'Travel Cloak', description: null, quantity: 1, equipped: true, location: 'inventory', ownerCharacterId: 'pc', metadata: null, branchId: null },
+      {
+        id: 'bag',
+        storyId: 's',
+        name: 'Potion',
+        description: null,
+        quantity: 1,
+        equipped: false,
+        location: 'inventory',
+        ownerCharacterId: 'pc',
+        metadata: null,
+        branchId: null,
+      },
+      {
+        id: 'armor',
+        storyId: 's',
+        name: 'Leather Armor',
+        description: null,
+        quantity: 1,
+        equipped: true,
+        location: 'inventory',
+        ownerCharacterId: 'pc',
+        metadata: null,
+        branchId: null,
+      },
+      {
+        id: 'cloak',
+        storyId: 's',
+        name: 'Travel Cloak',
+        description: null,
+        quantity: 1,
+        equipped: true,
+        location: 'inventory',
+        ownerCharacterId: 'pc',
+        metadata: null,
+        branchId: null,
+      },
     ]
 
     expect(() => validateInventorySlotCapacity('pc', items, 2)).not.toThrow()
-    expect(() => validateInventorySlotCapacity('pc', items, 1)).toThrow('Inventory slot capacity exceeded')
+    expect(() => validateInventorySlotCapacity('pc', items, 1)).toThrow(
+      'Inventory slot capacity exceeded',
+    )
   })
 })
 
 describe('assertNoCoercedConsentMutation', () => {
   it('is a no-op guardrail choke point for every mutation kind used in Phase 3', () => {
     expect(() => assertNoCoercedConsentMutation({ kind: 'resource_delta' })).not.toThrow()
-    expect(() => assertNoCoercedConsentMutation({ kind: 'ability_use', note: 'fireball' })).not.toThrow()
-    expect(() => assertNoCoercedConsentMutation({ kind: 'condition', note: 'poisoned' })).not.toThrow()
+    expect(() =>
+      assertNoCoercedConsentMutation({ kind: 'ability_use', note: 'fireball' }),
+    ).not.toThrow()
+    expect(() =>
+      assertNoCoercedConsentMutation({ kind: 'condition', note: 'poisoned' }),
+    ).not.toThrow()
   })
 })

@@ -41,7 +41,8 @@ export function parseDiceNotation(notation: string): ParsedDiceNotation {
   if (clampMatch) {
     clampMin = Number(clampMatch[1])
     clampMax = Number(clampMatch[2])
-    working = working.slice(0, clampMatch.index) + working.slice(clampMatch.index! + clampMatch[0].length)
+    working =
+      working.slice(0, clampMatch.index) + working.slice(clampMatch.index! + clampMatch[0].length)
   }
 
   let advantage: 'adv' | 'dis' | null = null

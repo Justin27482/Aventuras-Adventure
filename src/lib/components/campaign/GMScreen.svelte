@@ -4,7 +4,7 @@
   import { story } from '$lib/stores/story.svelte'
   import { database } from '$lib/services/database'
   import GMControlsPanel from '$lib/components/campaign/GMControlsPanel.svelte'
-   import WorldCharterPanel from '$lib/components/campaign/WorldCharterPanel.svelte'
+  import WorldCharterPanel from '$lib/components/campaign/WorldCharterPanel.svelte'
   import { generateSessionRecap } from '$lib/services/campaign/session-recap-service'
   import { Button } from '$lib/components/ui/button'
   import { Input } from '$lib/components/ui/input'
@@ -13,9 +13,23 @@
   import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card'
   import { Badge } from '$lib/components/ui/badge'
   import { Crown, Eye, EyeOff, ListChecks, Plus, RefreshCw, Timer } from 'lucide-svelte'
-  import type { CampaignThread, CampaignThreadBeat, CampaignThreadStatus, CampaignThreadType, CampaignThreadVisibility } from '$lib/types'
+  import type {
+    CampaignThread,
+    CampaignThreadBeat,
+    CampaignThreadStatus,
+    CampaignThreadType,
+    CampaignThreadVisibility,
+  } from '$lib/types'
 
-  const threadTypes: CampaignThreadType[] = ['plot', 'quest', 'faction', 'mystery', 'character', 'threat', 'custom']
+  const threadTypes: CampaignThreadType[] = [
+    'plot',
+    'quest',
+    'faction',
+    'mystery',
+    'character',
+    'threat',
+    'custom',
+  ]
   const threadStatuses: CampaignThreadStatus[] = ['active', 'dormant', 'resolved', 'abandoned']
 
   let threads = $state<CampaignThread[]>([])
@@ -36,8 +50,12 @@
   let newBeatSummary = $state('')
   let newBeatVisibility = $state<CampaignThreadVisibility>('player_safe')
 
-  const playerSafeThreads = $derived(threads.filter((thread) => thread.visibility === 'player_safe'))
-  const directorOnlyThreads = $derived(threads.filter((thread) => thread.visibility === 'director_only'))
+  const playerSafeThreads = $derived(
+    threads.filter((thread) => thread.visibility === 'player_safe'),
+  )
+  const directorOnlyThreads = $derived(
+    threads.filter((thread) => thread.visibility === 'director_only'),
+  )
   const selectedThread = $derived(threads.find((thread) => thread.id === selectedThreadId) ?? null)
 
   function threadBeats(threadId: string): CampaignThreadBeat[] {
@@ -179,7 +197,8 @@
           <h1 class="text-foreground text-2xl font-semibold">GM Screen</h1>
         </div>
         <p class="text-muted-foreground mt-1 text-sm">
-          Director-only planning and manual campaign controls for {story.currentStory?.title ?? 'this campaign'}.
+          Director-only planning and manual campaign controls for {story.currentStory?.title ??
+            'this campaign'}.
         </p>
       </div>
       <Button variant="outline" size="sm" class="gap-2" onclick={loadThreads} disabled={isLoading}>
@@ -189,7 +208,7 @@
     </div>
 
     {#if error}
-      <p class="text-destructive rounded-md border border-destructive/30 p-3 text-sm">{error}</p>
+      <p class="text-destructive border-destructive/30 rounded-md border p-3 text-sm">{error}</p>
     {/if}
 
     <div class="grid gap-4 xl:grid-cols-[20rem_1fr]">
@@ -227,11 +246,16 @@
           </CardHeader>
           <CardContent class="space-y-3">
             <p class="text-muted-foreground text-xs">
-              Prepare a quieter scene mode before resolving downtime or a montage through the narrative flow.
+              Prepare a quieter scene mode before resolving downtime or a montage through the
+              narrative flow.
             </p>
             <div class="grid grid-cols-2 gap-2">
-              <Button variant="outline" size="sm" onclick={() => prepareScene('downtime')}>Downtime</Button>
-              <Button variant="outline" size="sm" onclick={() => prepareScene('camp')}>Montage / Camp</Button>
+              <Button variant="outline" size="sm" onclick={() => prepareScene('downtime')}
+                >Downtime</Button
+              >
+              <Button variant="outline" size="sm" onclick={() => prepareScene('camp')}
+                >Montage / Camp</Button
+              >
             </div>
           </CardContent>
         </Card>
@@ -248,19 +272,31 @@
           <CardContent class="grid gap-3 lg:grid-cols-[1fr_9rem_9rem_6rem_auto] lg:items-end">
             <div class="space-y-1.5">
               <Label for="gm-thread-title">Title</Label>
-              <Input id="gm-thread-title" bind:value={newTitle} placeholder="Faction moves against the party" />
+              <Input
+                id="gm-thread-title"
+                bind:value={newTitle}
+                placeholder="Faction moves against the party"
+              />
             </div>
             <div class="space-y-1.5">
               <Label for="gm-thread-type">Type</Label>
-              <select id="gm-thread-type" bind:value={newThreadType} class="border-input bg-background h-10 w-full rounded-md border px-3 text-sm">
-                {#each threadTypes as type}
+              <select
+                id="gm-thread-type"
+                bind:value={newThreadType}
+                class="border-input bg-background h-10 w-full rounded-md border px-3 text-sm"
+              >
+                {#each threadTypes as type (type)}
                   <option value={type}>{type}</option>
                 {/each}
               </select>
             </div>
             <div class="space-y-1.5">
               <Label for="gm-thread-visibility">Visibility</Label>
-              <select id="gm-thread-visibility" bind:value={newVisibility} class="border-input bg-background h-10 w-full rounded-md border px-3 text-sm">
+              <select
+                id="gm-thread-visibility"
+                bind:value={newVisibility}
+                class="border-input bg-background h-10 w-full rounded-md border px-3 text-sm"
+              >
                 <option value="player_safe">player_safe</option>
                 <option value="director_only">director_only</option>
               </select>
@@ -272,14 +308,37 @@
             <Button onclick={createThread} disabled={!newTitle.trim()}>Add</Button>
             <div class="space-y-1.5 lg:col-span-5">
               <Label for="gm-thread-summary">Summary</Label>
-              <Textarea id="gm-thread-summary" bind:value={newSummary} class="min-h-20" autosize={false} />
+              <Textarea
+                id="gm-thread-summary"
+                bind:value={newSummary}
+                class="min-h-20"
+                autosize={false}
+              />
             </div>
           </CardContent>
         </Card>
 
         <div class="grid gap-4 lg:grid-cols-2">
-          {@render ThreadColumn('Player-Safe Threads', 'visible', playerSafeThreads, threadStatuses, threadBeats, selectedThreadId, selectThread, updateThread)}
-          {@render ThreadColumn('Director-Only Planning', 'hidden', directorOnlyThreads, threadStatuses, threadBeats, selectedThreadId, selectThread, updateThread)}
+          {@render ThreadColumn(
+            'Player-Safe Threads',
+            'visible',
+            playerSafeThreads,
+            threadStatuses,
+            threadBeats,
+            selectedThreadId,
+            selectThread,
+            updateThread,
+          )}
+          {@render ThreadColumn(
+            'Director-Only Planning',
+            'hidden',
+            directorOnlyThreads,
+            threadStatuses,
+            threadBeats,
+            selectedThreadId,
+            selectThread,
+            updateThread,
+          )}
         </div>
 
         <Card>
@@ -297,16 +356,27 @@
               </div>
               <div class="space-y-1.5">
                 <Label for="gm-beat-visibility">Visibility</Label>
-                <select id="gm-beat-visibility" bind:value={newBeatVisibility} class="border-input bg-background h-10 w-full rounded-md border px-3 text-sm">
+                <select
+                  id="gm-beat-visibility"
+                  bind:value={newBeatVisibility}
+                  class="border-input bg-background h-10 w-full rounded-md border px-3 text-sm"
+                >
                   <option value="player_safe">player_safe</option>
                   <option value="director_only">director_only</option>
                 </select>
               </div>
-              <Button onclick={createBeat} disabled={!selectedThread || !newBeatTitle.trim()}>Add Beat</Button>
+              <Button onclick={createBeat} disabled={!selectedThread || !newBeatTitle.trim()}
+                >Add Beat</Button
+              >
             </div>
             <div class="space-y-1.5">
               <Label for="gm-beat-summary">Summary</Label>
-              <Textarea id="gm-beat-summary" bind:value={newBeatSummary} class="min-h-20" autosize={false} />
+              <Textarea
+                id="gm-beat-summary"
+                bind:value={newBeatSummary}
+                class="min-h-20"
+                autosize={false}
+              />
             </div>
             <p class="text-muted-foreground text-xs">
               {#if selectedThread}
@@ -322,7 +392,16 @@
   </div>
 </div>
 
-{#snippet ThreadColumn(title: string, icon: 'visible' | 'hidden', items: CampaignThread[], threadStatuses: CampaignThreadStatus[], threadBeats: (threadId: string) => CampaignThreadBeat[], selectedThreadId: string | null, onSelect: (id: string) => void, onUpdate: (thread: CampaignThread, updates: Partial<CampaignThread>) => Promise<void>)}
+{#snippet ThreadColumn(
+  title: string,
+  icon: 'visible' | 'hidden',
+  items: CampaignThread[],
+  threadStatuses: CampaignThreadStatus[],
+  threadBeats: (threadId: string) => CampaignThreadBeat[],
+  selectedThreadId: string | null,
+  onSelect: (id: string) => void,
+  onUpdate: (thread: CampaignThread, updates: Partial<CampaignThread>) => Promise<void>,
+)}
   <Card>
     <CardHeader>
       <CardTitle class="flex items-center gap-2 text-base">
@@ -341,13 +420,18 @@
         {#each items as thread (thread.id)}
           <button
             type="button"
-            class="border-border bg-muted/20 hover:bg-muted/40 w-full rounded-md border p-3 text-left transition {selectedThreadId === thread.id ? 'border-primary bg-primary/10' : ''}"
+            class="border-border bg-muted/20 hover:bg-muted/40 w-full rounded-md border p-3 text-left transition {selectedThreadId ===
+            thread.id
+              ? 'border-primary bg-primary/10'
+              : ''}"
             onclick={() => onSelect(thread.id)}
           >
             <div class="flex items-start justify-between gap-2">
               <div class="min-w-0">
                 <p class="text-foreground truncate text-sm font-medium">{thread.title}</p>
-                <p class="text-muted-foreground mt-0.5 text-xs">{thread.threadType} · priority {thread.priority}</p>
+                <p class="text-muted-foreground mt-0.5 text-xs">
+                  {thread.threadType} · priority {thread.priority}
+                </p>
               </div>
               <Badge variant="secondary" class="text-[10px]">{thread.status}</Badge>
             </div>
@@ -359,9 +443,10 @@
                 value={thread.status}
                 class="border-input bg-background h-8 rounded-md border px-2 text-xs"
                 onclick={(event) => event.stopPropagation()}
-                onchange={(event) => onUpdate(thread, { status: event.currentTarget.value as CampaignThreadStatus })}
+                onchange={(event) =>
+                  onUpdate(thread, { status: event.currentTarget.value as CampaignThreadStatus })}
               >
-                {#each threadStatuses as status}
+                {#each threadStatuses as status (status)}
                   <option value={status}>{status}</option>
                 {/each}
               </select>
@@ -370,7 +455,10 @@
                 type="number"
                 class="h-8 text-xs"
                 onclick={(event) => event.stopPropagation()}
-                onblur={(event) => onUpdate(thread, { clockValue: Math.max(0, Math.floor(Number(event.currentTarget.value) || 0)) })}
+                onblur={(event) =>
+                  onUpdate(thread, {
+                    clockValue: Math.max(0, Math.floor(Number(event.currentTarget.value) || 0)),
+                  })}
               />
               <Input
                 value={thread.clockMax?.toString() ?? ''}
@@ -380,14 +468,18 @@
                 onclick={(event) => event.stopPropagation()}
                 onblur={(event) => {
                   const value = event.currentTarget.value.trim()
-                  onUpdate(thread, { clockMax: value ? Math.max(1, Math.floor(Number(value) || 1)) : null })
+                  onUpdate(thread, {
+                    clockMax: value ? Math.max(1, Math.floor(Number(value) || 1)) : null,
+                  })
                 }}
               />
             </div>
             {#if threadBeats(thread.id).length > 0}
               <div class="mt-2 space-y-1">
                 {#each threadBeats(thread.id) as beat (beat.id)}
-                  <p class="text-muted-foreground text-[11px]">- {beat.title}{beat.summary ? `: ${beat.summary}` : ''}</p>
+                  <p class="text-muted-foreground text-[11px]">
+                    - {beat.title}{beat.summary ? `: ${beat.summary}` : ''}
+                  </p>
                 {/each}
               </div>
             {/if}

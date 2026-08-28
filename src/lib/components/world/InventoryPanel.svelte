@@ -304,7 +304,13 @@
                 </div>
                 <div class="col-span-2 space-y-1 sm:col-span-1">
                   <Label class="text-xs">Weight per item</Label>
-                  <Input type="number" bind:value={editWeight} min="0" step="0.1" class="h-8 text-sm" />
+                  <Input
+                    type="number"
+                    bind:value={editWeight}
+                    min="0"
+                    step="0.1"
+                    class="h-8 text-sm"
+                  />
                 </div>
               </div>
 

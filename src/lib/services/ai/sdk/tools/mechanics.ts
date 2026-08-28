@@ -33,7 +33,8 @@ export function createMechanicsTools(campaignId?: string, storyId?: string) {
 
     /** Rolls dice using the dice service and records on the ledger. */
     roll_dice: tool({
-      description: 'Roll dice (e.g. "1d20+3" or "2d6") against an optional DC and record on the ledger.',
+      description:
+        'Roll dice (e.g. "1d20+3" or "2d6") against an optional DC and record on the ledger.',
       inputSchema: z.object({
         campaignId: z.string().optional().describe('Campaign ID'),
         actorId: z.string().optional().describe('Actor ID performing the roll'),
@@ -105,7 +106,9 @@ export function createMechanicsTools(campaignId?: string, storyId?: string) {
       inputSchema: z.object({
         characterId: z.string().describe('The character whose resource changes'),
         resourceKey: z.string().describe('The resource key, e.g. "health" or "mana"'),
-        delta: z.number().describe('Signed amount to apply (negative to reduce, positive to restore)'),
+        delta: z
+          .number()
+          .describe('Signed amount to apply (negative to reduce, positive to restore)'),
       }),
       execute: async ({
         characterId,
@@ -190,12 +193,16 @@ export function createMechanicsTools(campaignId?: string, storyId?: string) {
 
     /** Sets a condition (e.g. poisoned, prone) active or inactive on a character. */
     set_condition: tool({
-      description: 'Set a ruleset condition active or inactive on a character, with an optional note.',
+      description:
+        'Set a ruleset condition active or inactive on a character, with an optional note.',
       inputSchema: z.object({
         characterId: z.string().describe('The character to apply the condition to'),
         conditionKey: z.string().describe('The condition key, e.g. "poisoned" or "prone"'),
         active: z.boolean().describe('Whether the condition is now active'),
-        note: z.string().optional().describe('Optional note about the condition (e.g. duration, source)'),
+        note: z
+          .string()
+          .optional()
+          .describe('Optional note about the condition (e.g. duration, source)'),
       }),
       execute: async ({
         characterId,
@@ -231,7 +238,12 @@ export function createMechanicsTools(campaignId?: string, storyId?: string) {
       }),
       execute: async ({ characterId, conditionKey, note }) => {
         try {
-          const sheet = await mechanicsService.setCondition(characterId, conditionKey, true, note ?? null)
+          const sheet = await mechanicsService.setCondition(
+            characterId,
+            conditionKey,
+            true,
+            note ?? null,
+          )
           return { success: true, condition: sheet.conditionStates[conditionKey] }
         } catch (error) {
           return { success: false, error: error instanceof Error ? error.message : String(error) }
@@ -275,7 +287,11 @@ export function createMechanicsTools(campaignId?: string, storyId?: string) {
       description: 'Award a new item to a character or shared stash.',
       inputSchema: z.object({
         storyId: z.string().optional().describe('Story ID'),
-        characterId: z.string().nullable().optional().describe('Owner character ID or null for shared stash'),
+        characterId: z
+          .string()
+          .nullable()
+          .optional()
+          .describe('Owner character ID or null for shared stash'),
         name: z.string().describe('Item name'),
         description: z.string().optional().describe('Item description'),
         quantity: z.number().optional().describe('Quantity'),
@@ -343,7 +359,10 @@ export function createMechanicsTools(campaignId?: string, storyId?: string) {
       description: 'Transfer item ownership to another character or shared stash.',
       inputSchema: z.object({
         itemId: z.string().describe('Item ID'),
-        targetCharacterId: z.string().nullable().describe('New owner character ID or null for shared stash'),
+        targetCharacterId: z
+          .string()
+          .nullable()
+          .describe('New owner character ID or null for shared stash'),
       }),
       execute: async ({ itemId, targetCharacterId }) => {
         try {
@@ -367,7 +386,11 @@ export function createMechanicsTools(campaignId?: string, storyId?: string) {
         const targetStoryId = reqStoryId || storyId
         if (!targetStoryId) return { success: false, error: 'Story ID required' }
         try {
-          const newAmount = await mechanicsService.adjustMoney(targetStoryId, delta, reason ?? 'Mechanics adjust')
+          const newAmount = await mechanicsService.adjustMoney(
+            targetStoryId,
+            delta,
+            reason ?? 'Mechanics adjust',
+          )
           return { success: true, newAmount }
         } catch (error) {
           return { success: false, error: error instanceof Error ? error.message : String(error) }
@@ -389,14 +412,14 @@ export function createMechanicsTools(campaignId?: string, storyId?: string) {
           const storyData = await database.getStory(targetStoryId)
           if (!storyData) return { success: false, error: 'Story not found' }
           const t = storyData.timeTracker ?? { years: 0, days: 0, hours: 0, minutes: 0 }
-          let totalMinutes = t.minutes + minutes
-          let hoursToAdd = Math.floor(totalMinutes / 60)
+          const totalMinutes = t.minutes + minutes
+          const hoursToAdd = Math.floor(totalMinutes / 60)
           const newMinutes = totalMinutes % 60
-          let totalHours = t.hours + hoursToAdd
-          let daysToAdd = Math.floor(totalHours / 24)
+          const totalHours = t.hours + hoursToAdd
+          const daysToAdd = Math.floor(totalHours / 24)
           const newHours = totalHours % 24
-          let totalDays = t.days + daysToAdd
-          let yearsToAdd = Math.floor(totalDays / 365)
+          const totalDays = t.days + daysToAdd
+          const yearsToAdd = Math.floor(totalDays / 365)
           const newDays = totalDays % 365
           const newYears = t.years + yearsToAdd
           const newTime = { years: newYears, days: newDays, hours: newHours, minutes: newMinutes }
@@ -411,7 +434,18 @@ export function createMechanicsTools(campaignId?: string, storyId?: string) {
     set_scene_mode: tool({
       description: 'Change active scene mode.',
       inputSchema: z.object({
-        mode: z.enum(['free', 'exploration', 'travel', 'camp', 'settlement', 'combat', 'social', 'downtime']).describe('Scene mode'),
+        mode: z
+          .enum([
+            'free',
+            'exploration',
+            'travel',
+            'camp',
+            'settlement',
+            'combat',
+            'social',
+            'downtime',
+          ])
+          .describe('Scene mode'),
       }),
       execute: async ({ mode }) => {
         try {
@@ -464,12 +498,27 @@ export function createMechanicsTools(campaignId?: string, storyId?: string) {
         threadId: z.string().optional().describe('Thread ID'),
         title: z.string().describe('Title'),
         summary: z.string().optional().describe('Summary'),
-        threadType: z.enum(['plot', 'quest', 'faction', 'mystery', 'character', 'threat', 'custom']).optional().describe('Type'),
-        status: z.enum(['active', 'dormant', 'resolved', 'abandoned']).optional().describe('Status'),
+        threadType: z
+          .enum(['plot', 'quest', 'faction', 'mystery', 'character', 'threat', 'custom'])
+          .optional()
+          .describe('Type'),
+        status: z
+          .enum(['active', 'dormant', 'resolved', 'abandoned'])
+          .optional()
+          .describe('Status'),
         visibility: z.enum(['player_safe', 'director_only']).optional().describe('Visibility'),
         priority: z.number().optional().describe('Priority'),
       }),
-      execute: async ({ campaignId: reqCampId, threadId, title, summary, threadType, status, visibility, priority }) => {
+      execute: async ({
+        campaignId: reqCampId,
+        threadId,
+        title,
+        summary,
+        threadType,
+        status,
+        visibility,
+        priority,
+      }) => {
         const targetCampId = reqCampId || campaignId
         if (!targetCampId) return { success: false, error: 'Campaign ID required' }
         try {

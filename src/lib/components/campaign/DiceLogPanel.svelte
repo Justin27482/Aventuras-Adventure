@@ -44,7 +44,13 @@
       <Dice5 class="text-primary h-5 w-5" />
       <h2 class="text-foreground text-lg font-semibold">Dice Roll History</h2>
     </div>
-    <Button variant="outline" size="sm" class="gap-1.5 text-xs" onclick={loadRollHistory} disabled={isLoading}>
+    <Button
+      variant="outline"
+      size="sm"
+      class="gap-1.5 text-xs"
+      onclick={loadRollHistory}
+      disabled={isLoading}
+    >
       <RefreshCw class={isLoading ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />
       Refresh
     </Button>
@@ -53,21 +59,23 @@
   {#if stats && stats.count > 0}
     <Card>
       <CardHeader class="px-3 py-2">
-        <CardTitle class="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-          <BarChart2 class="h-4 w-4 text-primary" />
+        <CardTitle
+          class="text-muted-foreground flex items-center gap-2 text-xs tracking-wider uppercase"
+        >
+          <BarChart2 class="text-primary h-4 w-4" />
           Roll Dashboard
         </CardTitle>
       </CardHeader>
       <CardContent class="grid grid-cols-3 gap-2 px-3 pb-3 text-center text-xs">
-        <div class="rounded bg-muted/30 p-2">
+        <div class="bg-muted/30 rounded p-2">
           <span class="text-muted-foreground block text-[10px]">Total Rolls</span>
           <span class="text-foreground font-bold">{stats.count}</span>
         </div>
-        <div class="rounded bg-muted/30 p-2">
+        <div class="bg-muted/30 rounded p-2">
           <span class="text-muted-foreground block text-[10px]">Average</span>
           <span class="text-foreground font-bold">{stats.average.toFixed(1)}</span>
         </div>
-        <div class="rounded bg-muted/30 p-2">
+        <div class="bg-muted/30 rounded p-2">
           <span class="text-muted-foreground block text-[10px]">Min / Max</span>
           <span class="text-foreground font-bold">{stats.min} / {stats.max}</span>
         </div>

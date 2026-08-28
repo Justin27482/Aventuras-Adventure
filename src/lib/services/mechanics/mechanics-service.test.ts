@@ -29,12 +29,28 @@ const RULESET: FullRuleset = {
     updatedAt: 0,
   },
   stats: [
-    { id: 's1', rulesetId: 'd20-classic', key: 'constitution', label: 'Constitution', defaultValue: 12, minValue: 1, maxValue: 20, sortOrder: 0 },
+    {
+      id: 's1',
+      rulesetId: 'd20-classic',
+      key: 'constitution',
+      label: 'Constitution',
+      defaultValue: 12,
+      minValue: 1,
+      maxValue: 20,
+      sortOrder: 0,
+    },
   ],
   skills: [],
   checkRules: [],
   conditions: [
-    { id: 'c1', rulesetId: 'd20-classic', key: 'poisoned', label: 'Poisoned', description: null, sortOrder: 0 },
+    {
+      id: 'c1',
+      rulesetId: 'd20-classic',
+      key: 'poisoned',
+      label: 'Poisoned',
+      description: null,
+      sortOrder: 0,
+    },
   ],
   slots: [],
   abilities: [],
@@ -42,7 +58,15 @@ const RULESET: FullRuleset = {
   creatures: [],
   levels: [],
   resources: [
-    { id: 'r1', rulesetId: 'd20-classic', key: 'health', label: 'Health', maxFormula: '10 + constitution + level * 5', minValue: 0, sortOrder: 0 },
+    {
+      id: 'r1',
+      rulesetId: 'd20-classic',
+      key: 'health',
+      label: 'Health',
+      maxFormula: '10 + constitution + level * 5',
+      minValue: 0,
+      sortOrder: 0,
+    },
   ],
 }
 
@@ -183,7 +207,12 @@ describe('mechanicsService', () => {
         updatedAt: 0,
       })
 
-      const sheet = await mechanicsService.setCondition('char-1', 'poisoned', true, 'bitten by a viper')
+      const sheet = await mechanicsService.setCondition(
+        'char-1',
+        'poisoned',
+        true,
+        'bitten by a viper',
+      )
 
       expect(sheet.conditionStates.poisoned).toEqual({ active: true, note: 'bitten by a viper' })
       expect(mockDatabase.upsertCharacterSheet).toHaveBeenCalledTimes(1)

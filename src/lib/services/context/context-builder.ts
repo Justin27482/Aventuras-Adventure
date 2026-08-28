@@ -67,7 +67,7 @@ export class ContextBuilder {
       const template = await database.getPackTemplate(packId, 'narrative-inline-images')
       builder.add({
         inlineImageInstructions: template?.content
-          ? templateEngine.render(template.content, builder.context) ?? ''
+          ? (templateEngine.render(template.content, builder.context) ?? '')
           : '',
       })
     }
@@ -75,7 +75,7 @@ export class ContextBuilder {
       const template = await database.getPackTemplate(packId, 'narrative-visual-prose')
       builder.add({
         visualProseInstructions: template?.content
-          ? templateEngine.render(template.content, builder.context) ?? ''
+          ? (templateEngine.render(template.content, builder.context) ?? '')
           : '',
       })
     }
@@ -173,12 +173,18 @@ export class ContextBuilder {
           ({ member }) => member.characterId === sceneTurnState?.activeActorId,
         )
         const turnType = new TurnDirector().getNextTurnType({
-          sceneMode: (sceneTurnState?.sceneMode ?? 'free') as import('$lib/services/campaign/turn-order-service').SceneMode,
+          sceneMode: (sceneTurnState?.sceneMode ??
+            'free') as import('$lib/services/campaign/turn-order-service').SceneMode,
           activeActor: sceneTurnState?.activeActorId
             ? {
                 id: sceneTurnState.activeActorId,
-                name: characterById.get(sceneTurnState.activeActorId)?.name ?? sceneTurnState.activeActorId,
-                category: activeMember?.member.actorCategory === 'primary_player_character' ? 'player' : 'ally',
+                name:
+                  characterById.get(sceneTurnState.activeActorId)?.name ??
+                  sceneTurnState.activeActorId,
+                category:
+                  activeMember?.member.actorCategory === 'primary_player_character'
+                    ? 'player'
+                    : 'ally',
               }
             : null,
         })
@@ -199,7 +205,10 @@ export class ContextBuilder {
               .join('\n')
           : ''
         const recentRolls = recentRollEntries
-          .map((roll) => `${roll.notation} = ${roll.total}${roll.dc === null ? '' : ` vs DC ${roll.dc}`} (${roll.outcome ?? 'unresolved'})`)
+          .map(
+            (roll) =>
+              `${roll.notation} = ${roll.total}${roll.dc === null ? '' : ` vs DC ${roll.dc}`} (${roll.outcome ?? 'unresolved'})`,
+          )
           .join('\n')
 
         const nsfwIntensity = campaignSettings?.nsfwIntensity ?? 0
@@ -217,15 +226,16 @@ export class ContextBuilder {
           turnType,
           sceneMode: sceneTurnState?.sceneMode ?? '',
           turnOrderMode: sceneTurnState?.turnOrderMode ?? '',
-          activeActorName:
-            sceneTurnState?.activeActorId
-              ? characterById.get(sceneTurnState.activeActorId)?.name ?? sceneTurnState.activeActorId
-              : '',
-          upcomingActors: sceneTurnState?.actorOrder
-            .filter((actorId) => actorId !== sceneTurnState.activeActorId)
-            .slice(0, 4)
-            .map((actorId) => characterById.get(actorId)?.name ?? actorId)
-            .join(', ') ?? '',
+          activeActorName: sceneTurnState?.activeActorId
+            ? (characterById.get(sceneTurnState.activeActorId)?.name ??
+              sceneTurnState.activeActorId)
+            : '',
+          upcomingActors:
+            sceneTurnState?.actorOrder
+              .filter((actorId) => actorId !== sceneTurnState.activeActorId)
+              .slice(0, 4)
+              .map((actorId) => characterById.get(actorId)?.name ?? actorId)
+              .join(', ') ?? '',
           activeCampaignThreads,
           directorOnlyCampaignThreads,
           campaignSessionNumber: activeSession?.sessionNumber ?? '',
@@ -234,9 +244,7 @@ export class ContextBuilder {
           partyRoster: rosterMembers
             .map(({ member, character }) => {
               const profile = profileByCharacterId.get(character.id)
-              const agency = profile?.motivations
-                ? ` motivations: ${profile.motivations}`
-                : ''
+              const agency = profile?.motivations ? ` motivations: ${profile.motivations}` : ''
               return `${character.name} (${member.actorCategory}, narrative: ${member.narrativeControlMode}, combat: ${member.combatControlMode})${agency}`
             })
             .join('\n'),

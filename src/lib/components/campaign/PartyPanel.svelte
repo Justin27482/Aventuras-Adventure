@@ -1,11 +1,11 @@
 <script lang="ts">
   import { campaign } from '$lib/stores/campaign.svelte'
   import { story } from '$lib/stores/story.svelte'
-  import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card'
+  import { Card, CardContent } from '$lib/components/ui/card'
   import { Badge } from '$lib/components/ui/badge'
   import { Button } from '$lib/components/ui/button'
   import { Switch } from '$lib/components/ui/switch'
-  import { Users, Crown, Sparkles, UserCheck, ShieldAlert } from 'lucide-svelte'
+  import { Users, Sparkles } from 'lucide-svelte'
 
   let error = $state<string | null>(null)
 
@@ -50,7 +50,7 @@
   </div>
 
   {#if error}
-    <p class="text-destructive rounded-md border border-destructive/30 p-2 text-xs">{error}</p>
+    <p class="text-destructive border-destructive/30 rounded-md border p-2 text-xs">{error}</p>
   {/if}
 
   {#if campaign.current}
@@ -76,7 +76,8 @@
                 {/if}
               </div>
               <p class="text-muted-foreground mt-0.5 text-xs">
-                {member?.actorCategory.replace('_', ' ') ?? 'available ally'} · narrative: {member?.narrativeControlMode ?? 'autonomous'} · combat: {member?.combatControlMode ?? 'autonomous'}
+                {member?.actorCategory.replace('_', ' ') ?? 'available ally'} · narrative: {member?.narrativeControlMode ??
+                  'autonomous'} · combat: {member?.combatControlMode ?? 'autonomous'}
               </p>
             </div>
 

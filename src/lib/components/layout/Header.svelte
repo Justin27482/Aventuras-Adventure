@@ -42,9 +42,7 @@
   let showSessionSetup = $state(false)
 
   const needsSessionSetup = $derived(
-    !!story.currentStory &&
-      !!campaign.current &&
-      !campaign.activeSession,
+    !!story.currentStory && !!campaign.current && !campaign.activeSession,
   )
 
   const hasActiveSession = $derived(!!campaign.activeSession)
@@ -231,14 +229,12 @@
 {/snippet}
 
 <header
-  class="bg-card relative z-10 flex h-12 items-center justify-between border-b border-primary/20 px-1 shadow-[inset_0_-1px_0_rgba(245,166,66,0.18)] sm:h-14 sm:px-4"
+  class="bg-card border-primary/20 relative z-10 flex h-12 items-center justify-between border-b px-1 shadow-[inset_0_-1px_0_rgba(245,166,66,0.18)] sm:h-14 sm:px-4"
 >
   <!-- Left side: Campaign title -->
   <div class="flex min-w-0 flex-1 items-center">
     <div class="flex min-w-0 items-center gap-3 px-2.5 sm:px-1">
-      <div
-        class="h-8 w-8 flex-shrink-0 rounded-sm shadow-[0_0_18px_rgba(245,166,66,0.4)]"
-      >
+      <div class="h-8 w-8 flex-shrink-0 rounded-sm shadow-[0_0_18px_rgba(245,166,66,0.4)]">
         <img src="/campaign-engine-mark.svg" alt="Campaign Engine" class="h-full w-full" />
       </div>
       {#if story.currentStory}
@@ -261,7 +257,9 @@
         {/if}
       {:else}
         <!-- App Branding (Library Mode) -->
-        <span class="text-foreground text-lg font-semibold sm:translate-y-[-1.5px]">Campaign Engine</span>
+        <span class="text-foreground text-lg font-semibold sm:translate-y-[-1.5px]"
+          >Campaign Engine</span
+        >
       {/if}
     </div>
   </div>
@@ -388,7 +386,11 @@
                     />
                   {/snippet}
                 </Tooltip.Trigger>
-                <Tooltip.Content>{story.currentStory ? 'Import / Export campaign' : 'Import campaign material'}</Tooltip.Content>
+                <Tooltip.Content
+                  >{story.currentStory
+                    ? 'Import / Export campaign'
+                    : 'Import campaign material'}</Tooltip.Content
+                >
               </Tooltip.Root>
             {/snippet}
           </DropdownMenu.Trigger>

@@ -27,7 +27,9 @@
   )
 
   const activePartyIds = $derived(
-    new Set(campaign.partyMembers.filter((member) => member.active).map((member) => member.characterId)),
+    new Set(
+      campaign.partyMembers.filter((member) => member.active).map((member) => member.characterId),
+    ),
   )
 
   function initializeSelection() {
@@ -43,14 +45,16 @@
     const character = story.characters.find((candidate) => candidate.id === characterId)
     if (!character) return
     const isPrimaryCharacter = character.relationship === 'self'
-    void campaign.setPartyMember(character, {
-      active,
-      actorCategory: isPrimaryCharacter ? 'primary_player_character' : 'active_companion',
-      narrativeControlMode: isPrimaryCharacter ? 'player_narrative' : 'autonomous',
-      combatControlMode: isPrimaryCharacter ? 'player_narrative' : 'autonomous',
-    }).catch((reason) => {
-      error = reason instanceof Error ? reason.message : 'Unable to update party'
-    })
+    void campaign
+      .setPartyMember(character, {
+        active,
+        actorCategory: isPrimaryCharacter ? 'primary_player_character' : 'active_companion',
+        narrativeControlMode: isPrimaryCharacter ? 'player_narrative' : 'autonomous',
+        combatControlMode: isPrimaryCharacter ? 'player_narrative' : 'autonomous',
+      })
+      .catch((reason) => {
+        error = reason instanceof Error ? reason.message : 'Unable to update party'
+      })
   }
 
   async function startSession() {
@@ -80,7 +84,7 @@
 </script>
 
 <Dialog.Root
-  open={open}
+  {open}
   onOpenChange={(nextOpen) => {
     if (nextOpen) initializeSelection()
     else onClose()
@@ -103,8 +107,12 @@
         </div>
         <div class="space-y-2">
           {#each partyCharacters as character (character.id)}
-            {@const member = campaign.partyMembers.find((candidate) => candidate.characterId === character.id)}
-            <div class="border-border bg-muted/20 flex items-center justify-between rounded-md border p-3">
+            {@const member = campaign.partyMembers.find(
+              (candidate) => candidate.characterId === character.id,
+            )}
+            <div
+              class="border-border bg-muted/20 flex items-center justify-between rounded-md border p-3"
+            >
               <div class="min-w-0">
                 <p class="text-foreground truncate text-sm font-medium">{character.name}</p>
                 <p class="text-muted-foreground text-xs">
@@ -133,10 +141,9 @@
               'Choose a character'}
           </Select.Trigger>
           <Select.Content>
-            {#each partyCharacters.filter((character) => activePartyIds.has(character.id)) as character (
-              character.id
-            )}
-              <Select.Item value={character.id} label={character.name}>{character.name}</Select.Item>
+            {#each partyCharacters.filter( (character) => activePartyIds.has(character.id), ) as character (character.id)}
+              <Select.Item value={character.id} label={character.name}>{character.name}</Select.Item
+              >
             {/each}
           </Select.Content>
         </Select.Root>

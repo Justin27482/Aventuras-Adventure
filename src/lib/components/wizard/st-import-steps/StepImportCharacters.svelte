@@ -430,7 +430,9 @@
                         </Button>
                       {/snippet}
                     </Tooltip.Trigger>
-                    <Tooltip.Content>{savedToVault.has(i) ? 'Saved to vault' : 'Save to vault'}</Tooltip.Content>
+                    <Tooltip.Content
+                      >{savedToVault.has(i) ? 'Saved to vault' : 'Save to vault'}</Tooltip.Content
+                    >
                   </Tooltip.Root>
                   <Tooltip.Root>
                     <Tooltip.Trigger>

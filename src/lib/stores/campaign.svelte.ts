@@ -152,7 +152,7 @@ class CampaignStore {
     const activeActorId =
       this.current.spotlightCharacterId && actorOrder.includes(this.current.spotlightCharacterId)
         ? this.current.spotlightCharacterId
-        : actorOrder[0] ?? null
+        : (actorOrder[0] ?? null)
 
     return {
       id: crypto.randomUUID(),
@@ -201,7 +201,7 @@ class CampaignStore {
     const activeActorId =
       this.sceneTurnState.activeActorId && actorOrder.includes(this.sceneTurnState.activeActorId)
         ? this.sceneTurnState.activeActorId
-        : actorOrder[0] ?? null
+        : (actorOrder[0] ?? null)
 
     if (
       activeActorId === this.sceneTurnState.activeActorId &&
@@ -430,8 +430,7 @@ class CampaignStore {
     const maxPartySize = this.settings?.maxPartySize ?? 6
     // Seed the player character first so it always fits within the party limit.
     const ordered = [...characters.entries()].sort(
-      ([, a], [, b]) =>
-        Number(b.id === primaryCharacterId) - Number(a.id === primaryCharacterId),
+      ([, a], [, b]) => Number(b.id === primaryCharacterId) - Number(a.id === primaryCharacterId),
     )
 
     for (const [index, character] of ordered) {
@@ -501,11 +500,12 @@ class CampaignStore {
       campaignId: this.current.id,
       characterId: character.id,
       eligibilityStatus: character.status === 'deceased' ? 'deceased' : 'eligible',
-      actorCategory:
-        options?.actorCategory ?? existing?.actorCategory ?? 'active_companion',
+      actorCategory: options?.actorCategory ?? existing?.actorCategory ?? 'active_companion',
       active: options?.active ?? existing?.active ?? true,
       narrativeControlMode:
-        options?.narrativeControlMode ?? existing?.narrativeControlMode ?? DEFAULT_NARRATIVE_CONTROL,
+        options?.narrativeControlMode ??
+        existing?.narrativeControlMode ??
+        DEFAULT_NARRATIVE_CONTROL,
       combatControlMode:
         options?.combatControlMode ?? existing?.combatControlMode ?? DEFAULT_COMBAT_CONTROL,
       displayOrder: options?.displayOrder ?? existing?.displayOrder ?? this.partyMembers.length,
@@ -527,7 +527,11 @@ class CampaignStore {
 
     await database.updateCampaignSpotlight(this.current.id, characterId)
     this.current = { ...this.current, spotlightCharacterId: characterId, updatedAt: Date.now() }
-    if (this.sceneTurnState && characterId && this.sceneTurnState.actorOrder.includes(characterId)) {
+    if (
+      this.sceneTurnState &&
+      characterId &&
+      this.sceneTurnState.actorOrder.includes(characterId)
+    ) {
       await this.setActiveActor(characterId)
     }
   }
@@ -546,7 +550,12 @@ class CampaignStore {
     if (next.maxPartySize < next.defaultPartySize) {
       throw new Error('Maximum party size cannot be smaller than the default party size')
     }
-    const { campaignId: _campaignId, createdAt: _createdAt, updatedAt: _updatedAt, ...changedSettings } = updates
+    const {
+      campaignId: _campaignId,
+      createdAt: _createdAt,
+      updatedAt: _updatedAt,
+      ...changedSettings
+    } = updates
     await database.updateCampaignSettings(next.campaignId, changedSettings)
     const persisted = await database.getCampaignSettings(next.campaignId)
     if (!persisted || persisted.nsfwIntensity !== next.nsfwIntensity) {

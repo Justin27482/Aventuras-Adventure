@@ -30,7 +30,9 @@ export function validateMoneyAmount(amount: number): void {
  */
 export function useAbilityResource(resource: ResourceValue, cost: number): ResourceValue {
   if (resource.current < cost) {
-    throw new Error(`Not enough resource to use this ability (need ${cost}, have ${resource.current})`)
+    throw new Error(
+      `Not enough resource to use this ability (need ${cost}, have ${resource.current})`,
+    )
   }
   return applyResourceDelta(resource, -cost)
 }
@@ -92,7 +94,8 @@ export function validateSlotCarryLimit(
   items: Item[],
 ): void {
   const occupants = items.filter(
-    (item) => item.ownerCharacterId === ownerCharacterId && item.slotKey === slotKey && item.equipped,
+    (item) =>
+      item.ownerCharacterId === ownerCharacterId && item.slotKey === slotKey && item.equipped,
   )
   if (occupants.length > 1) {
     throw new Error(`More than one item is equipped in slot "${slotKey}" for this character`)
@@ -138,7 +141,9 @@ export function isArmorItem(item: Pick<Item, 'name' | 'metadata'>): boolean {
   if (metadata && typeof metadata === 'object' && 'isArmor' in metadata) {
     return metadata.isArmor === true
   }
-  return /\b(armor|armour|breastplate|cuirass|chainmail|mail|plate armor|scale armor|shield)\b/i.test(item.name)
+  return /\b(armor|armour|breastplate|cuirass|chainmail|mail|plate armor|scale armor|shield)\b/i.test(
+    item.name,
+  )
 }
 
 /**

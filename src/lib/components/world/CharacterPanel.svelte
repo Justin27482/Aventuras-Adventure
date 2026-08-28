@@ -241,10 +241,7 @@
         .join('\n\n')
       newTraits = result.traits.join(', ')
     } catch (error) {
-      ui.showToast(
-        error instanceof Error ? error.message : 'Failed to generate character',
-        'error',
-      )
+      ui.showToast(error instanceof Error ? error.message : 'Failed to generate character', 'error')
     } finally {
       isGeneratingCharacter = false
     }
@@ -616,8 +613,15 @@
 
   function isClothingItem(item: (typeof story.items)[number]): boolean {
     const clothing = item.metadata?.clothing
-    return (typeof clothing === 'object' && clothing !== null && 'isClothing' in clothing && clothing.isClothing === true) ||
-      /\b(dress|shirt|top|jacket|coat|robe|skirt|pants|shorts|trousers|leggings|bra|corset|underwear|briefs|thong|shoes|boots|heels|sandals|gloves|armor|breastplate|cuirass|chainmail|plate)\b/i.test(item.name)
+    return (
+      (typeof clothing === 'object' &&
+        clothing !== null &&
+        'isClothing' in clothing &&
+        clothing.isClothing === true) ||
+      /\b(dress|shirt|top|jacket|coat|robe|skirt|pants|shorts|trousers|leggings|bra|corset|underwear|briefs|thong|shoes|boots|heels|sandals|gloves|armor|breastplate|cuirass|chainmail|plate)\b/i.test(
+        item.name,
+      )
+    )
   }
 </script>
 
@@ -1162,7 +1166,7 @@
             {/if}
 
             {#if characterItems.length > 0}
-              <div class="border-border/50 mt-2 rounded-md border bg-muted/10 p-2 text-[11px]">
+              <div class="border-border/50 bg-muted/10 mt-2 rounded-md border p-2 text-[11px]">
                 <div class="flex items-center justify-between gap-2">
                   <span class="text-muted-foreground font-medium">Owned items</span>
                   <span class="text-muted-foreground">{characterItems.length}</span>
@@ -1171,8 +1175,11 @@
                   {characterItems.map((item) => item.name).join(' · ')}
                 </p>
                 {#if clothingItems.length > 0}
-                  <p class="text-rose-400/90 mt-1 truncate">
-                    Wearing: {clothingItems.filter((item) => item.equipped).map((item) => item.name).join(' · ') || 'none equipped'}
+                  <p class="mt-1 truncate text-rose-400/90">
+                    Wearing: {clothingItems
+                      .filter((item) => item.equipped)
+                      .map((item) => item.name)
+                      .join(' · ') || 'none equipped'}
                   </p>
                 {/if}
               </div>
@@ -1217,7 +1224,9 @@
                         </Button>
                       {/snippet}
                     </Tooltip.Trigger>
-                    <Tooltip.Content>{isCollapsed ? 'Show details' : 'Hide details'}</Tooltip.Content>
+                    <Tooltip.Content
+                      >{isCollapsed ? 'Show details' : 'Hide details'}</Tooltip.Content
+                    >
                   </Tooltip.Root>
                 {/if}
               </div>
@@ -1240,13 +1249,19 @@
                             ? 'text-primary'
                             : 'text-muted-foreground hover:text-primary',
                         )}
-                        onclick={() => (sheetCharacterId = sheetCharacterId === character.id ? null : character.id)}
+                        onclick={() =>
+                          (sheetCharacterId =
+                            sheetCharacterId === character.id ? null : character.id)}
                       >
                         <BookOpen class="h-3.5 w-3.5" />
                       </Button>
                     {/snippet}
                   </Tooltip.Trigger>
-                  <Tooltip.Content>{sheetCharacterId === character.id ? 'Hide character sheet' : 'View character sheet'}</Tooltip.Content>
+                  <Tooltip.Content
+                    >{sheetCharacterId === character.id
+                      ? 'Hide character sheet'
+                      : 'View character sheet'}</Tooltip.Content
+                  >
                 </Tooltip.Root>
                 {#if !isProtagonist}
                   <Tooltip.Root>

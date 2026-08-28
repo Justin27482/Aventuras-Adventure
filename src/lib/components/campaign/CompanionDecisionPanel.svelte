@@ -1,6 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { eventBus, type CompanionDecisionProposedEvent, type CompanionDecisionResolvedEvent } from '$lib/services/events'
+  import {
+    eventBus,
+    type CompanionDecisionProposedEvent,
+    type CompanionDecisionResolvedEvent,
+  } from '$lib/services/events'
   import { companionDecisionService } from '$lib/services/campaign/companion-decision-service'
   import { campaign } from '$lib/stores/campaign.svelte'
   import { story } from '$lib/stores/story.svelte'
@@ -26,7 +30,9 @@
 
   function resolveDecision(event: CompanionDecisionResolvedEvent) {
     decisions = decisions.map((decision) =>
-      decision.proposalId === event.proposalId ? { ...decision, accepted: event.accepted } : decision,
+      decision.proposalId === event.proposalId
+        ? { ...decision, accepted: event.accepted }
+        : decision,
     )
   }
 
@@ -53,12 +59,14 @@
     }
   })
 
-  const visibleDecisions = $derived(decisions.filter((decision) => decision.campaignId === campaign.current?.id))
+  const visibleDecisions = $derived(
+    decisions.filter((decision) => decision.campaignId === campaign.current?.id),
+  )
 </script>
 
 {#if visibleDecisions.length > 0}
   <section class="pointer-events-none fixed right-4 bottom-4 z-30 w-[min(24rem,calc(100vw-2rem))]">
-    <Card class="pointer-events-auto border-primary/30 bg-card/95 shadow-xl backdrop-blur-sm">
+    <Card class="border-primary/30 bg-card/95 pointer-events-auto shadow-xl backdrop-blur-sm">
       <CardHeader class="flex flex-row items-center justify-between space-y-0 px-4 py-3">
         <CardTitle class="flex items-center gap-2 text-sm">
           <Brain class="text-primary h-4 w-4" />
@@ -72,7 +80,9 @@
             <div class="flex items-start justify-between gap-2">
               <div class="min-w-0">
                 <p class="text-foreground font-medium">{characterName(decision.characterId)}</p>
-                <p class="text-muted-foreground mt-0.5">{decision.controlMode} · {decision.sceneMode}</p>
+                <p class="text-muted-foreground mt-0.5">
+                  {decision.controlMode} · {decision.sceneMode}
+                </p>
               </div>
               {#if decision.accepted === true}
                 <Check class="h-3.5 w-3.5 shrink-0 text-green-400" />

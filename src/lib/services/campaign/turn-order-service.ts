@@ -81,9 +81,10 @@ export class TurnOrderService {
     this.actors = snapshot.actorIds
       .map((actorId) => actorsById.get(actorId))
       .filter((actor): actor is TurnOrderActor => actor !== undefined)
-    this.activeActorId = snapshot.activeActorId && actorsById.has(snapshot.activeActorId)
-      ? snapshot.activeActorId
-      : this.actors[0]?.id ?? null
+    this.activeActorId =
+      snapshot.activeActorId && actorsById.has(snapshot.activeActorId)
+        ? snapshot.activeActorId
+        : (this.actors[0]?.id ?? null)
   }
 
   getActor(actorId: string): TurnOrderActor | null {

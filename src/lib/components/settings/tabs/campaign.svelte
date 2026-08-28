@@ -7,8 +7,11 @@
   import { Textarea } from '$lib/components/ui/textarea'
   import { Button } from '$lib/components/ui/button'
   import * as Select from '$lib/components/ui/select'
-  import { buildWorldCharterDraft, expandWorldCharterDraft } from '$lib/services/campaign/world-charter-service'
-  import { BookOpenText, Crown, Users, Swords, Flame, ShieldAlert } from 'lucide-svelte'
+  import {
+    buildWorldCharterDraft,
+    expandWorldCharterDraft,
+  } from '$lib/services/campaign/world-charter-service'
+  import { BookOpenText, Crown, Users, Swords, Flame } from 'lucide-svelte'
   import { Slider } from '$lib/components/ui/slider'
   import { Badge } from '$lib/components/ui/badge'
   import { CONTENT_INTENSITY_LEVELS, MAX_CONTENT_INTENSITY } from '$lib/services/content-intensity'
@@ -46,7 +49,6 @@
   let gmPersonaDraft = $state('')
   let intensityValue = $state(0)
   let intensitySaveQueue: Promise<void> = Promise.resolve()
-  let isSavingIntensity = $state(false)
 
   $effect(() => {
     worldCharterDraft = campaign.settings?.worldCharter ?? ''
@@ -102,16 +104,14 @@
     campaignSettingsError = null
     intensitySaveQueue = intensitySaveQueue
       .then(async () => {
-        isSavingIntensity = true
         await saveCampaignSettings({ nsfwIntensity: clamped })
       })
       .catch((error) => {
-        campaignSettingsError = error instanceof Error ? error.message : 'Failed to save content intensity'
+        campaignSettingsError =
+          error instanceof Error ? error.message : 'Failed to save content intensity'
         console.error('[CampaignSettings] Failed to save content intensity:', error)
       })
-      .finally(() => {
-        isSavingIntensity = false
-      })
+      .finally(() => {})
   }
 
   async function saveWorldCharter() {
@@ -150,7 +150,8 @@
       worldCharterDraft = buildWorldCharterDraft(input)
       await saveWorldCharter()
     } catch (error) {
-      campaignSettingsError = error instanceof Error ? error.message : 'Failed to draft world charter'
+      campaignSettingsError =
+        error instanceof Error ? error.message : 'Failed to draft world charter'
     } finally {
       isDraftingWorldCharter = false
     }
@@ -164,7 +165,8 @@
     try {
       worldCharterDraft = await expandWorldCharterDraft(input)
     } catch (error) {
-      campaignSettingsError = error instanceof Error ? error.message : 'Failed to expand world charter'
+      campaignSettingsError =
+        error instanceof Error ? error.message : 'Failed to expand world charter'
     } finally {
       isExpandingWorldCharter = false
     }
@@ -264,13 +266,18 @@
               <Select.Item value={candidate.id} label={candidate.name}>
                 <div class="flex items-center gap-2">
                   <span>{candidate.name}</span>
-                  {#if candidate.isBuiltin}<span class="text-muted-foreground text-xs">Built-in</span>{/if}
+                  {#if candidate.isBuiltin}<span class="text-muted-foreground text-xs"
+                      >Built-in</span
+                    >{/if}
                 </div>
               </Select.Item>
             {/each}
           </Select.Content>
         </Select.Root>
-        <p class="text-muted-foreground text-xs">Rulesets are shared definitions. Changes to a custom ruleset are available to every campaign using it.</p>
+        <p class="text-muted-foreground text-xs">
+          Rulesets are shared definitions. Changes to a custom ruleset are available to every
+          campaign using it.
+        </p>
       </CardContent>
     </Card>
 
@@ -380,7 +387,8 @@
           onblur={saveWorldCharter}
         />
         <p class="text-muted-foreground text-xs">
-          Saved on blur. Drafting from campaign saves immediately; AI expansion updates the draft for review.
+          Saved on blur. Drafting from campaign saves immediately; AI expansion updates the draft
+          for review.
         </p>
       </CardContent>
     </Card>
@@ -398,11 +406,15 @@
           type="single"
           value={campaign.settings.companionCombatPolicy}
           onValueChange={(value) =>
-            value && saveCampaignSettings({ companionCombatPolicy: value as typeof campaign.settings.companionCombatPolicy })}
+            value &&
+            saveCampaignSettings({
+              companionCombatPolicy: value as typeof campaign.settings.companionCombatPolicy,
+            })}
         >
           <Select.Trigger id="default-combat-policy" class="w-full">
-            {combatPolicies.find((policy) =>
-              policy.value === campaign.settings?.companionCombatPolicy)?.label ?? 'Autonomous companions'}
+            {combatPolicies.find(
+              (policy) => policy.value === campaign.settings?.companionCombatPolicy,
+            )?.label ?? 'Autonomous companions'}
           </Select.Trigger>
           <Select.Content>
             {#each combatPolicies as policy (policy.value)}
@@ -423,5 +435,7 @@
 {:else if campaignSettingsError}
   <p class="text-destructive text-sm">{campaignSettingsError}</p>
 {:else}
-  <p class="text-muted-foreground text-sm">Campaign settings are available for active Campaign Engine campaigns.</p>
+  <p class="text-muted-foreground text-sm">
+    Campaign settings are available for active Campaign Engine campaigns.
+  </p>
 {/if}

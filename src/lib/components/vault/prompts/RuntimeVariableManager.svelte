@@ -221,13 +221,19 @@
   </div>
 
   <details class="border-b px-4 py-3 text-xs">
-    <summary class="cursor-pointer font-medium">Prompt runtime context ({promptRuntimeVariables.length})</summary>
-    <p class="text-muted-foreground mt-1">These built-in values are injected automatically when prompts render.</p>
+    <summary class="cursor-pointer font-medium"
+      >Prompt runtime context ({promptRuntimeVariables.length})</summary
+    >
+    <p class="text-muted-foreground mt-1">
+      These built-in values are injected automatically when prompts render.
+    </p>
     <div class="mt-2 grid max-h-48 grid-cols-1 gap-x-4 gap-y-1 overflow-y-auto sm:grid-cols-2">
       {#each promptRuntimeVariables as variable (variable.name)}
         <div class="min-w-0">
           <span class="font-mono text-[11px]">{variable.name}</span>
-          <span class="text-muted-foreground ml-1 break-words">= {previewValues[variable.name] ?? '(empty)'}</span>
+          <span class="text-muted-foreground ml-1 break-words"
+            >= {previewValues[variable.name] ?? '(empty)'}</span
+          >
         </div>
       {/each}
     </div>

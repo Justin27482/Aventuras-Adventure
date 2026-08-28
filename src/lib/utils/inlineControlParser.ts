@@ -24,7 +24,7 @@ const ATTRIBUTE_REGEX = /([a-zA-Z][\w-]*)\s*(?:=\s*(?:(["'])(.*?)\2|([^\s>]+)))?
 function parseAttributes(source: string): Record<string, string> {
   const attributes: Record<string, string> = {}
   let match: RegExpExecArray | null
-  const regex = /([a-zA-Z][\w-]*)\s*(?:=\s*(?:(["'])(.*?)\2|([^\s>]+)))?/gi
+  const regex = ATTRIBUTE_REGEX
   while ((match = regex.exec(source)) !== null) {
     const key = match[1].toLowerCase()
     const val = match[3] ?? match[4] ?? ''
@@ -90,7 +90,8 @@ export function validateInlineControlTags(
       }
     }
     if (tag.name === 'actor') {
-      const id = attribute('id') || attribute('actor') || attribute('character') || attribute('name')
+      const id =
+        attribute('id') || attribute('actor') || attribute('character') || attribute('name')
       if (!id) issues.push({ tag, message: 'Actor tag requires id.' })
       else if (
         actorIds.length > 0 &&

@@ -39,9 +39,7 @@
     { id: 'quests' as const, icon: Scroll, label: 'Quests' },
     { id: 'time' as const, icon: Clock, label: 'Time' },
     { id: 'branches' as const, icon: GitBranch, label: 'Branches' },
-    ...(settings.uiSettings.gmMode
-      ? [{ id: 'gm' as const, icon: Crown, label: 'GM / QA' }]
-      : []),
+    ...(settings.uiSettings.gmMode ? [{ id: 'gm' as const, icon: Crown, label: 'GM / QA' }] : []),
   ])
 
   function handleSwipeLeft() {

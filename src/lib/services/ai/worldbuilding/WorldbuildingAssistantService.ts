@@ -31,8 +31,14 @@ const updateSchema = z.object({
 })
 
 const responseSchema = z.object({
-  reply: z.string().describe('A warm, concise response to the user. Ask one useful next question when appropriate.'),
-  proposal: updateSchema.describe('Only include fields that should be added or changed. Omit fields that should remain unchanged.'),
+  reply: z
+    .string()
+    .describe(
+      'A warm, concise response to the user. Ask one useful next question when appropriate.',
+    ),
+  proposal: updateSchema.describe(
+    'Only include fields that should be added or changed. Omit fields that should remain unchanged.',
+  ),
 })
 
 export type WorldbuildingResponse = z.infer<typeof responseSchema>
@@ -54,12 +60,16 @@ export class WorldbuildingAssistantService {
           operation: 'update_worldbuilding_draft',
           currentDraft: draft,
           conversation: [...this.history, { role: 'user', content: userMessage }],
-          instruction: 'Respond to the latest message and propose only changes the user clearly requested or accepted.',
+          instruction:
+            'Respond to the latest message and propose only changes the user clearly requested or accepted.',
         }),
       },
       'worldbuildingAssistant',
     )
-    this.history.push({ role: 'user', content: userMessage }, { role: 'assistant', content: response.reply })
+    this.history.push(
+      { role: 'user', content: userMessage },
+      { role: 'assistant', content: response.reply },
+    )
     return response
   }
 }

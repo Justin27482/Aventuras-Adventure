@@ -30,9 +30,7 @@ export interface MechanicsPhaseResult {
 }
 
 export class MechanicsPhase {
-  async *execute(
-    input: MechanicsInput,
-  ): AsyncGenerator<GenerationEvent, MechanicsPhaseResult> {
+  async *execute(input: MechanicsInput): AsyncGenerator<GenerationEvent, MechanicsPhaseResult> {
     yield { type: 'phase_start', phase: 'mechanics' } satisfies PhaseStartEvent
 
     const { story, campaignId, abortSignal } = input
