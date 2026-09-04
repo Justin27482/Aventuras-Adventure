@@ -5,6 +5,7 @@
   import { settings } from '$lib/stores/settings.svelte'
   import { campaign } from '$lib/stores/campaign.svelte'
   import SessionSetupModal from '$lib/components/campaign/SessionSetupModal.svelte'
+  import { ask } from '@tauri-apps/plugin-dialog'
   import { exportService, gatherStoryData } from '$lib/services/export'
   import { Button } from '$lib/components/ui/button'
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
@@ -48,6 +49,12 @@
   const hasActiveSession = $derived(!!campaign.activeSession)
 
   async function endActiveSession() {
+    const confirmed = await ask(
+      'End this session? Its chat history and completed-session records will be retained. The active chat will clear for the next session.',
+      { title: 'End Session', kind: 'warning' },
+    )
+    if (!confirmed) return
+
     try {
       await campaign.endSession()
       ui.showToast('Session ended. You can now change the active party.', 'info')

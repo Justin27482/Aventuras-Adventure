@@ -35,6 +35,10 @@ export type EventType =
   | 'ModeChanged' // Story mode changed
   | 'CompanionDecisionProposed' // Companion or delegated action proposal created
   | 'CompanionDecisionResolved' // Companion proposal accepted or rejected
+  | 'AIPlayerProposalProposed' // AI Player proposal generated for the GM
+  | 'AIPlayerProposalConsensusStarted' // AI Player OOC consensus session started
+  | 'AIPlayerProposalConsensusEnded' // AI Player OOC consensus finished
+  | 'AIPlayerProposalAccepted' // AI Player proposal was accepted by the GM
   | 'DiceRolled' // Inline or mechanics roll resolved
   | 'RollRequested' // Narrative requested a player roll
   | 'TurnTypeChanged' // Narrative turn type resolved
@@ -146,6 +150,44 @@ export interface CompanionDecisionResolvedEvent {
   sessionId: string | null
   characterId: string
   accepted: boolean
+}
+
+export interface AIPlayerProposalProposedEvent {
+  type: 'AIPlayerProposalProposed'
+  proposalId: string
+  aiPlayerId: string
+  campaignId: string
+  characterId: string
+  sceneMode: string
+  action: string
+}
+
+export interface AIPlayerProposalConsensusStartedEvent {
+  type: 'AIPlayerProposalConsensusStarted'
+  campaignId: string
+  sessionId: string | null
+  audienceKind: 'full_table' | 'player_subset' | 'private_player'
+  proposalIds: string[]
+}
+
+export interface AIPlayerProposalConsensusEndedEvent {
+  type: 'AIPlayerProposalConsensusEnded'
+  campaignId: string
+  sessionId: string | null
+  audienceKind: 'full_table' | 'player_subset' | 'private_player'
+  proposalIds: string[]
+  interrupted: boolean
+  timedOut: boolean
+}
+
+export interface AIPlayerProposalAcceptedEvent {
+  type: 'AIPlayerProposalAccepted'
+  proposalId: string
+  campaignId: string
+  sessionId: string | null
+  aiPlayerId: string
+  characterId: string
+  action: string
 }
 
 import type { RollLedgerEntry } from '$lib/types'
@@ -276,6 +318,10 @@ export type AventuraEvent =
   | ModeChangedEvent
   | CompanionDecisionProposedEvent
   | CompanionDecisionResolvedEvent
+  | AIPlayerProposalProposedEvent
+  | AIPlayerProposalConsensusStartedEvent
+  | AIPlayerProposalConsensusEndedEvent
+  | AIPlayerProposalAcceptedEvent
   | DiceRolledEvent
   | RollRequestedEvent
   | TurnTypeChangedEvent

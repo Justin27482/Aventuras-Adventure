@@ -27,6 +27,7 @@ import { TranslationService } from '../utils/TranslationService'
 import { ImageAnalysisService } from '../image/ImageAnalysisService'
 import { BackgroundImageService } from '../image/BackgroundImageService'
 import { RulesetAssistantService } from '../ruleset/RulesetAssistantService'
+import { PersonalityService } from '../../ai-player/personality-service'
 
 /**
  * Factory class for creating AI services.
@@ -65,6 +66,10 @@ export class ServiceFactory {
    */
   createActionChoicesService(): ActionChoicesService {
     return new ActionChoicesService('actionChoices')
+  }
+
+  createAIPlayerPersonalityService(): PersonalityService {
+    return new PersonalityService()
   }
 
   /**

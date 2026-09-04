@@ -2,12 +2,13 @@
   import { WizardStore } from '$lib/stores/wizard/wizard.svelte'
   import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
   import { Button } from '$lib/components/ui/button'
+  import * as Select from '$lib/components/ui/select'
   import { ChevronLeft, ChevronRight, Play, X } from 'lucide-svelte'
   import { ui } from '$lib/stores/ui.svelte'
   import { lorebookVault } from '$lib/stores/lorebookVault.svelte'
   import { characterVault } from '$lib/stores/characterVault.svelte'
   import { hasRequiredCredentials } from '$lib/services/ai/image'
-  import type { Story, VaultCharacter } from '$lib/types'
+  import type { CampaignType, Story, VaultCharacter } from '$lib/types'
 
   // Step components
   import {
@@ -19,6 +20,7 @@
     Step6Portraits,
     Step7WritingStyle,
     Step8Opening,
+    Step9AIPlayers,
   } from './steps'
 
   interface Props {
@@ -95,6 +97,7 @@
     'Import Lorebook (Optional)',
     'Character Portraits (Optional)',
     'Writing Style',
+    'Assign AI Players',
     'Generate Opening',
   ]
 
@@ -102,6 +105,12 @@
   $effect(() => {
     if (wizard.currentStep === 1) {
       wizard.loadPacks()
+    }
+  })
+
+  $effect(() => {
+    if (wizard.currentStep === 8) {
+      wizard.loadAIPlayers()
     }
   })
 </script>
@@ -144,6 +153,32 @@
               : ''}"
           ></div>
         {/each}
+      </div>
+      <div class="mt-3 grid gap-2 sm:grid-cols-2">
+        <Select.Root
+          type="single"
+          value={wizard.campaignType}
+          onValueChange={(value) => value && wizard.setCampaignType(value as CampaignType)}
+        >
+          <Select.Trigger class="w-full">
+            {wizard.campaignType === 'human_gm_ai_players'
+              ? 'Human GM with AI Players'
+              : wizard.campaignType === 'ai_gm'
+                ? 'AI GM with Human Player'
+                : 'Human GM Solo'}
+          </Select.Trigger>
+          <Select.Content>
+            <Select.Item value="human_gm_solo" label="Human GM Solo">Human GM Solo</Select.Item>
+            <Select.Item value="human_gm_ai_players" label="Human GM with AI Players">Human GM with AI Players</Select.Item>
+            <Select.Item value="ai_gm" label="AI GM with Human Player">AI GM with Human Player</Select.Item>
+          </Select.Content>
+        </Select.Root>
+        {#if wizard.campaignType === 'human_gm_ai_players'}
+          <label class="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm">
+            <span>Create party during Session Zero</span>
+            <input type="checkbox" bind:checked={wizard.createPartyDuringSessionZero} />
+          </label>
+        {/if}
       </div>
     </div>
 
@@ -231,6 +266,7 @@
           manualCharacterTraits={wizard.character.manualCharacterTraits}
           characterElaborationGuidance={wizard.character.characterElaborationGuidance}
           isGeneratingProtagonist={wizard.character.isGeneratingProtagonist}
+          isGeneratingPortraitDescription={wizard.character.isGeneratingPortraitDescription}
           isExpandingCharacter={wizard.character.isExpandingCharacter}
           isRefiningCharacter={wizard.character.isRefiningCharacter}
           protagonistError={wizard.character.protagonistError}
@@ -262,6 +298,9 @@
               wizard.narrative.selectedPOV,
               wizard.narrative.customGenre,
             )}
+          onGeneratePortraitDescription={() =>
+            wizard.character.generatePortraitDescription(wizard.setting.expandedSetting)
+          }
           onSaveToVault={() =>
             wizard.character.handleSaveProtagonistToVault(
               wizard.image.protagonistVisualDescriptors,
@@ -410,6 +449,20 @@
           onReferenceModeChange={(v) => (wizard.narrative.referenceMode = v)}
         />
       {:else if wizard.currentStep === 8}
+        <Step9AIPlayers
+          characters={[
+            ...(wizard.character.protagonist ? [wizard.character.protagonist] : []),
+            ...wizard.character.supportingCharacters,
+          ]}
+          aiPlayers={wizard.aiPlayers}
+          assignments={wizard.aiPlayerAssignments}
+          onAssignmentChange={(name, id) => wizard.setAIPlayerAssignment(name, id)}
+          partyPending={wizard.isPartyPendingCreation}
+          rosterIds={wizard.aiPlayerRosterIds}
+          onRosterChange={(aiPlayerId, included) =>
+            wizard.setAIPlayerRosterMembership(aiPlayerId, included)}
+        />
+      {:else if wizard.currentStep === 9}
         <Step8Opening
           storyTitle={wizard.narrative.storyTitle}
           openingGuidance={wizard.narrative.openingGuidance}
@@ -478,7 +531,8 @@
             wizard.narrative.isGeneratingOpening ||
             wizard.narrative.isRefiningOpening ||
             wizard.narrative.isEditingOpening ||
-            (!wizard.narrative.generatedOpening &&
+            (!wizard.isPartyPendingCreation &&
+              !wizard.narrative.generatedOpening &&
               !wizard.narrative.manualOpeningText.trim() &&
               !wizard.character.cardImportedFirstMessage)}
         >

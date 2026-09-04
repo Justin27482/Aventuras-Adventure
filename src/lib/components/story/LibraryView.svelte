@@ -16,6 +16,7 @@
     FolderOpen,
     Swords,
     Globe2,
+    Bot,
     Pencil,
     Trash2,
   } from 'lucide-svelte'
@@ -101,11 +102,16 @@
 
   async function openStory(storyId: string) {
     ui.resetScrollBreak()
+    // `loadStory` hydrates campaign state, entries, and related metadata. It can take
+    // noticeably longer than the initial story lookup, so select the story view now.
+    // AppShell continues rendering the library until `currentStory` is available.
+    ui.setActivePanel('story')
     try {
       await story.loadStory(storyId)
-      ui.setActivePanel('story')
     } catch (error) {
       console.error('[LibraryView] Failed to open story:', error)
+      story.closeStory()
+      ui.setActivePanel('library')
       ui.showToast(error instanceof Error ? error.message : 'Failed to open campaign', 'error')
     }
   }
@@ -245,6 +251,13 @@
           variant="outline"
           title="Shape a world before creating a campaign"
           onclick={() => ui.setActivePanel('worldbuilding')}
+        />
+        <Button
+          icon={Bot}
+          label="AI Players"
+          variant="outline"
+          title="Create and manage reusable AI Player profiles"
+          onclick={() => ui.setActivePanel('ai-players')}
         />
         <DropdownMenu.Root bind:open={showImportMenu}>
           <DropdownMenu.Trigger>

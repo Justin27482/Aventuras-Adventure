@@ -12,6 +12,7 @@ import type {
   GeneratedProtagonist,
 } from '$lib/services/ai/sdk'
 import { SvelteSet } from 'svelte/reactivity'
+import { generatePlainText } from '$lib/services/ai/sdk'
 
 export class CharacterStore {
   // Protagonist State
@@ -21,6 +22,7 @@ export class CharacterStore {
   isExpandingCharacter = $state(false)
   isRefiningCharacter = $state(false)
   protagonistError = $state<string | null>(null)
+  isGeneratingPortraitDescription = $state(false)
 
   // Manual Input State
   manualCharacterName = $state('')
@@ -76,6 +78,27 @@ export class CharacterStore {
   )
 
   // Protagonist Actions
+  async generatePortraitDescription(expandedSetting: ExpandedSetting | null): Promise<void> {
+    if (this.isGeneratingPortraitDescription) return
+    this.isGeneratingPortraitDescription = true
+    this.protagonistError = null
+    try {
+      this.manualCharacterDescription = await generatePlainText(
+        {
+          presetId: settings.servicePresetAssignments['wizard:characterElaboration'] || 'agentic',
+          system:
+            'You write concise physical and visual character descriptions for portrait generation. Return only the description, with no headings or commentary.',
+          prompt: `Create a specific portrait-ready description for this character. Preserve the supplied identity and avoid inventing major biography. Include visible age range, build, face, hair, eyes, clothing, and distinctive features.\n\nName: ${this.manualCharacterName || 'Unnamed character'}\nCurrent description: ${this.manualCharacterDescription || 'None'}\nTraits: ${this.manualCharacterTraits || 'None'}\nSetting: ${expandedSetting?.description || 'Not specified'}`,
+        },
+        'wizard:portraitDescription',
+      )
+    } catch (error) {
+      this.protagonistError = error instanceof Error ? error.message : 'Failed to generate description'
+    } finally {
+      this.isGeneratingPortraitDescription = false
+    }
+  }
+
   async generateProtagonist(
     expandedSetting: ExpandedSetting,
     selectedGenre: Genre,

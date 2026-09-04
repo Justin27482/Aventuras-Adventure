@@ -8,7 +8,8 @@
  * which phrases/moments should have images generated.
  */
 
-import type { VisualDescriptors } from '$lib/types'
+import type { Item, VisualDescriptors } from '$lib/types'
+import { formatCharacterAppearance } from '$lib/utils/characterAppearance'
 import { BaseAIService } from '../BaseAIService'
 import { ContextBuilder } from '$lib/services/context'
 import { createLogger } from '$lib/log'
@@ -26,10 +27,13 @@ export interface ImageAnalysisContext {
   userAction: string
   /** Characters present in the scene with their visual descriptors */
   presentCharacters: Array<{
+    id: string
     name: string
     visualDescriptors?: VisualDescriptors
     isProtagonist: boolean
   }>
+  /** Current story items used to derive each character's equipped outfit. */
+  items?: Item[]
   /** Current location name */
   currentLocation?: string
   /** The image style prompt to include */
@@ -78,7 +82,10 @@ export class ImageAnalysisService extends BaseAIService {
     })
 
     // Build character descriptors block
-    const characterDescriptors = this.buildCharacterDescriptors(context.presentCharacters)
+    const characterDescriptors = this.buildCharacterDescriptors(
+      context.presentCharacters,
+      context.items ?? [],
+    )
 
     // Format portrait lists
     const charactersWithPortraitsStr =
@@ -141,45 +148,27 @@ ${context.translatedNarrative}`
    */
   private buildCharacterDescriptors(
     characters: Array<{
+      id: string
       name: string
       visualDescriptors?: VisualDescriptors
       isProtagonist: boolean
     }>,
+    items: Item[],
   ): string {
-    const withDescriptors = characters.filter((c) => c.visualDescriptors)
-
-    if (withDescriptors.length === 0) {
-      return ''
-    }
-
-    return withDescriptors
+    const renderedCharacters = characters
       .map((char) => {
-        const vd = char.visualDescriptors!
         const parts: string[] = [`**${char.name}**:`]
-
-        /* if (vd.gender) parts.push(`Gender: ${vd.gender}`)
-        if (vd.age) parts.push(`Age: ${vd.age}`)
-        if (vd.height) parts.push(`Height: ${vd.height}`)
-        if (vd.build) parts.push(`Build: ${vd.build}`)
-        if (vd.skinTone) parts.push(`Skin: ${vd.skinTone}`)
-        if (vd.hairColor) parts.push(`Hair color: ${vd.hairColor}`)
-        if (vd.hairStyle) parts.push(`Hair style: ${vd.hairStyle}`)
-        if (vd.eyeColor) parts.push(`Eyes: ${vd.eyeColor}`)
-        if (vd.facialFeatures) parts.push(`Face: ${vd.facialFeatures}`)
-        if (vd.distinguishingMarks) parts.push(`Marks: ${vd.distinguishingMarks}`)
-        if (vd.clothingStyle) parts.push(`Clothing: ${vd.clothingStyle}`)
-        if (vd.accessories) parts.push(`Accessories: ${vd.accessories}`) */
-        if (vd.face) parts.push(`Face: ${vd.face}`)
-        if (vd.hair) parts.push(`Hair: ${vd.hair}`)
-        if (vd.eyes) parts.push(`Eyes: ${vd.eyes}`)
-        if (vd.build) parts.push(`Build: ${vd.build}`)
-        if (vd.clothing) parts.push(`Clothing: ${vd.clothing}`)
-        if (vd.accessories) parts.push(`Accessories: ${vd.accessories}`)
-        if (vd.distinguishing) parts.push(`Distinguishing features: ${vd.distinguishing}`)
+        const appearance = formatCharacterAppearance(char, items)
+        if (!appearance) return null
+        parts.push(appearance)
         if (char.isProtagonist) parts.push(` (Protagonist)`)
 
         return parts.join('\n  ')
       })
+      .filter((entry): entry is string => entry !== null)
+
+    if (renderedCharacters.length === 0) return ''
+    return renderedCharacters
       .join('\n\n')
   }
 }

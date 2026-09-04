@@ -28,7 +28,6 @@
     onTestVarsOpen?: () => void
     onDirtyChange?: (dirty: boolean) => void
     onActiveTabChange?: (tab: 'system' | 'user') => void
-    onHasUserContent?: (has: boolean) => void
   }
 
   let {
@@ -42,7 +41,6 @@
     onTestVarsOpen,
     onDirtyChange,
     onActiveTabChange,
-    onHasUserContent,
   }: Props = $props()
 
   // Editor content state
@@ -261,7 +259,6 @@
         hasUserContent = false
       }
 
-      onHasUserContent?.(hasUserContent)
       onActiveTabChange?.('system')
       // Run initial validation
       validateContent(sysContent)
@@ -305,9 +302,10 @@
       await database.setPackTemplateContent(packId, templateId, systemContent)
       originalSystem = systemContent
 
-      if (hasUserContent) {
+      if (hasUserContent || userContent.trim()) {
         await database.setPackTemplateContent(packId, `${templateId}-user`, userContent)
         originalUser = userContent
+        hasUserContent = true
       }
       return true
     } catch (error) {
@@ -327,7 +325,8 @@
     if (!resetSystem) return false
 
     if (hasUserContent) {
-      await packService.resetTemplate(packId, `${templateId}-user`)
+      const resetUser = await packService.resetTemplate(packId, `${templateId}-user`)
+      if (!resetUser) await database.deletePackTemplate(packId, `${templateId}-user`)
     }
 
     // Reload from database

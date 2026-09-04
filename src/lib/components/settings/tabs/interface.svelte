@@ -143,11 +143,6 @@
     }
   }
 
-  const fontSizes = [
-    { value: 'small', label: 'Small' },
-    { value: 'medium', label: 'Medium' },
-    { value: 'large', label: 'Large' },
-  ] as const
 </script>
 
 <div class="space-y-4">
@@ -176,24 +171,23 @@
   </div>
 
   <!-- Font Size -->
-  <div>
-    <Label class="mb-2 block">Font Size</Label>
-    <Select.Root
+  <div class="space-y-2">
+    <div class="flex items-center justify-between">
+      <Label>Font Size</Label>
+      <span class="text-muted-foreground text-sm">{settings.uiSettings.fontSize}/10</span>
+    </div>
+    <Slider
       type="single"
+      min={1}
+      max={10}
+      step={1}
       value={settings.uiSettings.fontSize}
-      onValueChange={(v) => settings.setFontSize(v as 'small' | 'medium' | 'large')}
-    >
-      <Select.Trigger class="h-10 w-full">
-        {fontSizes.find((s) => s.value === settings.uiSettings.fontSize)?.label ?? 'Select size'}
-      </Select.Trigger>
-      <Select.Content>
-        {#each fontSizes as size (size.value)}
-          <Select.Item value={size.value} label={size.label}>
-            {size.label}
-          </Select.Item>
-        {/each}
-      </Select.Content>
-    </Select.Root>
+      onValueChange={(value) => settings.setFontSize(value)}
+    />
+    <div class="text-muted-foreground flex justify-between text-xs">
+      <span>1</span>
+      <span>10</span>
+    </div>
   </div>
 
   <!-- Story Content Width -->

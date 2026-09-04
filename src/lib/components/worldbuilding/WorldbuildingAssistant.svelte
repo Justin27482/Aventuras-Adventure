@@ -1,6 +1,11 @@
 <script lang="ts">
   import { ui } from '$lib/stores/ui.svelte'
+  import { database } from '$lib/services/database'
   import { generatePlainText } from '$lib/services/ai/sdk'
+  import { renderPackPrompt } from '$lib/services/prompts/render-pack-prompt'
+  import { packService } from '$lib/services/packs/pack-service'
+  import type { PresetPack } from '$lib/services/packs/types'
+  import type { WorldbuildingWorkspace } from '$lib/types'
   import {
     WorldbuildingAssistantService,
     type WorldbuildingDraft,
@@ -9,6 +14,7 @@
   import { Input } from '$lib/components/ui/input'
   import { Textarea } from '$lib/components/ui/textarea'
   import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card'
+  import * as Select from '$lib/components/ui/select'
   import {
     ArrowLeft,
     BookOpenText,
@@ -18,7 +24,19 @@
     Check,
     X,
     MessageCircle,
+    History,
+    Plus,
+    Trash2,
+    Package,
   } from 'lucide-svelte'
+
+  type AssistantMessage = { role: 'user' | 'assistant'; content: string }
+
+  const welcomeMessage: AssistantMessage = {
+    role: 'assistant',
+    content:
+      'Tell me what kind of world you want to make. I can brainstorm options, ask focused questions, and prepare edits for your review.',
+  }
 
   let title = $state('')
   let premise = $state('')
@@ -36,15 +54,223 @@
   let assistantInput = $state('')
   let assistantLoading = $state(false)
   let assistantError = $state<string | null>(null)
-  let assistantMessages = $state<Array<{ role: 'user' | 'assistant'; content: string }>>([
-    {
-      role: 'assistant',
-      content:
-        'Tell me what kind of world you want to make. I can brainstorm options, ask focused questions, and prepare edits for your review.',
-    },
-  ])
+  let assistantMessages = $state<AssistantMessage[]>([{ ...welcomeMessage }])
   let pendingProposal = $state<Partial<WorldbuildingDraft> | null>(null)
+  let workspaceReady = $state(false)
+  let workspaceSaveTimer: ReturnType<typeof setTimeout> | undefined
+  let activeWorkspaceId = $state('default')
+  let workspaces = $state<WorldbuildingWorkspace[]>([])
+  let promptPacks = $state<PresetPack[]>([])
+  let selectedPromptPackId = $state('default-pack')
+  let workspaceBusy = $state(false)
   const worldbuildingAssistant = new WorldbuildingAssistantService()
+
+  $effect(() => {
+    void loadWorkspace()
+  })
+
+  $effect(() => {
+    if (!workspaceReady) return
+    void title
+    void premise
+    void genre
+    void tone
+    void powerScale
+    void magicTechnology
+    void factions
+    void calendar
+    void themes
+    void boundaries
+    void charter
+    void assistantMessages
+    void selectedPromptPackId
+    clearTimeout(workspaceSaveTimer)
+    workspaceSaveTimer = setTimeout(() => {
+      void saveActiveWorkspace()
+    }, 500)
+    return () => clearTimeout(workspaceSaveTimer)
+  })
+
+  async function loadWorkspace() {
+    if (workspaceReady || workspaceBusy) return
+    workspaceBusy = true
+    try {
+      await packService.initialize()
+      const [packs, storedWorkspaces] = await Promise.all([
+        packService.getAllPacks(),
+        database.listWorldbuildingWorkspaces(),
+      ])
+      promptPacks = packs
+      workspaces = storedWorkspaces
+      const workspace =
+        workspaces.find((candidate) => candidate.id === 'default') ?? workspaces[0] ?? null
+      if (workspace) applyWorkspace(workspace)
+      workspaceReady = true
+    } catch (reason) {
+      error = reason instanceof Error ? reason.message : 'Unable to load worldbuilding history.'
+      workspaceReady = true
+    } finally {
+      workspaceBusy = false
+    }
+  }
+
+  function applyWorkspace(workspace: WorldbuildingWorkspace) {
+    workspaceReady = false
+    activeWorkspaceId = workspace.id
+    title = workspace.draft.title ?? ''
+    premise = workspace.draft.premise ?? ''
+    genre = workspace.draft.genre ?? 'Fantasy'
+    tone = workspace.draft.tone ?? ''
+    powerScale = workspace.draft.powerScale ?? ''
+    magicTechnology = workspace.draft.magicTechnology ?? ''
+    factions = workspace.draft.factions ?? ''
+    calendar = workspace.draft.calendar ?? ''
+    themes = workspace.draft.themes ?? ''
+    boundaries = workspace.draft.boundaries ?? ''
+    charter = workspace.charter
+    assistantMessages = workspace.conversation.length
+      ? workspace.conversation
+      : [{ ...welcomeMessage }]
+    selectedPromptPackId = promptPacks.some((pack) => pack.id === workspace.promptPackId)
+      ? workspace.promptPackId
+      : 'default-pack'
+    pendingProposal = null
+    assistantInput = ''
+    workspaceReady = true
+  }
+
+  async function saveActiveWorkspace() {
+    if (!workspaceReady) return
+    const workspace: WorldbuildingWorkspace = {
+      id: activeWorkspaceId,
+      title: title.trim() || 'Untitled World',
+      promptPackId: selectedPromptPackId,
+      draft: currentDraft(),
+      charter,
+      conversation: assistantMessages,
+      updatedAt: Date.now(),
+    }
+    await database.saveWorldbuildingWorkspace(workspace)
+    workspaces = [workspace, ...workspaces.filter((item) => item.id !== workspace.id)]
+  }
+
+  async function switchWorkspace(id: string | undefined) {
+    if (!id || id === activeWorkspaceId || workspaceBusy) return
+    workspaceBusy = true
+    clearTimeout(workspaceSaveTimer)
+    try {
+      await saveActiveWorkspace()
+      const workspace = await database.getWorldbuildingWorkspace(id)
+      if (workspace) applyWorkspace(workspace)
+    } catch (reason) {
+      error = reason instanceof Error ? reason.message : 'Unable to switch conversations.'
+    } finally {
+      workspaceBusy = false
+    }
+  }
+
+  async function createWorkspace() {
+    if (workspaceBusy) return
+    workspaceBusy = true
+    clearTimeout(workspaceSaveTimer)
+    try {
+      await saveActiveWorkspace()
+      const workspace: WorldbuildingWorkspace = {
+        id: crypto.randomUUID(),
+        title: 'Untitled World',
+        promptPackId: selectedPromptPackId,
+        draft: {
+          title: '',
+          premise: '',
+          genre: 'Fantasy',
+          tone: '',
+          powerScale: '',
+          magicTechnology: '',
+          factions: '',
+          calendar: '',
+          themes: '',
+          boundaries: '',
+        },
+        charter: '',
+        conversation: [{ ...welcomeMessage }],
+        updatedAt: Date.now(),
+      }
+      await database.saveWorldbuildingWorkspace(workspace)
+      workspaces = [workspace, ...workspaces.filter((item) => item.id !== workspace.id)]
+      applyWorkspace(workspace)
+    } catch (reason) {
+      error = reason instanceof Error ? reason.message : 'Unable to create a conversation.'
+    } finally {
+      workspaceBusy = false
+    }
+  }
+
+  async function deleteWorkspace() {
+    if (workspaceBusy || workspaces.length <= 1) return
+    if (!confirm(`Delete the worldbuilding conversation "${title.trim() || 'Untitled World'}"?`)) {
+      return
+    }
+    workspaceBusy = true
+    clearTimeout(workspaceSaveTimer)
+    try {
+      await database.deleteWorldbuildingWorkspace(activeWorkspaceId)
+      const remaining = workspaces.filter((item) => item.id !== activeWorkspaceId)
+      workspaces = remaining
+      applyWorkspace(remaining[0])
+    } catch (reason) {
+      error = reason instanceof Error ? reason.message : 'Unable to delete the conversation.'
+    } finally {
+      workspaceBusy = false
+    }
+  }
+
+  async function selectPromptPack(packId: string | undefined) {
+    if (!packId || packId === selectedPromptPackId) return
+    try {
+      await packService.ensurePackTemplatesComplete(packId)
+      selectedPromptPackId = packId
+      await saveActiveWorkspace()
+    } catch (reason) {
+      error = reason instanceof Error ? reason.message : 'Unable to select the prompt pack.'
+    }
+  }
+
+  function importCharter() {
+    const pasted = window.prompt('Paste a World Charter to import')?.trim()
+    if (!pasted) return
+    charter = pasted
+    const valueFor = (heading: string): string => {
+      const match = pasted.match(
+        new RegExp(`##\\s*${heading}\\s*\\n([\\s\\S]*?)(?=\\n##\\s|$)`, 'i'),
+      )
+      return match?.[1].replace(/^[*-]\s*/gm, '').trim() ?? ''
+    }
+    title = pasted.match(/^World:\s*(.+)$/im)?.[1]?.trim() ?? title
+    genre = pasted.match(/^Genre:\s*(.+)$/im)?.[1]?.trim() ?? genre
+    premise = pasted.match(/^Premise:\s*(.+)$/im)?.[1]?.trim() ?? premise
+    tone =
+      valueFor('Tone and Themes')
+        .replace(/^(?:-\s*)?Tone:\s*/im, '')
+        .split(/\n/)[0]
+        .trim() || tone
+    powerScale =
+      valueFor('Power and Technology')
+        .replace(/^(?:-\s*)?Power scale:\s*/im, '')
+        .split(/\n/)[0]
+        .trim() || powerScale
+    magicTechnology =
+      valueFor('Power and Technology')
+        .match(/Magic and technology:\s*(.+)/i)?.[1]
+        ?.trim() ?? magicTechnology
+    factions = valueFor('Factions and Pressures') || factions
+    calendar = valueFor('Calendar and Continuity') || calendar
+    themes =
+      valueFor('Tone and Themes')
+        .match(/Themes:\s*(.+)/i)?.[1]
+        ?.trim() ?? themes
+    boundaries = valueFor('Boundaries') || boundaries
+    error = null
+  }
 
   function currentDraft(): WorldbuildingDraft {
     return {
@@ -89,7 +315,12 @@
     assistantLoading = true
     assistantError = null
     try {
-      const response = await worldbuildingAssistant.respond(currentDraft(), message)
+      const response = await worldbuildingAssistant.respond(
+        currentDraft(),
+        message,
+        assistantMessages.slice(0, -1),
+        selectedPromptPackId,
+      )
       assistantMessages = [...assistantMessages, { role: 'assistant', content: response.reply }]
       pendingProposal = Object.keys(response.proposal).length > 0 ? response.proposal : null
     } catch (reason) {
@@ -160,12 +391,16 @@
     isExpanding = true
     error = null
     try {
+      const prompt = await renderPackPrompt(
+        selectedPromptPackId,
+        'worldbuilding-charter-expansion',
+        { worldbuildingCharter: charter },
+      )
       charter = await generatePlainText(
         {
           presetId: 'agentic',
-          system:
-            'You are a careful tabletop worldbuilding assistant. Expand the supplied world charter into comprehensive GM-facing guidance. Preserve all provided facts, identify open questions, and do not add contradictions. Return only markdown.',
-          prompt: `Expand this world charter with useful sections for geography, history, factions, conflicts, character hooks, calendar continuity, power limits, and player-facing boundaries.\n\n${charter}`,
+          system: prompt.system,
+          prompt: prompt.user,
         },
         'worldbuildingAssistant',
       )
@@ -195,6 +430,80 @@
         onclick={() => ui.setActivePanel('library')}
         ><ArrowLeft class="h-3.5 w-3.5" /> Library</Button
       >
+    </div>
+
+    <div class="border-border bg-card grid gap-3 rounded-md border p-3 md:grid-cols-2">
+      <div class="space-y-1.5">
+        <label class="flex items-center gap-2 text-xs font-medium" for="worldbuilding-history">
+          <History class="h-3.5 w-3.5" /> Conversation
+        </label>
+        <div class="flex gap-2">
+          <Select.Root
+            type="single"
+            value={activeWorkspaceId}
+            onValueChange={switchWorkspace}
+            disabled={workspaceBusy}
+          >
+            <Select.Trigger id="worldbuilding-history" class="min-w-0 flex-1">
+              {workspaces.find((workspace) => workspace.id === activeWorkspaceId)?.title ??
+                'Untitled World'}
+            </Select.Trigger>
+            <Select.Content>
+              {#each workspaces as workspace (workspace.id)}
+                <Select.Item value={workspace.id} label={workspace.title}>
+                  <div class="flex min-w-0 flex-col">
+                    <span class="truncate">{workspace.title}</span>
+                    <span class="text-muted-foreground text-[10px]">
+                      {new Date(workspace.updatedAt).toLocaleString()}
+                    </span>
+                  </div>
+                </Select.Item>
+              {/each}
+            </Select.Content>
+          </Select.Root>
+          <Button
+            variant="outline"
+            size="icon"
+            title="New conversation"
+            aria-label="New worldbuilding conversation"
+            onclick={() => void createWorkspace()}
+            disabled={workspaceBusy}
+          >
+            <Plus class="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            title="Delete conversation"
+            aria-label="Delete worldbuilding conversation"
+            onclick={() => void deleteWorkspace()}
+            disabled={workspaceBusy || workspaces.length <= 1}
+          >
+            <Trash2 class="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      <div class="space-y-1.5">
+        <label class="flex items-center gap-2 text-xs font-medium" for="worldbuilding-pack">
+          <Package class="h-3.5 w-3.5" /> Prompt Pack
+        </label>
+        <Select.Root
+          type="single"
+          value={selectedPromptPackId}
+          onValueChange={selectPromptPack}
+          disabled={workspaceBusy}
+        >
+          <Select.Trigger id="worldbuilding-pack" class="w-full">
+            {promptPacks.find((pack) => pack.id === selectedPromptPackId)?.name ?? 'Default'}
+          </Select.Trigger>
+          <Select.Content>
+            {#each promptPacks as pack (pack.id)}
+              <Select.Item value={pack.id} label={pack.name}>{pack.name}</Select.Item>
+            {/each}
+          </Select.Content>
+        </Select.Root>
+      </div>
     </div>
 
     <div class="grid gap-4 xl:grid-cols-2 xl:items-stretch">
@@ -281,7 +590,9 @@
             />
           </div>
           <div class="flex flex-wrap gap-2 pt-2">
-            <Button onclick={createDraft} class="gap-2"
+            <Button onclick={importCharter} variant="outline" class="gap-2"
+              ><BookOpenText class="h-3.5 w-3.5" /> Import Charter</Button
+            ><Button onclick={createDraft} class="gap-2"
               ><BookOpenText class="h-3.5 w-3.5" /> Build Charter</Button
             ><Button variant="outline" onclick={expandDraft} disabled={isExpanding} class="gap-2"
               >{#if isExpanding}<Loader2 class="h-3.5 w-3.5 animate-spin" />{:else}<Sparkles

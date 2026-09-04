@@ -41,6 +41,7 @@
 
     // Loading states
     isGeneratingProtagonist: boolean
+    isGeneratingPortraitDescription: boolean
     isExpandingCharacter: boolean
     isRefiningCharacter: boolean
     protagonistError: string | null
@@ -61,6 +62,7 @@
     onElaborateCharacter: () => void
     onElaborateCharacterFurther: () => void
     onGenerateProtagonist: () => void
+    onGeneratePortraitDescription: () => void
     onSaveToVault: () => void
 
     // Vault handlers
@@ -79,6 +81,7 @@
     manualCharacterTraits,
     characterElaborationGuidance,
     isGeneratingProtagonist,
+    isGeneratingPortraitDescription,
     isExpandingCharacter,
     isRefiningCharacter,
     protagonistError,
@@ -93,6 +96,7 @@
     onElaborateCharacter,
     onElaborateCharacterFurther,
     onGenerateProtagonist,
+    onGeneratePortraitDescription,
     onSaveToVault,
     onSelectProtagonistFromVault,
     onNavigateToVault,
@@ -308,6 +312,17 @@
             placeholder="Physical appearance, demeanor..."
             class="min-h-20"
           />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            class="gap-2"
+            onclick={onGeneratePortraitDescription}
+            disabled={isGeneratingPortraitDescription || !manualCharacterName.trim()}
+          >
+            {#if isGeneratingPortraitDescription}<Loader2 class="h-3.5 w-3.5 animate-spin" />{:else}<Sparkles class="h-3.5 w-3.5" />{/if}
+            {isGeneratingPortraitDescription ? 'Generating Description...' : 'Generate Portrait Description'}
+          </Button>
         </div>
 
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">

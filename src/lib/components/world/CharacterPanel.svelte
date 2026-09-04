@@ -42,6 +42,7 @@
   import { Textarea } from '$lib/components/ui/textarea'
   import { Badge } from '$lib/components/ui/badge'
   import CharacterVaultImportModal from './CharacterVaultImportModal.svelte'
+  import AppearanceAssistantModal from './AppearanceAssistantModal.svelte'
   import * as Avatar from '$lib/components/ui/avatar'
   import * as ToggleGroup from '$lib/components/ui/toggle-group'
   import * as Tooltip from '$lib/components/ui/tooltip'
@@ -66,6 +67,7 @@
   let editStatus = $state<Character['status']>('active')
   let editTraits = $state('')
   let editVisualDescriptors = $state('')
+  let appearanceAssistantOpen = $state(false)
   let pendingProtagonistId = $state<string | null>(null)
   let previousRelationshipLabel = $state('')
   let swapError = $state<string | null>(null)
@@ -847,12 +849,24 @@
                   placeholder="Traits (comma separated)"
                   class="mb-2 h-8 text-xs"
                 />
-                <Input
-                  type="text"
-                  bind:value={editVisualDescriptors}
-                  placeholder="Appearance (comma separated)"
-                  class="h-8 text-xs"
-                />
+                <div class="flex gap-2">
+                  <Input
+                    type="text"
+                    bind:value={editVisualDescriptors}
+                    placeholder="Appearance, or Face: oval, Hair: dark brown"
+                    class="h-8 text-xs"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    class="h-8 shrink-0 text-xs"
+                    onclick={() => (appearanceAssistantOpen = true)}
+                  >
+                    <Sparkles class="h-3.5 w-3.5" />
+                    Assist
+                  </Button>
+                </div>
               </div>
 
               <div class="space-y-1">
@@ -924,7 +938,7 @@
                       {/if}
                       <input
                         type="file"
-                        accept="image/*"
+                        placeholder="Appearance, or Face: oval, Hair: dark brown"
                         class="hidden"
                         onchange={handlePortraitUpload}
                         disabled={uploadingPortraitId !== null || generatingPortraitId !== null}
@@ -1045,7 +1059,7 @@
                     class="h-4 w-fit px-1.5 py-0 text-[10px] tracking-wide uppercase"
                   >
                     <Star class="mr-0.5 h-2.5 w-2.5" />
-                    You
+                    Protagonist
                   </Badge>
                 {:else if character.relationship || character.translatedRelationship}
                   <Badge
@@ -1353,6 +1367,15 @@
   onClose={() => (vaultImportOpen = false)}
   onImport={importCharacterFromVault}
   existingCharacterNames={story.characters.map((character) => character.name)}
+/>
+
+<AppearanceAssistantModal
+  bind:open={appearanceAssistantOpen}
+  value={editVisualDescriptors}
+  storyId={story.currentStory?.id ?? ''}
+  characterName={editName || 'Character'}
+  onApply={(value) => (editVisualDescriptors = value)}
+  onClose={() => (appearanceAssistantOpen = false)}
 />
 
 <!-- Expanded Portrait Modal -->

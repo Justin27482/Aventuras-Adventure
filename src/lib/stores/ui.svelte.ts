@@ -99,6 +99,7 @@ class UIStore {
   sidebarTab = $state<SidebarTab>('characters')
   sidebarOpen = $state(typeof window !== 'undefined' ? window.innerWidth >= 640 : false)
   settingsModalOpen = $state(false)
+  migrationLogOpen = $state(false)
   isGenerating = $state(false)
   isRetryingLastMessage = $state(false) // Hide stop button during completed-message retries
   vaultTab = $state<VaultTab>('characters')
@@ -352,6 +353,14 @@ class UIStore {
 
   closeSettings() {
     this.settingsModalOpen = false
+  }
+
+  openMigrationLog() {
+    this.migrationLogOpen = true
+  }
+
+  closeMigrationLog() {
+    this.migrationLogOpen = false
   }
 
   setGenerating(value: boolean) {

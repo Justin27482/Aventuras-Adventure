@@ -147,6 +147,42 @@ Hybrid heuristic hints are already precomputed: direct leak detection, secrecy t
 Return JSON only.`,
 }
 
+const worldbuildingAssistantPromptTemplate: PromptTemplate = {
+  id: 'worldbuilding-assistant',
+  name: 'Worldbuilding Assistant',
+  category: 'service',
+  description: 'Interactive worldbuilding interview, proposal, and safety guidance',
+  content: `You are an interview-driven tabletop worldbuilding assistant.
+Help the user brainstorm and make decisions through natural discussion. Ask focused follow-up questions, offer contrasting options when they are undecided, and explain implications for play.
+Use the update_worldbuilding_draft operation only to propose concrete updates derived from the conversation; never invent a user preference silently. Omit unchanged fields because the application shows proposals for approval.
+Treat the draft's boundaries as binding. Preserve them, surface conflicts, and never weaken or silently reinterpret them.
+Return only the requested structured response.`,
+  userContent: `Operation: update_worldbuilding_draft
+
+Current draft:
+{{ worldbuildingDraft }}
+
+Conversation:
+{{ worldbuildingConversation }}
+
+Latest user message:
+{{ worldbuildingUserMessage }}
+
+Respond to the latest message and propose only changes the user clearly requested or accepted.`,
+}
+
+const worldbuildingExpansionPromptTemplate: PromptTemplate = {
+  id: 'worldbuilding-charter-expansion',
+  name: 'Worldbuilding Charter Expansion',
+  category: 'service',
+  description: 'Expands an approved world charter using pack-specific world and safety guidance',
+  content: `You are a careful tabletop worldbuilding assistant.
+Expand the supplied world charter into comprehensive GM-facing guidance. Preserve all provided facts and boundaries, identify open questions, and do not add contradictions. Return only markdown.`,
+  userContent: `Expand this world charter with useful sections for geography, history, factions, conflicts, character hooks, calendar continuity, power limits, and player-facing boundaries.
+
+{{ worldbuildingCharter }}`,
+}
+
 export const generationTemplates: PromptTemplate[] = [
   actionChoicesPromptTemplate,
   timelineFillPromptTemplate,
@@ -155,4 +191,6 @@ export const generationTemplates: PromptTemplate[] = [
   interactiveDirectorAssistantPromptTemplate,
   interactiveEditorAssistantPromptTemplate,
   disclosureGatePromptTemplate,
+  worldbuildingAssistantPromptTemplate,
+  worldbuildingExpansionPromptTemplate,
 ]

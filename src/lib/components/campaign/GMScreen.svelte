@@ -5,6 +5,8 @@
   import { database } from '$lib/services/database'
   import GMControlsPanel from '$lib/components/campaign/GMControlsPanel.svelte'
   import WorldCharterPanel from '$lib/components/campaign/WorldCharterPanel.svelte'
+  import AIPlayerProposalPanel from '$lib/components/campaign/AIPlayerProposalPanel.svelte'
+  import GMNarrationPanel from '$lib/components/campaign/GMNarrationPanel.svelte'
   import { generateSessionRecap } from '$lib/services/campaign/session-recap-service'
   import { Button } from '$lib/components/ui/button'
   import { Input } from '$lib/components/ui/input'
@@ -214,6 +216,10 @@
     <div class="grid gap-4 xl:grid-cols-[20rem_1fr]">
       <div class="space-y-4">
         <GMControlsPanel />
+        {#if campaign.settings?.aiPlayersEnabled}
+          <AIPlayerProposalPanel />
+        {/if}
+        <GMNarrationPanel />
         <WorldCharterPanel />
 
         <Card>

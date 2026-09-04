@@ -5781,8 +5781,11 @@ class StoryStore {
     startingLocation: Partial<Location>
     initialItems: Partial<Item>[]
     openingScene: string
+    allowEmptyOpening?: boolean
     characters: Partial<Character>[]
     importedEntries?: LorebookImportExport.ImportedEntry[]
+    packId?: string
+    customVariableValues?: Record<string, string>
     // Translation data (optional)
     translations?: {
       language: string
@@ -5806,7 +5809,7 @@ class StoryStore {
     }
   }): Promise<Story> {
     const openingScene = data.openingScene?.trim()
-    if (!openingScene) {
+    if (!openingScene && !data.allowEmptyOpening) {
       throw new Error('Cannot create a campaign without an opening scene.')
     }
 
@@ -5849,6 +5852,8 @@ class StoryStore {
       timeTracker: null,
       currentBranchId: null,
       currentBgImage: null,
+      packId: data.packId ?? null,
+      customVariableValues: data.customVariableValues ?? null,
     })
 
     const storyId = storyData.id
@@ -5961,10 +5966,8 @@ class StoryStore {
       log('Added supporting character:', character.name)
     }
 
-    // Add opening scene as first narration entry
-    const tokenCount = countTokens(openingScene)
-    const baseTime = storyData.timeTracker ?? { years: 0, days: 0, hours: 0, minutes: 0 }
-    const openingEntry = await database.addStoryEntry({
+    // Party-pending Human GM campaigns begin in setup chat and intentionally have no prose opening.
+    const openingEntry = openingScene ? await database.addStoryEntry({
       id: crypto.randomUUID(),
       storyId,
       type: 'narration',
@@ -5973,17 +5976,17 @@ class StoryStore {
       position: 0,
       metadata: {
         source: 'wizard',
-        tokenCount,
-        timeStart: { ...baseTime },
-        timeEnd: { ...baseTime },
+        tokenCount: countTokens(openingScene),
+        timeStart: { ...(storyData.timeTracker ?? { years: 0, days: 0, hours: 0, minutes: 0 }) },
+        timeEnd: { ...(storyData.timeTracker ?? { years: 0, days: 0, hours: 0, minutes: 0 }) },
       },
       branchId: null,
       translatedContent: data.translations?.openingScene ?? null,
       translationLanguage: data.translations?.openingScene
         ? (data.translations?.language ?? null)
         : null,
-    })
-    log('Added opening scene')
+    }) : null
+    if (openingEntry) log('Added opening scene')
 
     // Add imported lorebook entries
     if (data.importedEntries && data.importedEntries.length > 0) {
@@ -6022,7 +6025,7 @@ class StoryStore {
     ])
     this.characters = createdCharacters
     this.entries = createdEntries
-    if (!createdEntries.some((entry) => entry.id === openingEntry?.id)) {
+    if (openingEntry && !createdEntries.some((entry) => entry.id === openingEntry.id)) {
       throw new Error('Campaign was created, but its opening scene could not be verified.')
     }
     this.invalidateWordCountCache()
@@ -6033,6 +6036,33 @@ class StoryStore {
       characters: createdCharacters.length,
       entries: createdEntries.length,
     })
+
+    // Wizard-created stories (including "copy campaign", which just prefills the wizard)
+    // never go through loadStory(), so without this they'd have no campaign/campaign_settings
+    // row until something else happened to touch the campaign store — leaving the Settings >
+    // Campaign tab stuck waiting on defaults that were never persisted. Mirror loadStory()'s
+    // campaign-runtime activation here so every newly created story has one immediately.
+    try {
+      await campaign.ensureForStory({
+        id: storyId,
+        title: storyData.title,
+        description: storyData.description,
+        createdAt: storyData.createdAt,
+        updatedAt: storyData.updatedAt,
+        characters: createdCharacters,
+      })
+      await campaign.loadForStory(storyId)
+    } catch (error) {
+      console.error('[StoryStore] Campaign activation unavailable for new story:', error)
+      campaign.reset()
+    }
+    if (campaign.current) {
+      try {
+        await campaign.seedPartyFromCharacters(createdCharacters)
+      } catch (error) {
+        console.error('[StoryStore] Party seeding failed for new campaign:', campaign.current.id, error)
+      }
+    }
 
     // Emit event
     eventBus.emit<StoryCreatedEvent>({ type: 'StoryCreated', storyId, mode: data.mode })

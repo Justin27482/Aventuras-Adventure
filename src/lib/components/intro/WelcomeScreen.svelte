@@ -22,6 +22,7 @@
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
+  import { Slider } from '$lib/components/ui/slider'
   import * as Select from '$lib/components/ui/select'
 
   interface Props {
@@ -192,20 +193,24 @@
 
             <!-- Font Size -->
             <div class="space-y-3">
-              <Label class="flex items-center gap-2 text-base">
-                <Type size={18} class="text-primary" />
-                Font Size
-              </Label>
-              <div class="grid grid-cols-3 gap-2">
-                {#each ['small', 'medium', 'large'] as size (size)}
-                  <Button
-                    variant={settings.uiSettings.fontSize === size ? 'default' : 'outline'}
-                    class="w-full capitalize"
-                    onclick={() => settings.setFontSize(size as 'small' | 'medium' | 'large')}
-                  >
-                    {size}
-                  </Button>
-                {/each}
+              <div class="flex items-center justify-between">
+                <Label class="flex items-center gap-2 text-base">
+                  <Type size={18} class="text-primary" />
+                  Font Size
+                </Label>
+                <span class="text-muted-foreground text-sm">{settings.uiSettings.fontSize}/10</span>
+              </div>
+              <Slider
+                type="single"
+                min={1}
+                max={10}
+                step={1}
+                value={settings.uiSettings.fontSize}
+                onValueChange={(value) => settings.setFontSize(value)}
+              />
+              <div class="text-muted-foreground flex justify-between text-xs">
+                <span>1</span>
+                <span>10</span>
               </div>
             </div>
 

@@ -544,6 +544,7 @@
           ...ctx,
           imageGenerationMode: story.currentStory?.settings?.imageGenerationMode,
           allCharacters: story.characters,
+          allItems: story.items,
           imageSettings: settings.systemServicesSettings.imageGeneration,
           getImageProfile: (id) => settings.getImageProfile(id),
         }),
@@ -1219,6 +1220,7 @@
         ...lastImageGenContext,
         imageGenerationMode: story.currentStory?.settings?.imageGenerationMode,
         allCharacters: story.characters,
+        allItems: story.items,
         imageSettings: settings.systemServicesSettings.imageGeneration,
         getImageProfile: (id) => settings.getImageProfile(id),
       })

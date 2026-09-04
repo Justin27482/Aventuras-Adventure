@@ -296,7 +296,7 @@ class PackService {
    * (or before a template was introduced) are never missing prompts at runtime.
    */
   async ensurePackTemplatesComplete(packId: string): Promise<void> {
-    if (!packId || packId === 'default-pack') return
+    if (!packId) return
 
     const baselineByTemplateId = new Map<string, string>()
     for (const template of PROMPT_TEMPLATES) {
@@ -307,6 +307,20 @@ class PackService {
     }
 
     await this.backfillTemplatesForPack(packId, baselineByTemplateId)
+  }
+
+  /** Backfill one newly introduced prompt without overwriting pack customizations. */
+  async ensurePromptTemplateComplete(packId: string, templateId: string): Promise<void> {
+    if (!packId) return
+    const baseline = PROMPT_TEMPLATES.find((template) => template.id === templateId)
+    if (!baseline) throw new Error(`Unknown prompt template: ${templateId}`)
+
+    if (!(await database.getPackTemplate(packId, templateId))) {
+      await database.setPackTemplateContent(packId, templateId, baseline.content)
+    }
+    if (baseline.userContent && !(await database.getPackTemplate(packId, `${templateId}-user`))) {
+      await database.setPackTemplateContent(packId, `${templateId}-user`, baseline.userContent)
+    }
   }
 
   /** Copy any templateId in the baseline missing from the given pack. */

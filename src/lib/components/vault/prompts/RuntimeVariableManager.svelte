@@ -125,10 +125,7 @@
 
   async function handleDeleteVariable(variable: RuntimeVariable) {
     try {
-      await database.withTransaction(async () => {
-        await database.deleteRuntimeVariable(variable.id)
-        await database.clearRuntimeVarFromEntities(packId, variable.id)
-      })
+      await database.deleteRuntimeVariableAndValues(packId, variable.id)
       onVariablesChanged()
     } catch (error) {
       console.error('[RuntimeVariableManager] Failed to delete variable:', error)
@@ -141,10 +138,7 @@
     newVariableName: string,
   ) {
     try {
-      await database.withTransaction(async () => {
-        await database.updateRuntimeVariable(variableId, { variableName: newVariableName })
-        await database.renameRuntimeVarInEntities(packId, variableId, newVariableName)
-      })
+      await database.renameRuntimeVariableAndValues(packId, variableId, newVariableName)
       onVariablesChanged()
     } catch (error) {
       console.error('[RuntimeVariableManager] Failed to rename variable:', error)
@@ -153,16 +147,7 @@
 
   async function handleTypeChange(variable: RuntimeVariable, newType: RuntimeVariableType) {
     try {
-      await database.withTransaction(async () => {
-        await database.clearRuntimeVarFromEntities(packId, variable.id)
-        await database.updateRuntimeVariable(variable.id, {
-          variableType: newType,
-          defaultValue: undefined,
-          minValue: undefined,
-          maxValue: undefined,
-          enumOptions: undefined,
-        })
-      })
+      await database.changeRuntimeVariableType(packId, variable.id, newType)
       onVariablesChanged()
     } catch (error) {
       console.error('[RuntimeVariableManager] Failed to change variable type:', error)
@@ -193,12 +178,12 @@
     group[index].sortOrder = group[newIndex].sortOrder
     group[newIndex].sortOrder = tempOrder
 
-    await database.withTransaction(async () => {
-      await database.updateRuntimeVariable(group[index].id, { sortOrder: group[index].sortOrder })
-      await database.updateRuntimeVariable(group[newIndex].id, {
-        sortOrder: group[newIndex].sortOrder,
-      })
-    })
+    await database.reorderRuntimeVariables(
+      group[index].id,
+      group[index].sortOrder,
+      group[newIndex].id,
+      group[newIndex].sortOrder,
+    )
     onVariablesChanged()
   }
 

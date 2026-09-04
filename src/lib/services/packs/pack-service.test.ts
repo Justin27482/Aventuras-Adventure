@@ -51,11 +51,17 @@ function templateRow(templateId: string, content: string) {
 describe('packService.ensurePackTemplatesComplete', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockDatabase.getPackTemplates.mockResolvedValue([])
   })
 
-  it('does nothing for the default pack', async () => {
+  it('fills templates missing from the default pack without overwriting content', async () => {
     await packService.ensurePackTemplatesComplete('default-pack')
-    expect(mockDatabase.getPackTemplates).not.toHaveBeenCalled()
+    expect(mockDatabase.getPackTemplates).toHaveBeenCalledWith('default-pack')
+    expect(mockDatabase.setPackTemplateContent).toHaveBeenCalledWith(
+      'default-pack',
+      'adventure',
+      'ADVENTURE_CONTENT_V2',
+    )
   })
 
   it('does nothing for a falsy pack id', async () => {
@@ -109,5 +115,23 @@ describe('packService.ensurePackTemplatesComplete', () => {
     await packService.ensurePackTemplatesComplete('custom-pack')
 
     expect(mockDatabase.setPackTemplateContent).not.toHaveBeenCalled()
+  })
+
+  it('backfills one required runtime template without replacing existing templates', async () => {
+    mockDatabase.getPackTemplate.mockResolvedValue(null)
+
+    await packService.ensurePromptTemplateComplete('custom-pack', 'agency-core')
+
+    expect(mockDatabase.setPackTemplateContent).toHaveBeenCalledWith(
+      'custom-pack',
+      'agency-core',
+      'AGENCY_CORE_CONTENT_V2',
+    )
+    expect(mockDatabase.setPackTemplateContent).toHaveBeenCalledWith(
+      'custom-pack',
+      'agency-core-user',
+      'AGENCY_CORE_USER_V2',
+    )
+    expect(mockDatabase.setPackTemplateContent).toHaveBeenCalledTimes(2)
   })
 })

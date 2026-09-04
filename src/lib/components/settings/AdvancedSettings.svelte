@@ -1,6 +1,14 @@
 <script lang="ts">
   import { settings } from '$lib/stores/settings.svelte'
   import { debug } from '$lib/stores/debug.svelte'
+  import { ui } from '$lib/stores/ui.svelte'
+  import { database } from '$lib/services/database'
+  import { generatePlainText } from '$lib/services/ai/sdk'
+  import {
+    APPEARANCE_DESCRIPTOR_LABELS_SETTING_KEY,
+    DEFAULT_VISUAL_DESCRIPTOR_LABELS,
+  } from '$lib/utils/visualDescriptors'
+  import type { VisualDescriptorLabel } from '$lib/types'
   import {
     ChevronDown,
     RotateCcw,
@@ -15,10 +23,12 @@
     ListTree,
     Sparkles,
     ExternalLink,
+    Database,
   } from 'lucide-svelte'
   import { Switch } from '$lib/components/ui/switch'
   import { Label } from '$lib/components/ui/label'
   import { Button } from '$lib/components/ui/button'
+  import { Input } from '$lib/components/ui/input'
   import { Slider } from '$lib/components/ui/slider'
   import * as Collapsible from '$lib/components/ui/collapsible'
   import { Separator } from '$lib/components/ui/separator'
@@ -31,6 +41,116 @@
   let showContextWindowSection = $state(false)
   let showLorebookLimitsSection = $state(false)
   let showAgenticRetrievalSection = $state(false)
+  let showAppearanceLabelsSection = $state(false)
+  let appearanceLabels = $state<VisualDescriptorLabel[]>([])
+  let newAppearanceLabel = $state('')
+  let newAppearanceLabelGate = $state('0')
+  let appearanceLabelsError = $state<string | null>(null)
+  let appearanceLabelsLoaded = $state(false)
+  let editingAppearanceLabelKey = $state<string | null>(null)
+  let isGeneratingAppearanceHint = $state(false)
+
+  async function loadAppearanceLabels() {
+    if (appearanceLabelsLoaded) return
+    try {
+      const stored = await database.getSetting(APPEARANCE_DESCRIPTOR_LABELS_SETTING_KEY)
+      const parsed = stored ? (JSON.parse(stored) as VisualDescriptorLabel[]) : []
+      appearanceLabels = parsed.filter(
+        (label) =>
+          typeof label.key === 'string' &&
+          typeof label.label === 'string' &&
+          Number.isInteger(label.minNsfwIntensity),
+      )
+      appearanceLabelsLoaded = true
+    } catch (error) {
+      appearanceLabelsError = error instanceof Error ? error.message : 'Unable to load appearance labels.'
+    }
+  }
+
+  async function saveAppearanceLabels(labels: VisualDescriptorLabel[]) {
+    await database.setSetting(APPEARANCE_DESCRIPTOR_LABELS_SETTING_KEY, JSON.stringify(labels))
+    appearanceLabels = labels
+  }
+
+  function customLabelKey(label: string): string {
+    return label
+      .replace(/[^a-zA-Z0-9]+(.)/g, (_, character: string) => character.toUpperCase())
+      .replace(/^[A-Z]/, (character) => character.toLowerCase())
+  }
+
+  async function generateAppearanceHint(label: string): Promise<string> {
+    const hint = await generatePlainText(
+      {
+        presetId: 'agentic',
+        system:
+          'You write concise input hints for a tabletop RPG character appearance form. Return only a neutral, practical hint of 4 to 8 words. Do not include sexuality, biography, personality, or a label prefix.',
+        prompt: `Write a helpful form hint for the appearance label "${label}".`,
+      },
+      'appearanceLabelHint',
+    )
+    return hint.trim().replace(/^['"]|['"]$/g, '')
+  }
+
+  async function addAppearanceLabel() {
+    const label = newAppearanceLabel.trim()
+    const minNsfwIntensity = Number(newAppearanceLabelGate)
+    if (!label) {
+      appearanceLabelsError = 'Enter a label name.'
+      return
+    }
+    if (!Number.isInteger(minNsfwIntensity) || minNsfwIntensity < 0 || minNsfwIntensity > 8) {
+      appearanceLabelsError = 'The required intensity must be a whole number from 0 to 8.'
+      return
+    }
+    const key = customLabelKey(label)
+    if (
+      !key ||
+      DEFAULT_VISUAL_DESCRIPTOR_LABELS.some((entry) => entry.key === key) ||
+      appearanceLabels.some(
+        (entry) => entry.key === key || entry.label.toLowerCase() === label.toLowerCase(),
+      )
+    ) {
+      appearanceLabelsError = 'That appearance label already exists.'
+      return
+    }
+
+    isGeneratingAppearanceHint = true
+    appearanceLabelsError = null
+    try {
+      const hint = await generateAppearanceHint(label)
+      await saveAppearanceLabels([
+        ...appearanceLabels,
+        { key, label, minNsfwIntensity, hint },
+      ])
+      newAppearanceLabel = ''
+      newAppearanceLabelGate = '0'
+    } catch (error) {
+      appearanceLabelsError = error instanceof Error ? error.message : 'Unable to add appearance label.'
+    } finally {
+      isGeneratingAppearanceHint = false
+    }
+  }
+
+  async function updateAppearanceLabel(updated: VisualDescriptorLabel) {
+    appearanceLabelsError = null
+    try {
+      await saveAppearanceLabels(
+        appearanceLabels.map((label) => (label.key === updated.key ? updated : label)),
+      )
+      editingAppearanceLabelKey = null
+    } catch (error) {
+      appearanceLabelsError = error instanceof Error ? error.message : 'Unable to save appearance label.'
+    }
+  }
+
+  async function deleteAppearanceLabel(key: string) {
+    appearanceLabelsError = null
+    try {
+      await saveAppearanceLabels(appearanceLabels.filter((label) => label.key !== key))
+    } catch (error) {
+      appearanceLabelsError = error instanceof Error ? error.message : 'Unable to delete appearance label.'
+    }
+  }
 
   // Manual mode toggle handler
   async function handleManualModeToggle(checked: boolean) {
@@ -49,6 +169,15 @@
   async function handleOpenDebugLogsWindow() {
     await debug.popOutDebug()
   }
+
+  function handleOpenMigrationLog() {
+    ui.closeSettings()
+    setTimeout(() => ui.openMigrationLog(), 0)
+  }
+
+  $effect(() => {
+    if (showAppearanceLabelsSection) void loadAppearanceLabels()
+  })
 </script>
 
 <div class="space-y-6">
@@ -129,12 +258,101 @@
         </Button>
       </div>
     {/if}
+
+    <div class="flex flex-row items-center justify-between rounded-md border border-dashed p-3">
+      <div class="space-y-0.5">
+        <div class="flex items-center gap-2">
+          <Database class="text-muted-foreground h-4 w-4" />
+          <Label>Database Migration Log</Label>
+        </div>
+        <p class="text-muted-foreground text-xs">
+          Inspect applied migrations, affected database objects, checksums, and SQL text.
+        </p>
+      </div>
+      <Button variant="outline" size="sm" class="gap-2" onclick={handleOpenMigrationLog}>
+        <ListTree class="h-4 w-4" />
+        Open Migration Log
+      </Button>
+    </div>
   </div>
 
   <Separator />
 
   <!-- Service Configurations -->
   <div class="space-y-3">
+    <div class="bg-card text-card-foreground rounded-lg border shadow-sm">
+      <Collapsible.Root bind:open={showAppearanceLabelsSection}>
+        <div class="flex items-center gap-3 p-3 pl-4">
+          <Collapsible.Trigger class="group/trigger flex flex-1 items-center gap-2 text-left">
+            <div class="bg-primary/10 text-primary flex h-8 w-8 items-center justify-center rounded-md">
+              <Sparkles class="h-4 w-4" />
+            </div>
+            <div class="flex-1">
+              <Label class="leading-none font-medium">Appearance Labels</Label>
+              <p class="text-muted-foreground mt-1 text-xs">
+                Global fields and content-intensity gates for character appearance.
+              </p>
+            </div>
+          </Collapsible.Trigger>
+          <Collapsible.Trigger>
+            {#snippet child({ props })}
+              <Button {...props} variant="ghost" size="icon" class="h-8 w-8">
+                <ChevronDown
+                  class={`h-4 w-4 transition-transform duration-200 ${showAppearanceLabelsSection ? 'rotate-180' : ''}`}
+                />
+                <span class="sr-only">Toggle appearance labels</span>
+              </Button>
+            {/snippet}
+          </Collapsible.Trigger>
+        </div>
+
+        <Collapsible.Content>
+          <div class="bg-muted/10 space-y-4 border-t p-4">
+            <p class="text-muted-foreground text-xs">
+              Built-in labels are always available. Custom labels are global across campaigns and appear only when a campaign meets their minimum content intensity.
+            </p>
+            <div class="grid gap-2 sm:grid-cols-[1fr_96px_auto]">
+              <div class="space-y-1">
+                <Label for="appearance-label-name">New label</Label>
+                <Input id="appearance-label-name" bind:value={newAppearanceLabel} placeholder="e.g. Presence" />
+              </div>
+              <div class="space-y-1">
+                <Label for="appearance-label-gate">Min. level</Label>
+                <Input id="appearance-label-gate" type="number" min="0" max="8" bind:value={newAppearanceLabelGate} />
+              </div>
+              <Button class="self-end" onclick={addAppearanceLabel} disabled={isGeneratingAppearanceHint}>
+                {isGeneratingAppearanceHint ? 'Creating...' : 'Add label'}
+              </Button>
+            </div>
+
+            {#if appearanceLabels.length > 0}
+              <div class="space-y-2">
+                {#each appearanceLabels as label (label.key)}
+                  {#if editingAppearanceLabelKey === label.key}
+                    <div class="grid gap-2 rounded-md border p-3 sm:grid-cols-[1fr_96px]">
+                      <div class="space-y-1"><Label>Label</Label><Input bind:value={label.label} /></div>
+                      <div class="space-y-1"><Label>Min. level</Label><Input type="number" min="0" max="8" bind:value={label.minNsfwIntensity} /></div>
+                      <div class="sm:col-span-2 space-y-1"><Label>Hint</Label><Input bind:value={label.hint} placeholder="Field-specific input guidance" /></div>
+                      <div class="flex gap-2 sm:col-span-2"><Button size="sm" onclick={() => updateAppearanceLabel(label)}>Save</Button><Button size="sm" variant="outline" onclick={() => (editingAppearanceLabelKey = null)}>Cancel</Button></div>
+                    </div>
+                  {:else}
+                    <div class="flex items-center justify-between gap-3 rounded-md border p-3">
+                      <div class="min-w-0"><p class="text-sm font-medium">{label.label} <span class="text-muted-foreground font-normal">Level {label.minNsfwIntensity}+</span></p><p class="text-muted-foreground truncate text-xs">{label.hint || 'No hint configured'}</p></div>
+                      <div class="flex gap-1"><Button size="sm" variant="outline" onclick={() => (editingAppearanceLabelKey = label.key)}>Edit</Button><Button size="sm" variant="destructive" onclick={() => deleteAppearanceLabel(label.key)}>Delete</Button></div>
+                    </div>
+                  {/if}
+                {/each}
+              </div>
+            {:else if appearanceLabelsLoaded}
+              <p class="text-muted-foreground text-xs">No custom appearance labels yet.</p>
+            {/if}
+
+            {#if appearanceLabelsError}<p class="text-destructive text-xs">{appearanceLabelsError}</p>{/if}
+          </div>
+        </Collapsible.Content>
+      </Collapsible.Root>
+    </div>
+
     <!-- Lorebook Import Settings -->
     <div class="bg-card text-card-foreground rounded-lg border shadow-sm">
       <Collapsible.Root bind:open={showLorebookImportSection}>

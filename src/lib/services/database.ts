@@ -1,9 +1,11 @@
 import Database from '@tauri-apps/plugin-sql'
+import type { ChatMessage } from '$lib/services/campaign/chat-types'
 import type {
   Story,
   StoryFolder,
   StoryEntry,
   Character,
+  CharacterSheetRevision,
   Location,
   Item,
   StoryBeat,
@@ -35,6 +37,24 @@ import type {
   EpistemicIdentityRef,
   Campaign,
   CampaignSettings,
+  AIPlayer,
+  AIPlayerRelationship,
+  AIPlayerMemory,
+  PlayerCharacter,
+  CampaignAIPlayer,
+  CampaignFormationState,
+  CampaignFormationBackup,
+  CampaignFormationSnapshot,
+  PartyPendingConversionPreview,
+  CampaignSetupSession,
+  CampaignSetupSessionPlayer,
+  PlayerLevelSecret,
+  AIPlayerInteraction,
+  SessionPreroll,
+  MigrationStatus,
+  InstallMigrationRequest,
+  WorldbuildingWorkspace,
+  AIPlayerProposal,
   CampaignPartyMember,
   ActorControlProfile,
   CampaignSession,
@@ -54,6 +74,8 @@ import type {
   RulesetLevel,
   RulesetResource,
   CharacterSheet,
+  CharacterSheetProposal,
+  CharacterSheetDraft,
   RollLedgerEntry,
   RollStats,
 } from '$lib/types'
@@ -67,6 +89,16 @@ import type {
   EnumOption,
 } from '$lib/services/packs/types'
 import { hashContent } from '$lib/services/packs/hash'
+import { MIGRATION_CATALOG } from '$lib/services/migrations/migration-catalog'
+import { splitMigrationSql } from '$lib/services/migrations/migration-sql'
+import {
+  canRestoreFormationBackup,
+  checksumFormationSnapshot,
+} from '$lib/services/campaign/formation-backup'
+import {
+  decodeWorldbuildingWorkspace,
+  encodeWorldbuildingDraft,
+} from '$lib/services/worldbuilding/workspace-codec'
 
 /**
  * Migrate visual descriptors from old string array format to new structured object format.
@@ -222,6 +254,171 @@ class DatabaseService {
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_rulesets_encumbrance_mode ON rulesets(encumbrance_mode)',
     )
+
+    // Defensive self-heal: on at least one dev DB migration 052_gm_persona.sql's ledger row
+    // was marked success without the ALTER TABLE actually landing (likely from a checksum
+    // repair pass), leaving `campaign_settings` without `gm_persona` despite later columns
+    // (companion_combat_policy, ai_players_enabled) present. Re-check it every startup so a
+    // stale ledger can never again silently break every campaign settings save.
+    await ensureColumn('campaign_settings', 'gm_persona', 'TEXT')
+    await ensureColumn('campaigns', 'campaign_type', "TEXT NOT NULL DEFAULT 'human_gm_solo'")
+    await ensureColumn('campaign_settings', 'table_talk_intensity', 'INTEGER NOT NULL DEFAULT 4')
+    await ensureColumn('campaign_settings', 'session_zero_phase', 'TEXT')
+    await ensureColumn(
+      'campaign_settings',
+      'session_zero_status',
+      "TEXT NOT NULL DEFAULT 'not_started'",
+    )
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS campaign_chat_messages (
+        id TEXT PRIMARY KEY,
+        campaign_id TEXT NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+        session_id TEXT REFERENCES campaign_sessions(id) ON DELETE CASCADE,
+        message_type TEXT NOT NULL CHECK (message_type IN ('proposal', 'roll', 'table_talk', 'narration', 'consent_request', 'system')),
+        audience_scope TEXT NOT NULL CHECK (audience_scope IN ('full_table', 'private_subset', 'private_player')),
+        visibility TEXT NOT NULL CHECK (visibility IN ('player_safe', 'director_only')),
+        payload TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    `)
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_campaign_settings_gm_persona ON campaign_settings(campaign_id)',
+    )
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_campaigns_type ON campaigns(campaign_type)')
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_campaign_chat_messages_timeline ON campaign_chat_messages(campaign_id, session_id, created_at)',
+    )
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS campaign_ai_players (
+        id TEXT PRIMARY KEY,
+        campaign_id TEXT NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+        ai_player_id TEXT NOT NULL REFERENCES ai_players(id) ON DELETE RESTRICT,
+        joined_at INTEGER NOT NULL,
+        left_at INTEGER,
+        UNIQUE (campaign_id, ai_player_id)
+      )
+    `)
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_campaign_ai_players_campaign ON campaign_ai_players(campaign_id, joined_at)',
+    )
+    await db.execute(`
+      INSERT OR IGNORE INTO campaign_ai_players (id, campaign_id, ai_player_id, joined_at, left_at)
+      SELECT lower(hex(randomblob(16))), campaign_id, ai_player_id, joined_at, left_at
+      FROM player_characters
+    `)
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS character_sheet_revisions (
+        id TEXT PRIMARY KEY,
+        character_id TEXT NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+        parent_revision_id TEXT REFERENCES character_sheet_revisions(id) ON DELETE RESTRICT,
+        author_type TEXT NOT NULL CHECK (author_type IN ('gm', 'ai_player')),
+        author_ai_player_id TEXT REFERENCES ai_players(id) ON DELETE RESTRICT,
+        source TEXT NOT NULL,
+        snapshot TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        CHECK (
+          (author_type = 'gm' AND author_ai_player_id IS NULL) OR
+          (author_type = 'ai_player' AND author_ai_player_id IS NOT NULL)
+        )
+      )
+    `)
+    await db.execute(
+      `CREATE INDEX IF NOT EXISTS idx_character_sheet_revisions_character
+       ON character_sheet_revisions(character_id, created_at, id)`,
+    )
+    await db.execute(`
+      CREATE TRIGGER IF NOT EXISTS trg_character_sheet_revisions_immutable
+      BEFORE UPDATE ON character_sheet_revisions
+      BEGIN
+        SELECT RAISE(ABORT, 'character sheet revisions are immutable');
+      END
+    `)
+
+    // Migrations 62-67 may be materialized by the defensive schema checks above after a
+    // Tauri SQL migration fails on an already-present ALTER. Reconcile their ledger rows
+    // only after verifying every required column/table/index, in strict version order.
+    const hasColumn = async (table: string, column: string) => {
+      const columns = await db.select<Array<{ name: string }>>(`PRAGMA table_info(${table})`)
+      return columns.some((entry) => entry.name === column)
+    }
+    const hasSchemaObject = async (name: string, type: 'table' | 'index' | 'trigger') => {
+      const rows = await db.select<Array<{ name: string }>>(
+        'SELECT name FROM sqlite_master WHERE type = ? AND name = ?',
+        [type, name],
+      )
+      return rows.length > 0
+    }
+    const requirements: Record<number, () => Promise<boolean>> = {
+      62: async () =>
+        (await hasColumn('campaigns', 'campaign_type')) &&
+        (await hasColumn('campaign_settings', 'table_talk_intensity')) &&
+        (await hasSchemaObject('idx_campaigns_type', 'index')),
+      63: async () =>
+        (await hasSchemaObject('campaign_chat_messages', 'table')) &&
+        (await hasSchemaObject('idx_campaign_chat_messages_timeline', 'index')),
+      64: async () => await hasColumn('campaign_settings', 'session_zero_phase'),
+      65: async () => await hasColumn('campaign_settings', 'session_zero_status'),
+      66: async () =>
+        (await hasSchemaObject('campaign_ai_players', 'table')) &&
+        (await hasSchemaObject('idx_campaign_ai_players_campaign', 'index')),
+      67: async () =>
+        (await hasSchemaObject('character_sheet_revisions', 'table')) &&
+        (await hasSchemaObject('idx_character_sheet_revisions_character', 'index')) &&
+        (await hasSchemaObject('trg_character_sheet_revisions_immutable', 'trigger')),
+    }
+    const appliedRows = await db.select<Array<{ version: number; success: number }>>(
+      'SELECT version, success FROM _sqlx_migrations WHERE version BETWEEN 62 AND 67',
+    )
+    const successfulVersions = new Set(
+      appliedRows.filter((row) => Boolean(row.success)).map((row) => Number(row.version)),
+    )
+    for (const version of [62, 63, 64, 65, 66, 67]) {
+      if (successfulVersions.has(version) || !(await requirements[version]())) continue
+      const catalogEntry = MIGRATION_CATALOG.find((entry) => entry.version === version)
+      if (!catalogEntry) continue
+      const digest = await crypto.subtle.digest(
+        'SHA-384',
+        new TextEncoder().encode(catalogEntry.sql),
+      )
+      await db.execute('DELETE FROM _sqlx_migrations WHERE version = ? AND success = 0', [version])
+      await db.execute(
+        `INSERT INTO _sqlx_migrations (version, description, installed_on, success, checksum, execution_time)
+         VALUES (?, ?, datetime('now'), 1, ?, 0)`,
+        [version, catalogEntry.description, Array.from(new Uint8Array(digest))],
+      )
+      successfulVersions.add(version)
+    }
+
+    // New migrations are authored as retry-safe SQL and use the same lock-light path as
+    // the manual repair button. This prevents every future migration from needing its own
+    // startup self-heal branch when the plugin connection temporarily owns SQLite's lock.
+    const allAppliedRows = await db.select<Array<{ version: number; success: number }>>(
+      'SELECT version, success FROM _sqlx_migrations',
+    )
+    const allSuccessfulVersions = new Set(
+      allAppliedRows.filter((row) => Boolean(row.success)).map((row) => Number(row.version)),
+    )
+    for (const migration of MIGRATION_CATALOG.filter((entry) => entry.version >= 67)) {
+      if (allSuccessfulVersions.has(migration.version)) continue
+      await this.applyLockLightMigration(
+        db,
+        {
+          version: migration.version,
+          description: migration.description,
+          sql: migration.sql,
+          checksum: Array.from(
+            new Uint8Array(
+              await crypto.subtle.digest('SHA-384', new TextEncoder().encode(migration.sql)),
+            ),
+          ),
+          previousVersions: MIGRATION_CATALOG.filter(
+            (entry) => entry.version < migration.version,
+          ).map((entry) => entry.version),
+        },
+        true,
+      )
+      allSuccessfulVersions.add(migration.version)
+    }
   }
 
   /**
@@ -272,49 +469,59 @@ class DatabaseService {
     return run
   }
 
-  /**
-   * Run a callback inside a BEGIN/COMMIT transaction.
-   * Automatically rolls back on error.
-   */
-  async withTransaction<T>(fn: () => Promise<T>): Promise<T> {
-    const run = this.transactionQueue.then(async () => {
-      const db = await this.getDb()
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        let transactionStarted = false
-        // Acquire the write reservation before the callback performs any reads.
-        // This avoids a deferred read-to-write upgrade failing with SQLITE_BUSY.
-        try {
-          console.info(`[Database] transaction begin attempt ${attempt}`)
-          await db.execute('BEGIN IMMEDIATE')
-          transactionStarted = true
-          const result = await fn()
-          await db.execute('COMMIT')
-          console.info('[Database] transaction committed')
-          return result
-        } catch (error) {
-          console.error('[Database] transaction failed', { attempt, error })
-          if (transactionStarted) {
-            try {
-              await db.execute('ROLLBACK')
-            } catch (rollbackError) {
-              console.error('[Database] Failed to roll back transaction:', rollbackError)
-            }
-          }
-          if (!this.isBusyError(error) || attempt === 3) {
-            throw error
-          }
-          console.warn(`[Database] Transaction busy; retrying attempt ${attempt + 1}/3`)
-          await this.delay(250 * attempt)
-        }
-      }
-      throw new Error('Database transaction failed after retries')
-    })
-
-    this.transactionQueue = run.then(
-      () => undefined,
-      () => undefined,
+  private async applyLockLightMigration(
+    db: Database,
+    request: InstallMigrationRequest,
+    allowAlreadyApplied = false,
+  ): Promise<void> {
+    const applied = await db.select<{ version: number; success: number }[]>(
+      'SELECT version, success FROM _sqlx_migrations',
     )
-    return run
+    const appliedVersions = new Set(
+      applied.filter((row) => Boolean(row.success)).map((row) => Number(row.version)),
+    )
+    if (appliedVersions.has(request.version)) {
+      if (allowAlreadyApplied) return
+      throw new Error(`Migration ${request.version} is already marked as applied`)
+    }
+    const missingPrevious = request.previousVersions.filter(
+      (version) => !appliedVersions.has(version),
+    )
+    if (missingPrevious.length > 0) {
+      throw new Error(
+        `Migration ${request.version} cannot be installed out of order. Missing prerequisite migration(s): ${missingPrevious.join(', ')}`,
+      )
+    }
+
+    for (const statement of splitMigrationSql(request.sql)) {
+      await db.execute(statement)
+    }
+
+    const expectedObjects =
+      MIGRATION_CATALOG.find((entry) => entry.version === request.version)?.affectedObjects ?? []
+    if (expectedObjects.length > 0) {
+      const placeholders = expectedObjects.map(() => '?').join(', ')
+      const rows = await db.select<{ name: string }[]>(
+        `SELECT name FROM sqlite_master WHERE name IN (${placeholders})`,
+        expectedObjects,
+      )
+      const materialized = new Set(rows.map((row) => row.name))
+      const missingObjects = expectedObjects.filter((name) => !materialized.has(name))
+      if (missingObjects.length > 0) {
+        throw new Error(
+          `Migration ${request.version} schema verification failed; missing object(s): ${missingObjects.join(', ')}`,
+        )
+      }
+    }
+
+    await db.execute('DELETE FROM _sqlx_migrations WHERE version = ? AND success = 0', [
+      request.version,
+    ])
+    await db.execute(
+      `INSERT INTO _sqlx_migrations (version, description, installed_on, success, checksum, execution_time)
+       VALUES (?, ?, datetime('now'), 1, ?, 0)`,
+      [request.version, request.description, request.checksum],
+    )
   }
 
   /**
@@ -341,6 +548,324 @@ class DatabaseService {
         rows: [{ rowsAffected: result.rowsAffected }],
         rowsAffected: result.rowsAffected,
       }
+    }
+  }
+
+  async getMigrationStatuses(): Promise<MigrationStatus[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>(
+      `SELECT version, description, installed_on, execution_time, success, hex(checksum) AS checksum
+       FROM _sqlx_migrations ORDER BY version ASC`,
+    )
+    return rows.map((row) => ({
+      version: Number(row.version),
+      description: row.description ?? '',
+      installedOn: row.installed_on ?? null,
+      executionTimeMs: row.execution_time ?? null,
+      success: Boolean(row.success),
+      checksum: row.checksum ?? null,
+    }))
+  }
+
+  async getWorldbuildingWorkspace(id = 'default'): Promise<WorldbuildingWorkspace | null> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>('SELECT * FROM worldbuilding_workspaces WHERE id = ?', [id])
+    if (rows.length === 0) return null
+    return this.mapWorldbuildingWorkspace(rows[0])
+  }
+
+  async listWorldbuildingWorkspaces(): Promise<WorldbuildingWorkspace[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>(
+      'SELECT * FROM worldbuilding_workspaces ORDER BY updated_at DESC',
+    )
+    return rows.map((row) => this.mapWorldbuildingWorkspace(row))
+  }
+
+  async saveWorldbuildingWorkspace(workspace: WorldbuildingWorkspace): Promise<void> {
+    const storedDraft = encodeWorldbuildingDraft(workspace)
+    await this.enqueueWrite('worldbuilding workspace save', (db) =>
+      db.execute(
+        `INSERT INTO worldbuilding_workspaces (id, draft, charter, conversation, updated_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           draft = excluded.draft,
+           charter = excluded.charter,
+           conversation = excluded.conversation,
+           updated_at = excluded.updated_at`,
+        [
+          workspace.id,
+          JSON.stringify(storedDraft),
+          workspace.charter,
+          JSON.stringify(workspace.conversation),
+          workspace.updatedAt,
+        ],
+      ),
+    )
+  }
+
+  async deleteWorldbuildingWorkspace(id: string): Promise<void> {
+    await this.enqueueWrite(`worldbuilding workspace delete ${id}`, (db) =>
+      db.execute('DELETE FROM worldbuilding_workspaces WHERE id = ?', [id]),
+    )
+  }
+
+  private mapWorldbuildingWorkspace(row: any): WorldbuildingWorkspace {
+    return decodeWorldbuildingWorkspace(row)
+  }
+
+  async installMigration(request: InstallMigrationRequest): Promise<void> {
+    const executableSql = request.sql.replace(/--[^\n]*|\/\*[\s\S]*?\*\//g, '').trim()
+
+    // Marker migrations intentionally have no executable SQL. Repair only their ledger row
+    // through the normal write queue so they do not compete with the migration plugin for a
+    // database-wide BEGIN IMMEDIATE lock or touch schema that is already present.
+    if (!executableSql) {
+      await this.enqueueWrite(`migration marker ${request.version}`, async (db) => {
+        const rows = await db.select<{ version: number; success: number }[]>(
+          'SELECT version, success FROM _sqlx_migrations WHERE version = ?',
+          [request.version],
+        )
+        if (rows.some((row) => Boolean(row.success))) {
+          throw new Error(`Migration ${request.version} is already marked as applied`)
+        }
+        const applied = await db.select<{ version: number; success: number }[]>(
+          'SELECT version, success FROM _sqlx_migrations',
+        )
+        const appliedVersions = new Set(
+          applied.filter((row) => Boolean(row.success)).map((row) => Number(row.version)),
+        )
+        const missingPrevious = request.previousVersions.filter(
+          (version) => !appliedVersions.has(version),
+        )
+        if (missingPrevious.length > 0) {
+          throw new Error(
+            `Migration ${request.version} cannot be installed out of order. Missing prerequisite migration(s): ${missingPrevious.join(', ')}`,
+          )
+        }
+        await db.execute('DELETE FROM _sqlx_migrations WHERE version = ? AND success = 0', [
+          request.version,
+        ])
+        await db.execute(
+          `INSERT INTO _sqlx_migrations (version, description, installed_on, success, checksum, execution_time)
+           VALUES (?, ?, datetime('now'), 1, ?, 0)`,
+          [request.version, request.description, request.checksum],
+        )
+      })
+      return
+    }
+
+    // A small set of late migrations was historically materialized by the frontend
+    // initializer before its SQLx marker was recorded. Reconcile those objects one at
+    // a time instead of taking BEGIN IMMEDIATE, and never repeat an ALTER that already exists.
+    if (request.version === 57 || request.version === 59) {
+      await this.enqueueWrite(`migration reconcile ${request.version}`, async (db) => {
+        const applied = await db.select<{ version: number; success: number }[]>(
+          'SELECT version, success FROM _sqlx_migrations',
+        )
+        const appliedVersions = new Set(
+          applied.filter((row) => Boolean(row.success)).map((row) => Number(row.version)),
+        )
+        const missingPrevious = request.previousVersions.filter(
+          (version) => !appliedVersions.has(version),
+        )
+        if (missingPrevious.length > 0) {
+          throw new Error(
+            `Migration ${request.version} cannot be installed out of order. Missing prerequisite migration(s): ${missingPrevious.join(', ')}`,
+          )
+        }
+
+        const table = request.version === 57 ? 'entries' : 'ruleset_abilities'
+        const column = request.version === 57 ? 'ability_id' : 'scene_relevance'
+        const columns = await db.select<{ name: string }[]>(`PRAGMA table_info(${table})`)
+        if (!columns.some((item) => item.name === column)) {
+          await db.execute(
+            request.version === 57
+              ? 'ALTER TABLE entries ADD COLUMN ability_id TEXT'
+              : "ALTER TABLE ruleset_abilities ADD COLUMN scene_relevance TEXT NOT NULL DEFAULT '[]'",
+          )
+        }
+
+        const indexName = request.version === 57 ? 'idx_entries_ability_id' : null
+        if (indexName) {
+          const indexes = await db.select<{ name: string }[]>(
+            "SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?",
+            [indexName],
+          )
+          if (!indexes.some((item) => item.name === indexName)) {
+            await db.execute(
+              'CREATE INDEX IF NOT EXISTS idx_entries_ability_id ON entries(ability_id)',
+            )
+          }
+        }
+
+        await db.execute('DELETE FROM _sqlx_migrations WHERE version = ? AND success = 0', [
+          request.version,
+        ])
+        await db.execute(
+          `INSERT INTO _sqlx_migrations (version, description, installed_on, success, checksum, execution_time)
+           VALUES (?, ?, datetime('now'), 1, ?, 0)`,
+          [request.version, request.description, request.checksum],
+        )
+      })
+      return
+    }
+
+    if (request.version === 60) {
+      await this.enqueueWrite(`migration reconcile ${request.version}`, async (db) => {
+        const applied = await db.select<{ version: number; success: number }[]>(
+          'SELECT version, success FROM _sqlx_migrations',
+        )
+        const appliedVersions = new Set(
+          applied.filter((row) => Boolean(row.success)).map((row) => Number(row.version)),
+        )
+        const missingPrevious = request.previousVersions.filter(
+          (version) => !appliedVersions.has(version),
+        )
+        if (missingPrevious.length > 0) {
+          throw new Error(
+            `Migration ${request.version} cannot be installed out of order. Missing prerequisite migration(s): ${missingPrevious.join(', ')}`,
+          )
+        }
+
+        await db.execute(`
+          CREATE TABLE IF NOT EXISTS worldbuilding_workspaces (
+            id TEXT PRIMARY KEY,
+            draft TEXT NOT NULL DEFAULT '{}',
+            charter TEXT NOT NULL DEFAULT '',
+            conversation TEXT NOT NULL DEFAULT '[]',
+            updated_at INTEGER NOT NULL
+          )
+        `)
+        await db.execute(
+          `INSERT OR IGNORE INTO worldbuilding_workspaces (id, draft, charter, conversation, updated_at)
+           VALUES ('default', '{}', '', '[]', strftime('%s','now') * 1000)`,
+        )
+        await db.execute('DELETE FROM _sqlx_migrations WHERE version = ? AND success = 0', [
+          request.version,
+        ])
+        await db.execute(
+          `INSERT INTO _sqlx_migrations (version, description, installed_on, success, checksum, execution_time)
+           VALUES (?, ?, datetime('now'), 1, ?, 0)`,
+          [request.version, request.description, request.checksum],
+        )
+      })
+      return
+    }
+
+    if (request.version === 61) {
+      await this.enqueueWrite(`migration reconcile ${request.version}`, async (db) => {
+        const applied = await db.select<{ version: number; success: number }[]>(
+          'SELECT version, success FROM _sqlx_migrations',
+        )
+        const appliedVersions = new Set(
+          applied.filter((row) => Boolean(row.success)).map((row) => Number(row.version)),
+        )
+        const missingPrevious = request.previousVersions.filter(
+          (version) => !appliedVersions.has(version),
+        )
+        if (missingPrevious.length > 0) {
+          throw new Error(
+            `Migration ${request.version} cannot be installed out of order. Missing prerequisite migration(s): ${missingPrevious.join(', ')}`,
+          )
+        }
+
+        await db.execute(`
+          CREATE TABLE IF NOT EXISTS ai_player_proposals (
+            id TEXT PRIMARY KEY,
+            campaign_id TEXT NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+            session_id TEXT REFERENCES campaign_sessions(id) ON DELETE CASCADE,
+            ai_player_id TEXT NOT NULL REFERENCES ai_players(id) ON DELETE RESTRICT,
+            character_id TEXT NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+            scene_mode TEXT NOT NULL,
+            action TEXT NOT NULL,
+            reasoning TEXT NOT NULL,
+            confidence INTEGER NOT NULL CHECK (confidence BETWEEN 1 AND 10),
+            review_status TEXT NOT NULL DEFAULT 'pending' CHECK (review_status IN ('pending', 'accepted', 'declined')),
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+          )
+        `)
+        await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_ai_player_proposals_campaign ON ai_player_proposals(campaign_id, created_at DESC)',
+        )
+        await db.execute('DELETE FROM _sqlx_migrations WHERE version = ? AND success = 0', [
+          request.version,
+        ])
+        await db.execute(
+          `INSERT INTO _sqlx_migrations (version, description, installed_on, success, checksum, execution_time)
+           VALUES (?, ?, datetime('now'), 1, ?, 0)`,
+          [request.version, request.description, request.checksum],
+        )
+      })
+      return
+    }
+
+    if (request.version >= 67) {
+      await this.enqueueWrite(`migration reconcile ${request.version}`, (db) =>
+        this.applyLockLightMigration(db, request),
+      )
+      return
+    }
+
+    // Migration 58 creates the AI Player foundation and may be competing with the SQL
+    // plugin's connection during startup. Execute its idempotent statements incrementally
+    // so a retry resumes after the last successful table/index and never removes prior work.
+    if (request.version === 58) {
+      await this.enqueueWrite(`migration reconcile ${request.version}`, async (db) => {
+        const applied = await db.select<{ version: number; success: number }[]>(
+          'SELECT version, success FROM _sqlx_migrations',
+        )
+        const appliedVersions = new Set(
+          applied.filter((row) => Boolean(row.success)).map((row) => Number(row.version)),
+        )
+        const missingPrevious = request.previousVersions.filter(
+          (version) => !appliedVersions.has(version),
+        )
+        if (missingPrevious.length > 0) {
+          throw new Error(
+            `Migration ${request.version} cannot be installed out of order. Missing prerequisite migration(s): ${missingPrevious.join(', ')}`,
+          )
+        }
+
+        const statements = request.sql
+          .split(';')
+          .map((statement) => statement.replace(/--[^\n]*/g, '').trim())
+          .filter(Boolean)
+        for (const statement of statements) {
+          const alterMatch = statement.match(/^ALTER TABLE\s+(\w+)\s+ADD COLUMN\s+(\w+)/i)
+          if (alterMatch) {
+            const [, table, column] = alterMatch
+            const columns = await db.select<{ name: string }[]>(`PRAGMA table_info(${table})`)
+            if (columns.some((item) => item.name === column)) continue
+          }
+          await db.execute(statement)
+        }
+
+        await db.execute('DELETE FROM _sqlx_migrations WHERE version = ? AND success = 0', [
+          request.version,
+        ])
+        await db.execute(
+          `INSERT INTO _sqlx_migrations (version, description, installed_on, success, checksum, execution_time)
+           VALUES (?, ?, datetime('now'), 1, ?, 0)`,
+          [request.version, request.description, request.checksum],
+        )
+      })
+      return
+    }
+
+    const { invoke } = await import('@tauri-apps/api/core')
+    try {
+      await invoke('install_migration_native', {
+        requestJson: JSON.stringify({
+          ...request,
+          sql: undefined,
+          statements: splitMigrationSql(request.sql),
+        }),
+      })
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+      throw new Error(`Migration ${request.version} failed and was rolled back: ${reason}`)
     }
   }
 
@@ -488,14 +1013,15 @@ class DatabaseService {
   async upsertCampaign(campaign: Campaign): Promise<void> {
     await this.enqueueWrite(`campaign upsert ${campaign.id}`, (db) =>
       db.execute(
-        `INSERT INTO campaigns (id, story_id, title, description, ruleset_id, spotlight_character_id, status, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO campaigns (id, story_id, title, description, ruleset_id, spotlight_character_id, status, campaign_type, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            title = excluded.title,
            description = excluded.description,
            ruleset_id = excluded.ruleset_id,
            spotlight_character_id = excluded.spotlight_character_id,
            status = excluded.status,
+           campaign_type = excluded.campaign_type,
            updated_at = excluded.updated_at`,
         [
           campaign.id,
@@ -505,10 +1031,21 @@ class DatabaseService {
           campaign.rulesetId,
           campaign.spotlightCharacterId,
           campaign.status,
+          campaign.campaignType ?? 'human_gm_solo',
           campaign.createdAt,
           campaign.updatedAt,
         ],
       ),
+    )
+  }
+
+  async updateCampaignType(campaignId: string, campaignType: string): Promise<void> {
+    await this.enqueueWrite(`campaign type update ${campaignId}`, (db) =>
+      db.execute('UPDATE campaigns SET campaign_type = ?, updated_at = ? WHERE id = ?', [
+        campaignType,
+        Date.now(),
+        campaignId,
+      ]),
     )
   }
 
@@ -533,8 +1070,8 @@ class DatabaseService {
   async upsertCampaignSettings(settings: CampaignSettings): Promise<void> {
     await this.enqueueWrite(`campaign settings upsert ${settings.campaignId}`, (db) =>
       db.execute(
-        `INSERT INTO campaign_settings (campaign_id, default_party_size, max_party_size, scene_mode, turn_order_mode, dice_enforcement, nsfw_intensity, world_charter, gm_persona, companion_combat_policy, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO campaign_settings (campaign_id, default_party_size, max_party_size, scene_mode, turn_order_mode, dice_enforcement, nsfw_intensity, world_charter, gm_persona, companion_combat_policy, ai_players_enabled, default_ai_player_count, table_talk_intensity, session_zero_phase, session_zero_status, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(campaign_id) DO UPDATE SET
            default_party_size = excluded.default_party_size,
            max_party_size = excluded.max_party_size,
@@ -545,6 +1082,11 @@ class DatabaseService {
            world_charter = excluded.world_charter,
            gm_persona = excluded.gm_persona,
            companion_combat_policy = excluded.companion_combat_policy,
+           ai_players_enabled = excluded.ai_players_enabled,
+           default_ai_player_count = excluded.default_ai_player_count,
+           table_talk_intensity = excluded.table_talk_intensity,
+           session_zero_phase = excluded.session_zero_phase,
+           session_zero_status = excluded.session_zero_status,
            updated_at = excluded.updated_at`,
         [
           settings.campaignId,
@@ -557,6 +1099,11 @@ class DatabaseService {
           settings.worldCharter,
           settings.gmPersona,
           settings.companionCombatPolicy,
+          settings.aiPlayersEnabled ? 1 : 0,
+          settings.defaultAIPlayerCount,
+          settings.tableTalkIntensity ?? 4,
+          settings.sessionZeroPhase,
+          settings.sessionZeroStatus ?? 'not_started',
           settings.createdAt,
           settings.updatedAt,
         ],
@@ -578,6 +1125,11 @@ class DatabaseService {
       worldCharter: 'world_charter',
       gmPersona: 'gm_persona',
       companionCombatPolicy: 'companion_combat_policy',
+      aiPlayersEnabled: 'ai_players_enabled',
+      defaultAIPlayerCount: 'default_ai_player_count',
+      tableTalkIntensity: 'table_talk_intensity',
+      sessionZeroPhase: 'session_zero_phase',
+      sessionZeroStatus: 'session_zero_status',
     }
     const entries = Object.entries(updates).filter(
       ([key, value]) => key in columnMap && value !== undefined,
@@ -592,6 +1144,1025 @@ class DatabaseService {
         `UPDATE campaign_settings SET ${assignments}, updated_at = ? WHERE campaign_id = ?`,
         values,
       ),
+    )
+  }
+
+  async listAIPlayers(includeArchived = false): Promise<AIPlayer[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>(
+      includeArchived
+        ? 'SELECT * FROM ai_players ORDER BY name COLLATE NOCASE'
+        : 'SELECT * FROM ai_players WHERE archived_at IS NULL ORDER BY name COLLATE NOCASE',
+    )
+    return rows.map(this.mapAIPlayer)
+  }
+
+  async getAIPlayer(id: string): Promise<AIPlayer | null> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>('SELECT * FROM ai_players WHERE id = ?', [id])
+    return rows.length > 0 ? this.mapAIPlayer(rows[0]) : null
+  }
+
+  async upsertAIPlayer(player: AIPlayer): Promise<void> {
+    await this.enqueueWrite(`AI player upsert ${player.id}`, (db) =>
+      db.execute(
+        `INSERT INTO ai_players (id, name, base_personality, base_prompt_profile, archived_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           name = excluded.name,
+           base_personality = excluded.base_personality,
+           base_prompt_profile = excluded.base_prompt_profile,
+           archived_at = excluded.archived_at,
+           updated_at = excluded.updated_at`,
+        [
+          player.id,
+          player.name,
+          JSON.stringify(player.basePersonality),
+          player.basePromptProfile,
+          player.archivedAt,
+          player.createdAt,
+          player.updatedAt,
+        ],
+      ),
+    )
+  }
+
+  async archiveAIPlayer(id: string, archivedAt: number | null = Date.now()): Promise<void> {
+    await this.enqueueWrite(`AI player archive ${id}`, (db) =>
+      db.execute('UPDATE ai_players SET archived_at = ?, updated_at = ? WHERE id = ?', [
+        archivedAt,
+        Date.now(),
+        id,
+      ]),
+    )
+  }
+
+  async deleteAIPlayer(id: string): Promise<void> {
+    await this.enqueueWrite(`AI player delete ${id}`, async (db) => {
+      const assignments = await db.select<{ count: number }[]>(
+        `SELECT
+          (SELECT COUNT(*) FROM player_characters WHERE ai_player_id = ?) +
+          (SELECT COUNT(*) FROM campaign_ai_players WHERE ai_player_id = ?) AS count`,
+        [id, id],
+      )
+      if ((assignments[0]?.count ?? 0) > 0) {
+        throw new Error(
+          'Cannot delete an AI Player assigned to a campaign table; archive it instead',
+        )
+      }
+      await db.execute('DELETE FROM ai_players WHERE id = ?', [id])
+    })
+  }
+
+  async duplicateAIPlayer(player: AIPlayer, now: number = Date.now()): Promise<AIPlayer> {
+    const duplicate: AIPlayer = {
+      ...player,
+      id: crypto.randomUUID(),
+      name: `${player.name} Copy`,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    }
+    await this.upsertAIPlayer(duplicate)
+    return duplicate
+  }
+
+  async getAIPlayerRelationships(aiPlayerId: string): Promise<AIPlayerRelationship[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>(
+      `SELECT * FROM ai_player_relationships
+       WHERE ai_player_id_a = ? OR ai_player_id_b = ?
+       ORDER BY updated_at DESC`,
+      [aiPlayerId, aiPlayerId],
+    )
+    return rows.map(this.mapAIPlayerRelationship)
+  }
+
+  async upsertAIPlayerRelationship(relationship: AIPlayerRelationship): Promise<void> {
+    await this.enqueueWrite(`AI player relationship upsert ${relationship.id}`, (db) =>
+      db.execute(
+        `INSERT INTO ai_player_relationships (id, ai_player_id_a, ai_player_id_b, dynamic, history, friction, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(ai_player_id_a, ai_player_id_b) DO UPDATE SET
+           dynamic = excluded.dynamic,
+           history = excluded.history,
+           friction = excluded.friction,
+           updated_at = excluded.updated_at`,
+        [
+          relationship.id,
+          relationship.aiPlayerIdA,
+          relationship.aiPlayerIdB,
+          relationship.dynamic,
+          relationship.history,
+          relationship.friction,
+          relationship.createdAt,
+          relationship.updatedAt,
+        ],
+      ),
+    )
+  }
+
+  async getPlayerCharactersForCampaign(campaignId: string): Promise<PlayerCharacter[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>(
+      'SELECT * FROM player_characters WHERE campaign_id = ? ORDER BY joined_at',
+      [campaignId],
+    )
+    return rows.map(this.mapPlayerCharacter)
+  }
+
+  async getCampaignAIPlayers(campaignId: string): Promise<CampaignAIPlayer[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>(
+      'SELECT * FROM campaign_ai_players WHERE campaign_id = ? ORDER BY joined_at',
+      [campaignId],
+    )
+    return rows.map((row) => this.mapCampaignAIPlayer(row))
+  }
+
+  async upsertCampaignAIPlayer(player: CampaignAIPlayer): Promise<void> {
+    await this.enqueueWrite(`campaign AI player roster upsert ${player.aiPlayerId}`, (db) =>
+      db.execute(
+        `INSERT INTO campaign_ai_players (id, campaign_id, ai_player_id, joined_at, left_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(campaign_id, ai_player_id) DO UPDATE SET left_at = excluded.left_at`,
+        [player.id, player.campaignId, player.aiPlayerId, player.joinedAt, player.leftAt],
+      ),
+    )
+  }
+
+  async removeCampaignAIPlayer(campaignId: string, aiPlayerId: string): Promise<void> {
+    await this.enqueueWrite(`campaign AI player roster remove ${aiPlayerId}`, (db) =>
+      db.execute(
+        'UPDATE campaign_ai_players SET left_at = ? WHERE campaign_id = ? AND ai_player_id = ?',
+        [Date.now(), campaignId, aiPlayerId],
+      ),
+    )
+  }
+
+  async getCampaignFormationState(campaignId: string): Promise<CampaignFormationState | null> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>(
+      'SELECT * FROM campaign_formation_state WHERE campaign_id = ?',
+      [campaignId],
+    )
+    return rows.length > 0 ? this.mapCampaignFormationState(rows[0]) : null
+  }
+
+  async upsertCampaignFormationState(state: CampaignFormationState): Promise<void> {
+    await this.enqueueWrite(`campaign formation state ${state.campaignId}`, (db) =>
+      db.execute(
+        `INSERT INTO campaign_formation_state
+          (campaign_id, status, required_ai_player_ids, source, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(campaign_id) DO UPDATE SET
+           status = excluded.status,
+           required_ai_player_ids = excluded.required_ai_player_ids,
+           source = excluded.source,
+           updated_at = excluded.updated_at`,
+        [
+          state.campaignId,
+          state.status,
+          JSON.stringify([...new Set(state.requiredAIPlayerIds)]),
+          state.source,
+          state.createdAt,
+          state.updatedAt,
+        ],
+      ),
+    )
+  }
+
+  async reconcileCampaignFormationReadiness(
+    campaignId: string,
+  ): Promise<CampaignFormationState | null> {
+    const current = await this.getCampaignFormationState(campaignId)
+    if (!current) return null
+    const db = await this.getDb()
+    const approvedRows = await db.select<Array<{ ai_player_id: string }>>(
+      `SELECT DISTINCT pc.ai_player_id
+       FROM player_characters pc
+       JOIN character_sheets cs ON cs.character_id = pc.character_id
+       JOIN character_sheet_revisions csr ON csr.character_id = pc.character_id
+       WHERE pc.campaign_id = ? AND pc.left_at IS NULL`,
+      [campaignId],
+    )
+    const approved = new Set(approvedRows.map((row) => row.ai_player_id))
+    const ready =
+      current.requiredAIPlayerIds.length > 0 &&
+      current.requiredAIPlayerIds.every((aiPlayerId) => approved.has(aiPlayerId))
+    const next: CampaignFormationState = {
+      ...current,
+      status: ready ? 'ready' : 'party_pending',
+      updatedAt: Date.now(),
+    }
+    if (next.status !== current.status) await this.upsertCampaignFormationState(next)
+    return next
+  }
+
+  async getCampaignSetupSessions(campaignId: string): Promise<CampaignSetupSession[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>(
+      'SELECT * FROM campaign_setup_sessions WHERE campaign_id = ? ORDER BY sequence DESC',
+      [campaignId],
+    )
+    return rows.map((row) => this.mapCampaignSetupSession(row))
+  }
+
+  async getCampaignSetupSession(id: string): Promise<CampaignSetupSession | null> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>('SELECT * FROM campaign_setup_sessions WHERE id = ?', [id])
+    return rows.length > 0 ? this.mapCampaignSetupSession(rows[0]) : null
+  }
+
+  async createCampaignSetupSession(
+    session: CampaignSetupSession,
+    participants: CampaignSetupSessionPlayer[],
+  ): Promise<void> {
+    const { invoke } = await import('@tauri-apps/api/core')
+    await invoke('create_campaign_setup_session_native', {
+      sessionJson: JSON.stringify(session),
+      participantsJson: JSON.stringify(participants),
+    })
+  }
+
+  async updateCampaignSetupSession(session: CampaignSetupSession): Promise<void> {
+    await this.enqueueWrite(`campaign setup session update ${session.id}`, (db) =>
+      db.execute(
+        `UPDATE campaign_setup_sessions
+         SET title = ?, phase = ?, status = ?, started_at = ?, completed_at = ?, updated_at = ?
+         WHERE id = ?`,
+        [
+          session.title,
+          session.phase,
+          session.status,
+          session.startedAt,
+          session.completedAt,
+          session.updatedAt,
+          session.id,
+        ],
+      ),
+    )
+  }
+
+  async getCampaignSetupSessionPlayers(id: string): Promise<CampaignSetupSessionPlayer[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>(
+      'SELECT * FROM campaign_setup_session_players WHERE setup_session_id = ? ORDER BY joined_at, ai_player_id',
+      [id],
+    )
+    return rows.map((row) => ({
+      setupSessionId: row.setup_session_id,
+      aiPlayerId: row.ai_player_id,
+      joinedAt: row.joined_at,
+    }))
+  }
+
+  async getCampaignSetupChatMessages(setupSessionId: string): Promise<ChatMessage[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>(
+      'SELECT payload FROM campaign_setup_chat_messages WHERE setup_session_id = ? ORDER BY created_at, id',
+      [setupSessionId],
+    )
+    return rows.map((row) => JSON.parse(row.payload) as ChatMessage)
+  }
+
+  async addCampaignSetupChatMessage(setupSessionId: string, message: ChatMessage): Promise<void> {
+    await this.enqueueWrite(`campaign setup chat ${message.id}`, (db) =>
+      db.execute(
+        `INSERT OR IGNORE INTO campaign_setup_chat_messages
+          (id, setup_session_id, message_type, audience_scope, visibility, payload, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          message.id,
+          setupSessionId,
+          message.type,
+          message.audience,
+          message.visibility,
+          JSON.stringify(message),
+          message.timestamp,
+        ],
+      ),
+    )
+  }
+
+  async updateCampaignSetupChatMessage(
+    setupSessionId: string,
+    message: ChatMessage,
+  ): Promise<void> {
+    await this.enqueueWrite(`campaign setup chat message update ${message.id}`, (db) =>
+      db.execute(
+        `UPDATE campaign_setup_chat_messages
+         SET message_type = ?, audience_scope = ?, visibility = ?, payload = ?
+         WHERE setup_session_id = ? AND id = ?`,
+        [
+          message.type,
+          message.audience,
+          message.visibility,
+          JSON.stringify(message),
+          setupSessionId,
+          message.id,
+        ],
+      ),
+    )
+  }
+
+  async deleteCampaignSetupChatMessage(setupSessionId: string, messageId: string): Promise<void> {
+    await this.enqueueWrite(`campaign setup chat message delete ${messageId}`, (db) =>
+      db.execute('DELETE FROM campaign_setup_chat_messages WHERE setup_session_id = ? AND id = ?', [
+        setupSessionId,
+        messageId,
+      ]),
+    )
+  }
+
+  async deleteCampaignSetupChatMessages(setupSessionId: string): Promise<void> {
+    await this.enqueueWrite(`campaign setup chat clear ${setupSessionId}`, (db) =>
+      db.execute('DELETE FROM campaign_setup_chat_messages WHERE setup_session_id = ?', [
+        setupSessionId,
+      ]),
+    )
+  }
+
+  async createCampaignFormationBackup(backup: CampaignFormationBackup): Promise<void> {
+    await this.enqueueWrite(`campaign formation backup ${backup.id}`, (db) =>
+      db.execute(
+        `INSERT INTO campaign_formation_backups
+          (id, campaign_id, snapshot, checksum, created_at, restored_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          backup.id,
+          backup.campaignId,
+          JSON.stringify(backup.snapshot),
+          backup.checksum,
+          backup.createdAt,
+          backup.restoredAt,
+        ],
+      ),
+    )
+  }
+
+  async getCampaignFormationBackups(campaignId: string): Promise<CampaignFormationBackup[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>(
+      'SELECT * FROM campaign_formation_backups WHERE campaign_id = ? ORDER BY created_at DESC',
+      [campaignId],
+    )
+    return rows.map((row) => ({
+      id: row.id,
+      campaignId: row.campaign_id,
+      snapshot: JSON.parse(row.snapshot),
+      checksum: row.checksum,
+      createdAt: row.created_at,
+      restoredAt: row.restored_at ?? null,
+    }))
+  }
+
+  async getPartyPendingConversionPreview(
+    campaignId: string,
+    storyId: string,
+  ): Promise<PartyPendingConversionPreview> {
+    const db = await this.getDb()
+    const count = async (sql: string, params: unknown[]) => {
+      const rows = await db.select<Array<{ count: number }>>(sql, params)
+      return Number(rows[0]?.count ?? 0)
+    }
+    const characterSubquery = 'SELECT id FROM characters WHERE story_id = ?'
+    const sessionSubquery = 'SELECT id FROM campaign_sessions WHERE campaign_id = ?'
+    return {
+      characters: await count('SELECT COUNT(*) count FROM characters WHERE story_id = ?', [
+        storyId,
+      ]),
+      characterLoreEntries: await count(
+        "SELECT COUNT(*) count FROM entries WHERE story_id = ? AND type = 'character'",
+        [storyId],
+      ),
+      assignments: await count(
+        'SELECT COUNT(*) count FROM player_characters WHERE campaign_id = ?',
+        [campaignId],
+      ),
+      sheets: await count(
+        `SELECT COUNT(*) count FROM character_sheets WHERE character_id IN (${characterSubquery})`,
+        [storyId],
+      ),
+      sheetRevisions: await count(
+        `SELECT COUNT(*) count FROM character_sheet_revisions WHERE character_id IN (${characterSubquery})`,
+        [storyId],
+      ),
+      partyMembers: await count('SELECT COUNT(*) count FROM party_members WHERE campaign_id = ?', [
+        campaignId,
+      ]),
+      controlProfiles: await count(
+        'SELECT COUNT(*) count FROM actor_control_profiles WHERE campaign_id = ?',
+        [campaignId],
+      ),
+      normalSessions: await count(
+        'SELECT COUNT(*) count FROM campaign_sessions WHERE campaign_id = ?',
+        [campaignId],
+      ),
+      sessionChatMessages: await count(
+        'SELECT COUNT(*) count FROM campaign_chat_messages WHERE campaign_id = ? AND session_id IS NOT NULL',
+        [campaignId],
+      ),
+      proposals: await count(
+        'SELECT COUNT(*) count FROM ai_player_proposals WHERE campaign_id = ?',
+        [campaignId],
+      ),
+      interactions: await count(
+        'SELECT COUNT(*) count FROM ai_player_interactions WHERE campaign_id = ?',
+        [campaignId],
+      ),
+      rolls: await count('SELECT COUNT(*) count FROM roll_ledger WHERE campaign_id = ?', [
+        campaignId,
+      ]),
+      prerolls: await count(
+        `SELECT COUNT(*) count FROM session_prerolls WHERE session_id IN (${sessionSubquery})`,
+        [campaignId],
+      ),
+      characterOwnedItems: await count(
+        `SELECT COUNT(*) count FROM items WHERE owner_character_id IN (${characterSubquery})`,
+        [storyId],
+      ),
+    }
+  }
+
+  async convertCampaignToPartyPending(
+    campaignId: string,
+    storyId: string,
+    requiredAIPlayerIds: string[],
+  ): Promise<CampaignFormationBackup> {
+    return this.enqueueWrite(`convert campaign ${campaignId} to party pending`, async (db) => {
+      const campaigns = await db.select<Array<{ campaign_type: string }>>(
+        'SELECT campaign_type FROM campaigns WHERE id = ? AND story_id = ?',
+        [campaignId, storyId],
+      )
+      if (
+        !campaigns[0] ||
+        !['human_gm_ai_players', 'human_gm_solo'].includes(campaigns[0].campaign_type)
+      ) {
+        throw new Error('Only Human GM campaigns can be converted to party pending')
+      }
+      const select = (sql: string, params: unknown[]) =>
+        db.select<Record<string, unknown>[]>(sql, params)
+      const characterSubquery = 'SELECT id FROM characters WHERE story_id = ?'
+      const sessionSubquery = 'SELECT id FROM campaign_sessions WHERE campaign_id = ?'
+      const tables: Record<string, Record<string, unknown>[]> = {
+        campaigns: await select('SELECT * FROM campaigns WHERE id = ?', [campaignId]),
+        campaign_formation_state: await select(
+          'SELECT * FROM campaign_formation_state WHERE campaign_id = ?',
+          [campaignId],
+        ),
+        characters: await select('SELECT * FROM characters WHERE story_id = ?', [storyId]),
+        entries: await select("SELECT * FROM entries WHERE story_id = ? AND type = 'character'", [
+          storyId,
+        ]),
+        party_members: await select('SELECT * FROM party_members WHERE campaign_id = ?', [
+          campaignId,
+        ]),
+        actor_control_profiles: await select(
+          'SELECT * FROM actor_control_profiles WHERE campaign_id = ?',
+          [campaignId],
+        ),
+        player_characters: await select('SELECT * FROM player_characters WHERE campaign_id = ?', [
+          campaignId,
+        ]),
+        character_sheets: await select(
+          `SELECT * FROM character_sheets WHERE character_id IN (${characterSubquery})`,
+          [storyId],
+        ),
+        character_sheet_revisions: await select(
+          `SELECT * FROM character_sheet_revisions WHERE character_id IN (${characterSubquery}) ORDER BY created_at, id`,
+          [storyId],
+        ),
+        campaign_sessions: await select('SELECT * FROM campaign_sessions WHERE campaign_id = ?', [
+          campaignId,
+        ]),
+        session_party_members: await select(
+          `SELECT * FROM session_party_members WHERE session_id IN (${sessionSubquery})`,
+          [campaignId],
+        ),
+        campaign_chat_messages: await select(
+          'SELECT * FROM campaign_chat_messages WHERE campaign_id = ? AND session_id IS NOT NULL',
+          [campaignId],
+        ),
+        ai_player_proposals: await select(
+          'SELECT * FROM ai_player_proposals WHERE campaign_id = ?',
+          [campaignId],
+        ),
+        ai_player_interactions: await select(
+          'SELECT * FROM ai_player_interactions WHERE campaign_id = ?',
+          [campaignId],
+        ),
+        roll_ledger: await select('SELECT * FROM roll_ledger WHERE campaign_id = ?', [campaignId]),
+        session_prerolls: await select(
+          `SELECT * FROM session_prerolls WHERE session_id IN (${sessionSubquery})`,
+          [campaignId],
+        ),
+      }
+      const itemOwnership = (await select(
+        `SELECT id, owner_character_id, slot_key, container_item_id FROM items
+           WHERE owner_character_id IN (${characterSubquery})`,
+        [storyId],
+      )) as CampaignFormationSnapshot['itemOwnership']
+      const snapshot: CampaignFormationSnapshot = {
+        version: 1,
+        campaignId,
+        storyId,
+        tables,
+        itemOwnership,
+      }
+      const backup: CampaignFormationBackup = {
+        id: crypto.randomUUID(),
+        campaignId,
+        snapshot: snapshot as unknown as Record<string, unknown>,
+        checksum: await checksumFormationSnapshot(snapshot),
+        createdAt: Date.now(),
+        restoredAt: null,
+      }
+      const { invoke } = await import('@tauri-apps/api/core')
+      await invoke('convert_campaign_to_party_pending_native', {
+        campaignId,
+        storyId,
+        requiredAiPlayerIdsJson: JSON.stringify([...new Set(requiredAIPlayerIds)]),
+        backupId: backup.id,
+        snapshotJson: JSON.stringify(snapshot),
+        checksum: backup.checksum,
+        createdAt: backup.createdAt,
+      })
+      return backup
+    })
+  }
+
+  async restoreCampaignFormationBackup(backupId: string): Promise<void> {
+    await this.enqueueWrite(`restore campaign formation backup ${backupId}`, async (db) => {
+      const rows = await db.select<any[]>('SELECT * FROM campaign_formation_backups WHERE id = ?', [
+        backupId,
+      ])
+      if (!rows[0]) throw new Error('Campaign formation backup not found')
+      const backup = rows[0]
+      const snapshot = JSON.parse(backup.snapshot) as CampaignFormationSnapshot
+      if ((await checksumFormationSnapshot(snapshot)) !== backup.checksum) {
+        throw new Error('Campaign formation backup checksum does not match')
+      }
+      const counts = await db.select<
+        Array<{ characters: number; sessions: number; setup: number }>
+      >(
+        `SELECT
+            (SELECT COUNT(*) FROM characters WHERE story_id = ?) characters,
+            (SELECT COUNT(*) FROM campaign_sessions WHERE campaign_id = ?) sessions,
+            (SELECT COUNT(*) FROM campaign_setup_sessions WHERE campaign_id = ?) setup`,
+        [snapshot.storyId, snapshot.campaignId, snapshot.campaignId],
+      )
+      if (
+        !canRestoreFormationBackup({
+          restoredAt: backup.restored_at ?? null,
+          liveCharacterCount: Number(counts[0]?.characters ?? 0),
+          normalSessionCount: Number(counts[0]?.sessions ?? 0),
+          setupSessionCount: Number(counts[0]?.setup ?? 0),
+        })
+      ) {
+        throw new Error('Backup cannot be restored after replacement cast or play has begun')
+      }
+
+      const { invoke } = await import('@tauri-apps/api/core')
+      await invoke('restore_campaign_formation_backup_native', {
+        backupId,
+        snapshotJson: backup.snapshot,
+        checksum: backup.checksum,
+        restoredAt: Date.now(),
+      })
+    })
+  }
+
+  async getAIPlayerProposals(
+    campaignId: string,
+    sessionId?: string | null,
+  ): Promise<AIPlayerProposal[]> {
+    const db = await this.getDb()
+    const rows = sessionId
+      ? await db.select<any[]>(
+          'SELECT * FROM ai_player_proposals WHERE campaign_id = ? AND session_id = ? ORDER BY created_at DESC',
+          [campaignId, sessionId],
+        )
+      : await db.select<any[]>(
+          'SELECT * FROM ai_player_proposals WHERE campaign_id = ? ORDER BY created_at DESC',
+          [campaignId],
+        )
+    return rows.map(this.mapAIPlayerProposal)
+  }
+
+  async upsertAIPlayerProposal(
+    proposal: AIPlayerProposal,
+    sessionId?: string | null,
+  ): Promise<void> {
+    await this.enqueueWrite(`AI player proposal upsert ${proposal.id}`, (db) =>
+      db.execute(
+        `INSERT INTO ai_player_proposals (id, campaign_id, session_id, ai_player_id, character_id, scene_mode, action, reasoning, confidence, review_status, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           action = excluded.action,
+           reasoning = excluded.reasoning,
+           confidence = excluded.confidence,
+           review_status = excluded.review_status,
+           updated_at = excluded.updated_at`,
+        [
+          proposal.id,
+          proposal.campaignId,
+          sessionId ?? null,
+          proposal.aiPlayerId,
+          proposal.characterId,
+          proposal.sceneMode,
+          proposal.action,
+          proposal.reasoning,
+          proposal.confidence,
+          proposal.reviewStatus,
+          proposal.createdAt,
+          proposal.updatedAt,
+        ],
+      ),
+    )
+  }
+
+  async updateAIPlayerProposalReview(
+    id: string,
+    reviewStatus: AIPlayerProposal['reviewStatus'],
+    action?: string,
+  ): Promise<void> {
+    await this.enqueueWrite(`AI player proposal review ${id}`, (db) =>
+      db.execute(
+        'UPDATE ai_player_proposals SET review_status = ?, action = COALESCE(?, action), updated_at = ? WHERE id = ?',
+        [reviewStatus, action ?? null, Date.now(), id],
+      ),
+    )
+  }
+
+  async deleteAIPlayerProposal(id: string): Promise<void> {
+    await this.enqueueWrite(`AI player proposal delete ${id}`, (db) =>
+      db.execute('DELETE FROM ai_player_proposals WHERE id = ?', [id]),
+    )
+  }
+
+  async getPlayerCharacter(id: string): Promise<PlayerCharacter | null> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>('SELECT * FROM player_characters WHERE id = ?', [id])
+    return rows.length > 0 ? this.mapPlayerCharacter(rows[0]) : null
+  }
+
+  async upsertPlayerCharacter(playerCharacter: PlayerCharacter): Promise<void> {
+    await this.enqueueWrite(`player character upsert ${playerCharacter.id}`, (db) =>
+      db.execute(
+        `INSERT INTO player_characters (id, campaign_id, ai_player_id, character_id, roleplay_notes, character_secrets, inter_player_relationship_overrides, joined_at, left_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           ai_player_id = excluded.ai_player_id,
+           character_id = excluded.character_id,
+           roleplay_notes = excluded.roleplay_notes,
+           character_secrets = excluded.character_secrets,
+           inter_player_relationship_overrides = excluded.inter_player_relationship_overrides,
+           left_at = excluded.left_at`,
+        [
+          playerCharacter.id,
+          playerCharacter.campaignId,
+          playerCharacter.aiPlayerId,
+          playerCharacter.characterId,
+          playerCharacter.roleplayNotes,
+          JSON.stringify(playerCharacter.characterSecrets),
+          JSON.stringify(playerCharacter.interPlayerRelationshipOverrides),
+          playerCharacter.joinedAt,
+          playerCharacter.leftAt,
+        ],
+      ),
+    )
+  }
+
+  async deletePlayerCharacter(id: string): Promise<void> {
+    await this.enqueueWrite(`player character delete ${id}`, (db) =>
+      db.execute('DELETE FROM player_characters WHERE id = ?', [id]),
+    )
+  }
+
+  async getPlayerLevelSecrets(
+    campaignId: string,
+    aiPlayerId?: string,
+  ): Promise<PlayerLevelSecret[]> {
+    const db = await this.getDb()
+    const rows = aiPlayerId
+      ? await db.select<any[]>(
+          `SELECT * FROM player_level_secrets
+           WHERE campaign_id = ?
+             AND (target_ai_player_id = ? OR visibility_scope = 'all_ai_players')
+           ORDER BY created_at`,
+          [campaignId, aiPlayerId],
+        )
+      : await db.select<any[]>(
+          'SELECT * FROM player_level_secrets WHERE campaign_id = ? ORDER BY created_at',
+          [campaignId],
+        )
+    return rows.map(this.mapPlayerLevelSecret)
+  }
+
+  async upsertPlayerLevelSecret(secret: PlayerLevelSecret): Promise<void> {
+    await this.enqueueWrite(`player-level secret upsert ${secret.id}`, (db) =>
+      db.execute(
+        `INSERT INTO player_level_secrets (id, campaign_id, session_id, target_ai_player_id, secret_content, revealed_to_ai_player_ids, visibility_scope, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           session_id = excluded.session_id,
+           secret_content = excluded.secret_content,
+           revealed_to_ai_player_ids = excluded.revealed_to_ai_player_ids,
+           visibility_scope = excluded.visibility_scope,
+           updated_at = excluded.updated_at`,
+        [
+          secret.id,
+          secret.campaignId,
+          secret.sessionId,
+          secret.targetAIPlayerId,
+          secret.secretContent,
+          JSON.stringify(secret.revealedToAIPlayerIds),
+          secret.visibilityScope,
+          secret.createdAt,
+          secret.updatedAt,
+        ],
+      ),
+    )
+  }
+
+  async getAIPlayerMemories(aiPlayerId: string): Promise<AIPlayerMemory[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>(
+      'SELECT * FROM ai_player_memories WHERE ai_player_id = ? ORDER BY created_at DESC',
+      [aiPlayerId],
+    )
+    return rows.map(this.mapAIPlayerMemory)
+  }
+
+  /** Memories an AI Player may draw on in this campaign: its own, plus cross-campaign recall. */
+  async getRecallableAIPlayerMemories(
+    aiPlayerId: string,
+    campaignId: string,
+  ): Promise<AIPlayerMemory[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>(
+      `SELECT * FROM ai_player_memories
+       WHERE ai_player_id = ?
+         AND scope != 'never'
+         AND (origin_campaign_id = ? OR scope = 'cross_campaign')
+       ORDER BY pinned DESC, priority DESC, created_at DESC`,
+      [aiPlayerId, campaignId],
+    )
+    return rows.map(this.mapAIPlayerMemory)
+  }
+
+  async upsertAIPlayerMemory(memory: AIPlayerMemory): Promise<void> {
+    await this.enqueueWrite(`ai player memory upsert ${memory.id}`, (db) =>
+      db.execute(
+        `INSERT INTO ai_player_memories
+          (id, ai_player_id, origin_campaign_id, origin_campaign_title, origin_setup_session_id,
+           origin_session_id, character_id, character_name, source, title, content, keywords,
+           scope, injection_mode, priority, pinned, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           origin_campaign_title = excluded.origin_campaign_title,
+           character_id = excluded.character_id,
+           character_name = excluded.character_name,
+           source = excluded.source,
+           title = excluded.title,
+           content = excluded.content,
+           keywords = excluded.keywords,
+           scope = excluded.scope,
+           injection_mode = excluded.injection_mode,
+           priority = excluded.priority,
+           pinned = excluded.pinned,
+           updated_at = excluded.updated_at`,
+        [
+          memory.id,
+          memory.aiPlayerId,
+          memory.originCampaignId,
+          memory.originCampaignTitle,
+          memory.originSetupSessionId,
+          memory.originSessionId,
+          memory.characterId,
+          memory.characterName,
+          memory.source,
+          memory.title,
+          memory.content,
+          JSON.stringify(memory.keywords),
+          memory.scope,
+          memory.injectionMode,
+          memory.priority,
+          memory.pinned ? 1 : 0,
+          memory.createdAt,
+          memory.updatedAt,
+        ],
+      ),
+    )
+  }
+
+  async deleteAIPlayerMemory(id: string): Promise<void> {
+    await this.enqueueWrite(`ai player memory delete ${id}`, (db) =>
+      db.execute('DELETE FROM ai_player_memories WHERE id = ?', [id]),
+    )
+  }
+
+  private mapAIPlayerMemory(row: any): AIPlayerMemory {
+    return {
+      id: row.id,
+      aiPlayerId: row.ai_player_id,
+      originCampaignId: row.origin_campaign_id ?? null,
+      originCampaignTitle: row.origin_campaign_title ?? null,
+      originSetupSessionId: row.origin_setup_session_id ?? null,
+      originSessionId: row.origin_session_id ?? null,
+      characterId: row.character_id ?? null,
+      characterName: row.character_name ?? null,
+      source: row.source,
+      title: row.title ?? '',
+      content: row.content,
+      keywords: JSON.parse(row.keywords || '[]'),
+      scope: row.scope,
+      injectionMode: row.injection_mode,
+      priority: Number(row.priority ?? 5),
+      pinned: Boolean(row.pinned),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }
+  }
+
+  async getAIPlayerInteractions(
+    campaignId: string,
+    sessionId?: string,
+  ): Promise<AIPlayerInteraction[]> {
+    const db = await this.getDb()
+    const rows = sessionId
+      ? await db.select<any[]>(
+          'SELECT * FROM ai_player_interactions WHERE campaign_id = ? AND session_id = ? ORDER BY created_at',
+          [campaignId, sessionId],
+        )
+      : await db.select<any[]>(
+          'SELECT * FROM ai_player_interactions WHERE campaign_id = ? ORDER BY created_at',
+          [campaignId],
+        )
+    return rows.map(this.mapAIPlayerInteraction)
+  }
+
+  async getCampaignChatMessages(
+    campaignId: string,
+    sessionId?: string | null,
+  ): Promise<ChatMessage[]> {
+    const db = await this.getDb()
+    const rows =
+      sessionId === null
+        ? await db.select<any[]>(
+            'SELECT payload FROM campaign_chat_messages WHERE campaign_id = ? AND session_id IS NULL ORDER BY created_at',
+            [campaignId],
+          )
+        : sessionId
+          ? await db.select<any[]>(
+              'SELECT payload FROM campaign_chat_messages WHERE campaign_id = ? AND session_id = ? ORDER BY created_at',
+              [campaignId, sessionId],
+            )
+          : await db.select<any[]>(
+              'SELECT payload FROM campaign_chat_messages WHERE campaign_id = ? ORDER BY created_at',
+              [campaignId],
+            )
+    return rows.map((row) => JSON.parse(row.payload) as ChatMessage)
+  }
+
+  async addCampaignChatMessage(message: ChatMessage): Promise<void> {
+    await this.enqueueWrite(`campaign chat message ${message.id}`, (db) =>
+      db.execute(
+        `INSERT OR IGNORE INTO campaign_chat_messages
+          (id, campaign_id, session_id, message_type, audience_scope, visibility, payload, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          message.id,
+          message.campaignId,
+          message.sessionId,
+          message.type,
+          message.audience,
+          message.visibility,
+          JSON.stringify(message),
+          message.timestamp,
+        ],
+      ),
+    )
+  }
+
+  async updateCampaignChatMessage(message: ChatMessage): Promise<void> {
+    await this.enqueueWrite(`campaign chat message update ${message.id}`, (db) =>
+      db.execute(
+        `UPDATE campaign_chat_messages
+         SET message_type = ?, audience_scope = ?, visibility = ?, payload = ?
+         WHERE id = ?`,
+        [message.type, message.audience, message.visibility, JSON.stringify(message), message.id],
+      ),
+    )
+  }
+
+  async deleteCampaignChatMessage(id: string): Promise<void> {
+    await this.enqueueWrite(`campaign chat message delete ${id}`, (db) =>
+      db.execute('DELETE FROM campaign_chat_messages WHERE id = ?', [id]),
+    )
+  }
+
+  async deleteCampaignChatMessagesFrom(
+    campaignId: string,
+    sessionId: string | null,
+    timestamp: number,
+  ): Promise<void> {
+    await this.enqueueWrite(`campaign chat messages reset ${campaignId}`, (db) =>
+      sessionId === null
+        ? db.execute(
+            `DELETE FROM campaign_chat_messages
+             WHERE campaign_id = ? AND session_id IS NULL AND created_at >= ?`,
+            [campaignId, timestamp],
+          )
+        : db.execute(
+            `DELETE FROM campaign_chat_messages
+             WHERE campaign_id = ? AND session_id = ? AND created_at >= ?`,
+            [campaignId, sessionId, timestamp],
+          ),
+    )
+  }
+
+  async upsertAIPlayerInteraction(interaction: AIPlayerInteraction): Promise<void> {
+    await this.enqueueWrite(`AI player interaction upsert ${interaction.id}`, (db) =>
+      db.execute(
+        `INSERT INTO ai_player_interactions (id, campaign_id, session_id, audience_scope, audience_ai_player_ids, transcript, disclosed_to_audience, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           session_id = excluded.session_id,
+           audience_scope = excluded.audience_scope,
+           audience_ai_player_ids = excluded.audience_ai_player_ids,
+           transcript = excluded.transcript,
+           disclosed_to_audience = excluded.disclosed_to_audience,
+           updated_at = excluded.updated_at`,
+        [
+          interaction.id,
+          interaction.campaignId,
+          interaction.sessionId,
+          interaction.audience.kind,
+          JSON.stringify(
+            interaction.audience.kind === 'full_table'
+              ? []
+              : interaction.audience.kind === 'private_player'
+                ? [interaction.audience.aiPlayerId]
+                : interaction.audience.aiPlayerIds,
+          ),
+          JSON.stringify(interaction.transcript),
+          interaction.disclosedToAudience ? 1 : 0,
+          interaction.createdAt,
+          interaction.updatedAt,
+        ],
+      ),
+    )
+  }
+
+  async markAIPlayerInteractionDisclosed(id: string, disclosed = true): Promise<void> {
+    await this.enqueueWrite(`AI player interaction disclosure ${id}`, (db) =>
+      db.execute(
+        'UPDATE ai_player_interactions SET disclosed_to_audience = ?, updated_at = ? WHERE id = ?',
+        [disclosed ? 1 : 0, Date.now(), id],
+      ),
+    )
+  }
+
+  async getSessionPrerolls(
+    sessionId: string,
+    prerollType?: SessionPreroll['prerollType'],
+  ): Promise<SessionPreroll[]> {
+    const db = await this.getDb()
+    const rows = prerollType
+      ? await db.select<any[]>(
+          'SELECT * FROM session_prerolls WHERE session_id = ? AND preroll_type = ? ORDER BY created_at',
+          [sessionId, prerollType],
+        )
+      : await db.select<any[]>(
+          'SELECT * FROM session_prerolls WHERE session_id = ? ORDER BY created_at',
+          [sessionId],
+        )
+    return rows.map(this.mapSessionPreroll)
+  }
+
+  async createSessionPreroll(preroll: SessionPreroll): Promise<void> {
+    await this.enqueueWrite(`session preroll ${preroll.id}`, (db) =>
+      db.execute(
+        `INSERT INTO session_prerolls (id, session_id, preroll_type, prerolled_data, source, used_at, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          preroll.id,
+          preroll.sessionId,
+          preroll.prerollType,
+          JSON.stringify(preroll.prerolledData),
+          preroll.source,
+          preroll.usedAt,
+          preroll.createdAt,
+        ],
+      ),
+    )
+  }
+
+  async markPrerollUsed(id: string, usedAt: number = Date.now()): Promise<void> {
+    await this.enqueueWrite(`session preroll use ${id}`, (db) =>
+      db.execute('UPDATE session_prerolls SET used_at = ? WHERE id = ?', [usedAt, id]),
     )
   }
 
@@ -1117,14 +2688,15 @@ class DatabaseService {
   async upsertRulesetAbility(ability: RulesetAbility): Promise<void> {
     const db = await this.getDb()
     await db.execute(
-      `INSERT INTO ruleset_abilities (id, ruleset_id, key, label, description, resource_key, resource_cost, sort_order)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO ruleset_abilities (id, ruleset_id, key, label, description, resource_key, resource_cost, scene_relevance, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(ruleset_id, key) DO UPDATE SET
          label = excluded.label,
          description = excluded.description,
          resource_key = excluded.resource_key,
          resource_cost = excluded.resource_cost,
-         sort_order = excluded.sort_order`,
+        scene_relevance = excluded.scene_relevance,
+        sort_order = excluded.sort_order`,
       [
         ability.id,
         ability.rulesetId,
@@ -1133,6 +2705,7 @@ class DatabaseService {
         ability.description,
         ability.resourceKey,
         ability.resourceCost,
+        JSON.stringify(ability.sceneRelevance ?? []),
         ability.sortOrder,
       ],
     )
@@ -1323,6 +2896,148 @@ class DatabaseService {
     )
   }
 
+  async createCharacterSheetRevision(revision: CharacterSheetRevision): Promise<void> {
+    if (
+      (revision.authorType === 'gm' && revision.authorAIPlayerId !== null) ||
+      (revision.authorType === 'ai_player' && revision.authorAIPlayerId === null)
+    ) {
+      throw new Error('Character sheet revision author metadata is inconsistent')
+    }
+    if (!revision.source.trim()) throw new Error('Character sheet revision source is required')
+    await this.enqueueWrite(`character sheet revision create ${revision.id}`, (db) =>
+      db.execute(
+        `INSERT INTO character_sheet_revisions
+          (id, character_id, parent_revision_id, author_type, author_ai_player_id, source, snapshot, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          revision.id,
+          revision.characterId,
+          revision.parentRevisionId,
+          revision.authorType,
+          revision.authorAIPlayerId,
+          revision.source,
+          JSON.stringify(revision.snapshot),
+          revision.createdAt,
+        ],
+      ),
+    )
+  }
+
+  async getCharacterSheetRevision(id: string): Promise<CharacterSheetRevision | null> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>('SELECT * FROM character_sheet_revisions WHERE id = ?', [
+      id,
+    ])
+    return rows.length > 0 ? this.mapCharacterSheetRevision(rows[0]) : null
+  }
+
+  async getCharacterSheetRevisions(characterId: string): Promise<CharacterSheetRevision[]> {
+    const db = await this.getDb()
+    const rows = await db.select<any[]>(
+      `SELECT * FROM character_sheet_revisions
+       WHERE character_id = ?
+       ORDER BY created_at ASC, id ASC`,
+      [characterId],
+    )
+    return rows.map((row) => this.mapCharacterSheetRevision(row))
+  }
+
+  async upsertCharacterSheetProposal(proposal: CharacterSheetProposal): Promise<void> {
+    await this.enqueueWrite(`character sheet proposal ${proposal.id}`, (db) =>
+      db.execute(
+        `INSERT INTO character_sheet_proposals
+          (id, campaign_id, setup_session_id, ai_player_id, character_id, proposal_type,
+           payload, status, review_notes, created_at, reviewed_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET payload = excluded.payload, status = excluded.status,
+           review_notes = excluded.review_notes, reviewed_at = excluded.reviewed_at`,
+        [
+          proposal.id,
+          proposal.campaignId,
+          proposal.setupSessionId,
+          proposal.aiPlayerId,
+          proposal.characterId,
+          proposal.proposalType,
+          JSON.stringify(proposal.payload),
+          proposal.status,
+          proposal.reviewNotes,
+          proposal.createdAt,
+          proposal.reviewedAt,
+        ],
+      ),
+    )
+  }
+
+  async getCharacterSheetProposals(
+    campaignId: string,
+    setupSessionId?: string | null,
+  ): Promise<CharacterSheetProposal[]> {
+    const db = await this.getDb()
+    const rows = setupSessionId
+      ? await db.select<any[]>(
+          'SELECT * FROM character_sheet_proposals WHERE campaign_id = ? AND setup_session_id = ? ORDER BY created_at DESC',
+          [campaignId, setupSessionId],
+        )
+      : await db.select<any[]>(
+          'SELECT * FROM character_sheet_proposals WHERE campaign_id = ? ORDER BY created_at DESC',
+          [campaignId],
+        )
+    return rows.map((row) => this.mapCharacterSheetProposal(row))
+  }
+
+  async saveGMCharacterSheetEdit(
+    character: Character,
+    sheet: CharacterSheet,
+    revision: CharacterSheetRevision,
+  ): Promise<void> {
+    await this.close()
+    const { invoke } = await import('@tauri-apps/api/core')
+    try {
+      await invoke('save_gm_character_sheet_edit_native', {
+        characterJson: JSON.stringify(character),
+        sheetJson: JSON.stringify(sheet),
+        revisionJson: JSON.stringify(revision),
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error('[Database] Native GM character sheet edit failed:', error)
+      if (/not found|unknown command|not registered/i.test(message)) {
+        throw new Error(
+          'Character sheet editing was updated in the native app. Restart the Tauri development process, then try again.',
+        )
+      }
+      throw new Error(message || 'Native GM character sheet edit failed')
+    }
+  }
+
+  async approveCharacterSheetProposal(
+    proposal: CharacterSheetProposal,
+    draft: CharacterSheetDraft,
+    storyId: string,
+  ): Promise<{ characterId: string; revisionId: string }> {
+    await this.close()
+    const { invoke } = await import('@tauri-apps/api/core')
+    try {
+      return await invoke<{ characterId: string; revisionId: string }>(
+        'approve_character_sheet_proposal_native',
+        {
+          proposalJson: JSON.stringify(proposal),
+          draftJson: JSON.stringify(draft),
+          storyId,
+        },
+      )
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error('[Database] Native character approval failed:', error)
+      if (/not found|unknown command|not registered/i.test(message)) {
+        throw new Error(
+          'Character approval was updated in the native app. Restart the Tauri development process, then try again.',
+        )
+      }
+      throw new Error(message || 'Native character approval failed')
+    }
+  }
+
   // ===== Roll Ledger Operations (Phase 2) =====
 
   async addRollLedgerEntry(entry: RollLedgerEntry): Promise<void> {
@@ -1347,6 +3062,12 @@ class DatabaseService {
         entry.biasApplied ? JSON.stringify(entry.biasApplied) : null,
         entry.createdAt,
       ],
+    )
+  }
+
+  async deleteRollLedgerEntry(id: string): Promise<void> {
+    await this.enqueueWrite(`roll ledger delete ${id}`, (db) =>
+      db.execute('DELETE FROM roll_ledger WHERE id = ?', [id]),
     )
   }
 
@@ -1419,9 +3140,11 @@ class DatabaseService {
         memory_config,
         retry_state,
         style_review_state,
-        time_tracker
+        time_tracker,
+        pack_id,
+        custom_variable_values
       )
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         story.id,
         story.title,
@@ -1437,6 +3160,8 @@ class DatabaseService {
         story.retryState ? JSON.stringify(story.retryState) : null,
         story.styleReviewState ? JSON.stringify(story.styleReviewState) : null,
         story.timeTracker ? JSON.stringify(story.timeTracker) : null,
+        story.packId ?? null,
+        story.customVariableValues ? JSON.stringify(story.customVariableValues) : null,
       ],
     )
     return { ...story, createdAt: now, updatedAt: now }
@@ -4150,6 +5875,152 @@ class DatabaseService {
   }
 
   // Mapping functions
+  private mapAIPlayer(row: any): AIPlayer {
+    const personality = JSON.parse(row.base_personality || '{}')
+    return {
+      id: row.id,
+      name: row.name,
+      basePersonality: personality,
+      basePromptProfile: row.base_prompt_profile ?? null,
+      archivedAt: row.archived_at ?? null,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }
+  }
+
+  private mapAIPlayerProposal(row: any): AIPlayerProposal {
+    return {
+      id: row.id,
+      campaignId: row.campaign_id,
+      aiPlayerId: row.ai_player_id,
+      characterId: row.character_id,
+      sceneMode: row.scene_mode,
+      action: row.action,
+      reasoning: row.reasoning,
+      confidence: row.confidence,
+      reviewStatus: row.review_status,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }
+  }
+
+  private mapAIPlayerRelationship(row: any): AIPlayerRelationship {
+    return {
+      id: row.id,
+      aiPlayerIdA: row.ai_player_id_a,
+      aiPlayerIdB: row.ai_player_id_b,
+      dynamic: row.dynamic,
+      history: row.history,
+      friction: row.friction,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }
+  }
+
+  private mapPlayerCharacter(row: any): PlayerCharacter {
+    return {
+      id: row.id,
+      campaignId: row.campaign_id,
+      aiPlayerId: row.ai_player_id,
+      characterId: row.character_id,
+      roleplayNotes: row.roleplay_notes ?? null,
+      characterSecrets: JSON.parse(row.character_secrets || '[]'),
+      interPlayerRelationshipOverrides: JSON.parse(row.inter_player_relationship_overrides || '{}'),
+      joinedAt: row.joined_at,
+      leftAt: row.left_at ?? null,
+    }
+  }
+
+  private mapCampaignAIPlayer(row: any): CampaignAIPlayer {
+    return {
+      id: row.id,
+      campaignId: row.campaign_id,
+      aiPlayerId: row.ai_player_id,
+      joinedAt: row.joined_at,
+      leftAt: row.left_at ?? null,
+    }
+  }
+
+  private mapCampaignFormationState(row: any): CampaignFormationState {
+    return {
+      campaignId: row.campaign_id,
+      status: row.status,
+      requiredAIPlayerIds: JSON.parse(row.required_ai_player_ids || '[]'),
+      source: row.source,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }
+  }
+
+  private mapCampaignSetupSession(row: any): CampaignSetupSession {
+    const audienceIds = JSON.parse(row.audience_ai_player_ids || '[]') as string[]
+    return {
+      id: row.id,
+      campaignId: row.campaign_id,
+      sequence: row.sequence,
+      title: row.title,
+      kind: row.kind,
+      phase: row.phase,
+      status: row.status,
+      audience:
+        row.audience_scope === 'private_player'
+          ? { kind: 'private_player', aiPlayerId: audienceIds[0] ?? '' }
+          : row.audience_scope === 'player_subset'
+            ? { kind: 'player_subset', aiPlayerIds: audienceIds }
+            : { kind: 'full_table' },
+      createdAt: row.created_at,
+      startedAt: row.started_at ?? null,
+      completedAt: row.completed_at ?? null,
+      updatedAt: row.updated_at,
+    }
+  }
+
+  private mapPlayerLevelSecret(row: any): PlayerLevelSecret {
+    return {
+      id: row.id,
+      campaignId: row.campaign_id,
+      sessionId: row.session_id ?? null,
+      targetAIPlayerId: row.target_ai_player_id,
+      secretContent: row.secret_content,
+      revealedToAIPlayerIds: JSON.parse(row.revealed_to_ai_player_ids || '[]'),
+      visibilityScope: row.visibility_scope,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }
+  }
+
+  private mapAIPlayerInteraction(row: any): AIPlayerInteraction {
+    const ids = JSON.parse(row.audience_ai_player_ids || '[]') as string[]
+    const audience =
+      row.audience_scope === 'full_table'
+        ? { kind: 'full_table' as const }
+        : row.audience_scope === 'private_player'
+          ? { kind: 'private_player' as const, aiPlayerId: ids[0] }
+          : { kind: 'player_subset' as const, aiPlayerIds: ids }
+    return {
+      id: row.id,
+      campaignId: row.campaign_id,
+      sessionId: row.session_id ?? null,
+      audience,
+      transcript: JSON.parse(row.transcript || '[]'),
+      disclosedToAudience: Boolean(row.disclosed_to_audience),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }
+  }
+
+  private mapSessionPreroll(row: any): SessionPreroll {
+    return {
+      id: row.id,
+      sessionId: row.session_id,
+      prerollType: row.preroll_type,
+      prerolledData: JSON.parse(row.prerolled_data || '{}'),
+      source: row.source ?? 'session_start',
+      usedAt: row.used_at ?? null,
+      createdAt: row.created_at,
+    }
+  }
+
   private mapCampaign(row: any): Campaign {
     return {
       id: row.id,
@@ -4159,6 +6030,7 @@ class DatabaseService {
       rulesetId: row.ruleset_id ?? null,
       spotlightCharacterId: row.spotlight_character_id ?? null,
       status: row.status,
+      campaignType: row.campaign_type ?? 'human_gm_solo',
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }
@@ -4176,6 +6048,11 @@ class DatabaseService {
       worldCharter: row.world_charter ?? null,
       gmPersona: row.gm_persona ?? null,
       companionCombatPolicy: row.companion_combat_policy ?? 'companions_autonomous',
+      aiPlayersEnabled: Boolean(row.ai_players_enabled),
+      defaultAIPlayerCount: row.default_ai_player_count ?? 4,
+      tableTalkIntensity: row.table_talk_intensity ?? 4,
+      sessionZeroPhase: row.session_zero_phase ?? null,
+      sessionZeroStatus: row.session_zero_status ?? 'not_started',
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }
@@ -4391,6 +6268,7 @@ class DatabaseService {
       description: row.description ?? null,
       resourceKey: row.resource_key ?? null,
       resourceCost: row.resource_cost,
+      sceneRelevance: JSON.parse(row.scene_relevance || '[]'),
       sortOrder: row.sort_order,
     }
   }
@@ -4466,6 +6344,35 @@ class DatabaseService {
     }
   }
 
+  private mapCharacterSheetRevision(row: any): CharacterSheetRevision {
+    return {
+      id: row.id,
+      characterId: row.character_id,
+      parentRevisionId: row.parent_revision_id ?? null,
+      authorType: row.author_type,
+      authorAIPlayerId: row.author_ai_player_id ?? null,
+      source: row.source,
+      snapshot: JSON.parse(row.snapshot),
+      createdAt: row.created_at,
+    }
+  }
+
+  private mapCharacterSheetProposal(row: any): CharacterSheetProposal {
+    return {
+      id: row.id,
+      campaignId: row.campaign_id,
+      setupSessionId: row.setup_session_id ?? null,
+      aiPlayerId: row.ai_player_id,
+      characterId: row.character_id ?? null,
+      proposalType: row.proposal_type,
+      payload: JSON.parse(row.payload),
+      status: row.status,
+      reviewNotes: row.review_notes ?? null,
+      createdAt: row.created_at,
+      reviewedAt: row.reviewed_at ?? null,
+    }
+  }
+
   private mapRollLedgerEntry(row: any): RollLedgerEntry {
     return {
       id: row.id,
@@ -4517,6 +6424,10 @@ class DatabaseService {
       timeTracker: row.time_tracker ? JSON.parse(row.time_tracker) : null,
       currentBranchId: row.current_branch_id || null,
       currentBgImage: null, // Loaded separately now
+      packId: row.pack_id ?? null,
+      customVariableValues: row.custom_variable_values
+        ? JSON.parse(row.custom_variable_values)
+        : null,
     }
   }
 
@@ -6079,6 +7990,44 @@ class DatabaseService {
   async deleteRuntimeVariable(id: string): Promise<void> {
     const db = await this.getDb()
     await db.execute('DELETE FROM pack_runtime_variables WHERE id = ?', [id])
+  }
+
+  async deleteRuntimeVariableAndValues(packId: string, variableId: string): Promise<void> {
+    const { invoke } = await import('@tauri-apps/api/core')
+    await invoke('delete_runtime_variable_native', { packId, variableId })
+  }
+
+  async renameRuntimeVariableAndValues(
+    packId: string,
+    variableId: string,
+    newVariableName: string,
+  ): Promise<void> {
+    const { invoke } = await import('@tauri-apps/api/core')
+    await invoke('rename_runtime_variable_native', { packId, variableId, newVariableName })
+  }
+
+  async changeRuntimeVariableType(
+    packId: string,
+    variableId: string,
+    variableType: RuntimeVariableType,
+  ): Promise<void> {
+    const { invoke } = await import('@tauri-apps/api/core')
+    await invoke('change_runtime_variable_type_native', { packId, variableId, variableType })
+  }
+
+  async reorderRuntimeVariables(
+    firstId: string,
+    firstSortOrder: number,
+    secondId: string,
+    secondSortOrder: number,
+  ): Promise<void> {
+    const { invoke } = await import('@tauri-apps/api/core')
+    await invoke('reorder_runtime_variables_native', {
+      firstId,
+      firstSortOrder,
+      secondId,
+      secondSortOrder,
+    })
   }
 
   // ===== Runtime Variable Entity Value Operations =====

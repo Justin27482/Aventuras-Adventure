@@ -27,6 +27,32 @@ describe('TurnDirector', () => {
     ).toBe('npc_action')
   })
 
+  it('detects AI player turns when a player character is AI-controlled (G.1)', () => {
+    const director = new TurnDirector()
+
+    expect(
+      director.getNextTurnType({
+        sceneMode: 'combat',
+        activeActor: { id: 'pc-2', name: 'Rowan', category: 'player' },
+        isAIPlayerControlled: true,
+        previousSceneMode: 'combat',
+      }),
+    ).toBe('ai_player_turn')
+  })
+
+  it('prioritizes AI player detection over default narration flow', () => {
+    const director = new TurnDirector()
+
+    // Even with no previous scene mode change, AI player turn takes precedence
+    expect(
+      director.getNextTurnType({
+        sceneMode: 'social',
+        activeActor: { id: 'pc-1', name: 'Mara', category: 'player' },
+        isAIPlayerControlled: true,
+      }),
+    ).toBe('ai_player_turn')
+  })
+
   it('narrates scene transitions without a pending roll or NPC turn', () => {
     const director = new TurnDirector()
 

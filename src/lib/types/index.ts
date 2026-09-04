@@ -6,6 +6,7 @@ export type Tense = 'past' | 'present'
 
 // Visual descriptors for character appearance (used for image generation)
 export interface VisualDescriptors {
+  [key: string]: string | undefined
   face?: string // Skin tone, facial features, expression, age indicators
   hair?: string // Color, length, style, texture
   eyes?: string // Color, shape, notable features
@@ -13,6 +14,13 @@ export interface VisualDescriptors {
   clothing?: string // Full outfit description
   accessories?: string // Jewelry, weapons, bags, distinctive items
   distinguishing?: string // Scars, tattoos, birthmarks
+}
+
+export interface VisualDescriptorLabel {
+  key: string
+  label: string
+  minNsfwIntensity: number
+  hint?: string
 }
 
 // Time tracking for story progression
@@ -40,6 +48,8 @@ export interface Story {
   timeTracker: TimeTracker | null
   currentBranchId: string | null // Active branch (null = main branch for legacy stories)
   currentBgImage: string | null
+  packId?: string | null
+  customVariableValues?: Record<string, string> | null
 }
 
 export interface StoryFolder {
@@ -65,6 +75,12 @@ export type CampaignControlMode =
   | 'tactical_player'
   | 'gm_directed'
 
+export type CampaignType =
+  | 'human_gm_ai_players'  // GM running AI-controlled party
+  | 'human_gm_solo'        // GM with human-only party
+  | 'ai_gm'                // AI GM, human player (existing mode)
+  | 'human_player'         // Player joining someone else's campaign
+
 export interface Campaign {
   id: string
   storyId: string | null
@@ -73,6 +89,7 @@ export interface Campaign {
   rulesetId: string | null
   spotlightCharacterId: string | null
   status: 'active' | 'paused' | 'completed' | 'archived'
+  campaignType: CampaignType
   createdAt: number
   updatedAt: number
 }
@@ -88,8 +105,272 @@ export interface CampaignSettings {
   worldCharter: string | null
   gmPersona: string | null
   companionCombatPolicy: 'companions_autonomous' | 'tactical_delegate' | 'tactical_player'
+  aiPlayersEnabled: boolean
+  defaultAIPlayerCount: number
+  tableTalkIntensity: number // 0-8 slider for OOC banter
+  sessionZeroPhase: 'introductions' | 'premises' | 'character_creation' | 'bonding' | 'secrets' | null
+  sessionZeroStatus: 'not_started' | 'in_progress' | 'completed'
   createdAt: number
   updatedAt: number
+}
+
+export interface AIPlayerPersonality {
+  coreMotivation: string
+  primaryPlaystyle: 'tactical' | 'roleplay' | 'social' | 'hybrid'
+  riskTolerance: number
+  immersion: number
+  arousal: number
+  humorStyle: string
+  decisionSpeed: 'cautious' | 'balanced' | 'impulsive'
+  combatApproach: string
+  socialPriorities: string[]
+  redLines: string[]
+}
+
+export interface AIPlayer {
+  id: string
+  name: string
+  basePersonality: AIPlayerPersonality
+  basePromptProfile: string | null
+  archivedAt: number | null
+  createdAt: number
+  updatedAt: number
+}
+
+export interface AIPlayerRelationship {
+  id: string
+  aiPlayerIdA: string
+  aiPlayerIdB: string
+  dynamic: string
+  history: string
+  friction: number
+  createdAt: number
+  updatedAt: number
+}
+
+export interface PlayerCharacter {
+  id: string
+  campaignId: string
+  aiPlayerId: string
+  characterId: string
+  roleplayNotes: string | null
+  characterSecrets: Record<string, unknown>[]
+  interPlayerRelationshipOverrides: Record<string, unknown>
+  joinedAt: number
+  leftAt: number | null
+}
+
+/** Persistent campaign table membership, independent of any character assignment. */
+export interface CampaignAIPlayer {
+  id: string
+  campaignId: string
+  aiPlayerId: string
+  joinedAt: number
+  leftAt: number | null
+}
+
+export type AIPlayerMemorySource =
+  | 'private_prologue'
+  | 'setup_session'
+  | 'session'
+  | 'gm_authored'
+  | 'imported'
+
+/** `campaign` recall stays in its origin campaign; `cross_campaign` may inform other games. */
+export type AIPlayerMemoryScope = 'campaign' | 'cross_campaign' | 'never'
+
+export type AIPlayerMemoryInjectionMode = 'always' | 'keyword' | 'never'
+
+/**
+ * An AI Player's own remembered experience, owned by the global profile so it can
+ * persist across campaigns. Distinct from GM-authored secrets.
+ */
+export interface AIPlayerMemory {
+  id: string
+  aiPlayerId: string
+  originCampaignId: string | null
+  originCampaignTitle: string | null
+  originSetupSessionId: string | null
+  originSessionId: string | null
+  characterId: string | null
+  characterName: string | null
+  source: AIPlayerMemorySource
+  title: string
+  content: string
+  keywords: string[]
+  scope: AIPlayerMemoryScope
+  injectionMode: AIPlayerMemoryInjectionMode
+  priority: number
+  pinned: boolean
+  createdAt: number
+  updatedAt: number
+}
+
+export type CampaignFormationStatus = 'party_pending' | 'ready'
+export type CampaignFormationSource = 'created_pending' | 'converted' | 'established'
+
+export interface CampaignFormationState {
+  campaignId: string
+  status: CampaignFormationStatus
+  requiredAIPlayerIds: string[]
+  source: CampaignFormationSource
+  createdAt: number
+  updatedAt: number
+}
+
+export type CampaignSetupSessionKind =
+  | 'private_character_creation'
+  | 'private_prologue'
+  | 'group_session_zero'
+  | 'table_bonding'
+
+export type CampaignSetupPhase =
+  | 'introductions'
+  | 'premises'
+  | 'character_creation'
+  | 'bonding'
+  | 'secrets'
+  | 'free_table'
+
+export type CampaignSetupSessionStatus = 'planned' | 'active' | 'completed' | 'abandoned'
+
+export interface CampaignSetupSession {
+  id: string
+  campaignId: string
+  sequence: number
+  title: string
+  kind: CampaignSetupSessionKind
+  phase: CampaignSetupPhase
+  status: CampaignSetupSessionStatus
+  audience: InteractionAudience
+  createdAt: number
+  startedAt: number | null
+  completedAt: number | null
+  updatedAt: number
+}
+
+export interface CampaignSetupSessionPlayer {
+  setupSessionId: string
+  aiPlayerId: string
+  joinedAt: number
+}
+
+export interface CampaignFormationBackup {
+  id: string
+  campaignId: string
+  snapshot: Record<string, unknown>
+  checksum: string
+  createdAt: number
+  restoredAt: number | null
+}
+
+export interface PartyPendingConversionPreview {
+  characters: number
+  characterLoreEntries: number
+  assignments: number
+  sheets: number
+  sheetRevisions: number
+  partyMembers: number
+  controlProfiles: number
+  normalSessions: number
+  sessionChatMessages: number
+  proposals: number
+  interactions: number
+  rolls: number
+  prerolls: number
+  characterOwnedItems: number
+}
+
+export interface CampaignFormationSnapshot {
+  version: 1
+  campaignId: string
+  storyId: string
+  tables: Record<string, Record<string, unknown>[]>
+  itemOwnership: Array<{
+    id: string
+    owner_character_id: string | null
+    slot_key: string | null
+    container_item_id: string | null
+  }>
+}
+
+export type InteractionAudience =
+  | { kind: 'full_table' }
+  | { kind: 'player_subset'; aiPlayerIds: string[] }
+  | { kind: 'private_player'; aiPlayerId: string }
+
+export interface PlayerLevelSecret {
+  id: string
+  campaignId: string
+  sessionId: string | null
+  targetAIPlayerId: string
+  secretContent: string
+  revealedToAIPlayerIds: string[]
+  visibilityScope: 'specific_ai_player' | 'all_ai_players'
+  createdAt: number
+  updatedAt: number
+}
+
+export interface AIPlayerInteraction {
+  id: string
+  campaignId: string
+  sessionId: string | null
+  audience: InteractionAudience
+  transcript: Record<string, unknown>[]
+  disclosedToAudience: boolean
+  createdAt: number
+  updatedAt: number
+}
+
+export interface SessionPreroll {
+  id: string
+  sessionId: string
+  prerollType: 'encounter' | 'loot'
+  prerolledData: Record<string, unknown>
+  source: 'session_start' | 'mid_turn'
+  usedAt: number | null
+  createdAt: number
+}
+
+export interface MigrationStatus {
+  version: number
+  description: string
+  installedOn: string | null
+  executionTimeMs: number | null
+  success: boolean
+  checksum: string | null
+}
+
+export interface WorldbuildingWorkspace {
+  id: string
+  title: string
+  promptPackId: string
+  draft: Record<string, string>
+  charter: string
+  conversation: Array<{ role: 'user' | 'assistant'; content: string }>
+  updatedAt: number
+}
+
+export interface AIPlayerProposal {
+  id: string
+  aiPlayerId: string
+  characterId: string
+  campaignId: string
+  sceneMode: string
+  action: string
+  reasoning: string
+  confidence: number
+  reviewStatus: 'pending' | 'accepted' | 'declined'
+  createdAt: number
+  updatedAt: number
+}
+
+export interface InstallMigrationRequest {
+  version: number
+  description: string
+  sql: string
+  checksum: number[]
+  previousVersions: number[]
 }
 
 export interface CampaignPartyMember {
@@ -311,6 +592,7 @@ export interface RulesetAbility {
   description: string | null
   resourceKey: string | null
   resourceCost: number
+  sceneRelevance?: string[]
   sortOrder: number
 }
 
@@ -613,6 +895,39 @@ export interface CharacterSheet {
   xp: number
   createdAt: number
   updatedAt: number
+}
+
+export interface CharacterSheetRevision {
+  id: string
+  characterId: string
+  parentRevisionId: string | null
+  authorType: 'gm' | 'ai_player'
+  authorAIPlayerId: string | null
+  source: string
+  snapshot: CharacterSheet
+  createdAt: number
+}
+
+export interface CharacterSheetDraft {
+  name: string
+  description: string
+  traits: string[]
+  visualDescriptors: VisualDescriptors
+  sheet: Omit<CharacterSheet, 'characterId' | 'createdAt' | 'updatedAt'>
+}
+
+export interface CharacterSheetProposal {
+  id: string
+  campaignId: string
+  setupSessionId: string | null
+  aiPlayerId: string
+  characterId: string | null
+  proposalType: 'create' | 'update'
+  payload: CharacterSheetDraft
+  status: 'pending' | 'approved' | 'declined'
+  reviewNotes: string | null
+  createdAt: number
+  reviewedAt: number | null
 }
 
 // ===== Character Vault Types =====
@@ -1277,6 +1592,7 @@ export type ActivePanel =
   | 'gm'
   | 'rulesets'
   | 'worldbuilding'
+  | 'ai-players'
 export type SidebarTab =
   | 'characters'
   | 'locations'
@@ -1375,7 +1691,7 @@ export interface ReadingWindowFormattingSettings {
 
 export interface UISettings {
   theme: ThemeId
-  fontSize: 'small' | 'medium' | 'large'
+  fontSize: number
   fontFamily: string
   fontSource: FontSource
   showWordCount: boolean

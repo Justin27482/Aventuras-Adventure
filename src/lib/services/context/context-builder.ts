@@ -14,9 +14,18 @@ import { templateEngine } from '$lib/services/templates/engine'
 import { createLogger } from '$lib/log'
 import { getContentIntensityLevel } from '$lib/services/content-intensity'
 import type { RenderResult } from './types'
-import type { Character, Location, Item, StoryBeat } from '$lib/types'
+import type { Character, InteractionAudience, Item, Location, StoryBeat } from '$lib/types'
 import type { RuntimeVariable, RuntimeVarsMap } from '$lib/services/packs/types'
 import { TurnDirector } from '$lib/services/campaign/turn-director'
+import {
+  deriveEffectiveAIPlayerTraits,
+  personalityService,
+  renderAIPlayerVoiceProfile,
+} from '$lib/services/ai-player/personality-service'
+import {
+  loadRelevantMemories,
+  renderMemoriesForPrompt,
+} from '$lib/services/ai-player/memory-service'
 
 const log = createLogger('ContextBuilder')
 
@@ -216,6 +225,7 @@ export class ContextBuilder {
 
         builder.add({
           campaignTitle: campaign.title,
+          contentIntensity: campaignSettings?.nsfwIntensity ?? 0,
           worldCharter: campaignSettings?.worldCharter ?? '',
           gmPersona: campaignSettings?.gmPersona ?? '',
           nsfwIntensity,
@@ -293,6 +303,121 @@ export class ContextBuilder {
       packId,
       contextKeys: Object.keys(builder.context).length,
       storyVarOverrides: storyVarValues ? Object.keys(storyVarValues).length : 0,
+    })
+    return builder
+  }
+
+  static async forAIPlayer(
+    storyId: string,
+    aiPlayerId: string,
+    packIdOverride?: string,
+    audience: InteractionAudience = { kind: 'full_table' },
+    /** Recent chat lines (any actor, in order) the AI Player should treat as already said. */
+    recentTranscript?: string[],
+  ): Promise<ContextBuilder> {
+    const builder = await ContextBuilder.forStory(storyId, packIdOverride)
+    const campaign = await database.getCampaignByStoryId(storyId)
+    if (!campaign) return builder
+
+    const [player, assignments, relationships, secrets, allPlayers, abilities] = await Promise.all([
+      database.getAIPlayer(aiPlayerId),
+      database.getPlayerCharactersForCampaign(campaign.id),
+      database.getAIPlayerRelationships(aiPlayerId),
+      database.getPlayerLevelSecrets(campaign.id, aiPlayerId),
+      database.listAIPlayers(),
+      campaign.rulesetId ? database.getRulesetAbilities(campaign.rulesetId) : Promise.resolve([]),
+    ])
+    const assignment = assignments.find((item) => item.aiPlayerId === aiPlayerId)
+    if (!player || !assignment) return builder
+
+    const characters = await database.getCharacters(storyId)
+    const character = characters.find((item) => item.id === assignment.characterId)
+    if (!character) return builder
+
+    const assignedPlayerIds = new Set(assignments.map((item) => item.aiPlayerId))
+    const visiblePeerPlayerIds = new Set(
+      audience.kind === 'full_table'
+        ? assignedPlayerIds
+        : audience.kind === 'private_player'
+          ? [aiPlayerId]
+          : [...audience.aiPlayerIds, aiPlayerId],
+    )
+    const otherPlayers = allPlayers
+      .filter(
+        (item) =>
+          item.id !== aiPlayerId &&
+          assignedPlayerIds.has(item.id) &&
+          visiblePeerPlayerIds.has(item.id),
+      )
+      .map((item) => ({ name: item.name, relationship: 'active campaign player' }))
+    const otherPlayerVoiceProfiles = allPlayers
+      .filter(
+        (item) =>
+          item.id !== aiPlayerId &&
+          assignedPlayerIds.has(item.id) &&
+          visiblePeerPlayerIds.has(item.id),
+      )
+      .map((item) => renderAIPlayerVoiceProfile(item))
+
+    const memories = await loadRelevantMemories(aiPlayerId, {
+      campaignId: campaign.id,
+      query: [
+        ...(recentTranscript ?? []),
+        builder.getContext().narrativeResponse ?? '',
+        character.name,
+      ].join('\n'),
+    })
+    const renderedMemories = renderMemoriesForPrompt(memories, campaign.id)
+
+    const sceneText = builder.getContext().narrativeResponse ?? ''
+    const dynamicTraits = deriveEffectiveAIPlayerTraits(
+      player,
+      sceneText,
+      recentTranscript ?? [],
+    )
+    const rendered = personalityService.renderDynamicPrompt(player, assignment, {
+      campaignTitle: campaign.title,
+      sceneMode: builder.getContext().sceneMode ?? '',
+      sceneSummary: sceneText,
+      contentIntensity: builder.getContext().nsfwIntensity ?? 0,
+      characterName: character.name,
+      characterDescription: character.description ?? '',
+      characterTraits: character.traits,
+      otherPlayers,
+      characterSecrets: assignment.characterSecrets,
+      playerLevelSecrets: secrets,
+      relationships,
+      abilities,
+      memories: renderedMemories,
+    })
+
+    builder.add({
+      aiPlayerId,
+      aiPlayerName: player.name,
+      aiPlayerCharacterName: character.name,
+      aiPlayerImmersion: dynamicTraits.immersion,
+      aiPlayerArousal: dynamicTraits.arousal,
+      aiPlayerVisibleSecrets: rendered.visibleSecrets.join('\n'),
+      aiPlayerMemories: renderedMemories || 'No relevant memories recalled.',
+      aiPlayerProfileContext: rendered.systemPrompt,
+      aiPlayerVoiceProfile: renderAIPlayerVoiceProfile(player),
+      otherAIPlayerVoices: otherPlayerVoiceProfiles.join('\n\n') || 'No other AI Players are present.',
+      priorAIPlayerMessages:
+        recentTranscript && recentTranscript.length > 0
+          ? recentTranscript.join('\n')
+          : 'No earlier AI Player messages were supplied for this turn.',
+    })
+    const voicePrompt = await builder.render('ai-player-voice')
+    if (voicePrompt.system.trim()) {
+      builder.add({
+        aiPlayerVoicePrompt: voicePrompt.system,
+        aiPlayerProfileContext: `${voicePrompt.system}\n\n${rendered.systemPrompt}`,
+      })
+    }
+    const decisionPrompt = await builder.render('ai-player-decision')
+    builder.add({
+      aiPlayerDecisionPrompt: decisionPrompt.system || rendered.systemPrompt,
+      aiPlayerPrompt: decisionPrompt.system || rendered.systemPrompt,
     })
     return builder
   }

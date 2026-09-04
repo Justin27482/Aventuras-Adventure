@@ -155,6 +155,8 @@ export interface ImageGenerationContext {
   imageGenerationMode?: string | null
   /** All story characters — supplied by caller for portrait/reference lookups */
   allCharacters?: Character[]
+  /** All story items — supplied by caller to derive current equipped clothing. */
+  allItems?: Item[]
   /** System image generation service settings — supplied by caller */
   imageSettings?: ImageGenerationServiceSettings
   /** Image profile lookup — supplied by caller */
@@ -1007,10 +1009,12 @@ class AIService {
       narrativeResponse: context.narrativeResponse,
       userAction: context.userAction,
       presentCharacters: context.presentCharacters.map((c) => ({
+        id: c.id,
         name: c.name,
         visualDescriptors: c.visualDescriptors,
         isProtagonist: c.relationship === 'self',
       })),
+      items: context.allItems ?? [],
       currentLocation: context.currentLocation,
       stylePrompt,
       maxImages: imageSettings.maxImagesPerMessage ?? 3,

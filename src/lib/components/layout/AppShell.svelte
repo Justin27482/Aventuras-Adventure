@@ -14,9 +14,13 @@
   import MemoryView from '$lib/components/memory/MemoryView.svelte'
   import VaultPanel from '$lib/components/vault/VaultPanel.svelte'
   import GMScreen from '$lib/components/campaign/GMScreen.svelte'
+  import GMCampaignScreen from '$lib/components/campaign/GMCampaignScreen.svelte'
+  import { campaign } from '$lib/stores/campaign.svelte'
+  import { CampaignTypeService } from '$lib/services/campaign/campaign-type-service'
   import SettingsModal from '$lib/components/settings/SettingsModal.svelte'
   import LorebookDebugPanel from '$lib/components/debug/LorebookDebugPanel.svelte'
   import DebugLogModal from '$lib/components/debug/DebugLogModal.svelte'
+  import MigrationLogModal from '$lib/components/debug/MigrationLogModal.svelte'
   import SyncModal from '$lib/components/sync/SyncModal.svelte'
   import STChatImportModal from '$lib/components/modals/STChatImportModal.svelte'
   import ChapterSourceImportModal from '$lib/components/story/ChapterSourceImportModal.svelte'
@@ -24,6 +28,7 @@
   import CompanionDecisionPanel from '$lib/components/campaign/CompanionDecisionPanel.svelte'
   import RulesetEditor from '$lib/components/settings/tabs/ruleset.svelte'
   import WorldbuildingAssistant from '$lib/components/worldbuilding/WorldbuildingAssistant.svelte'
+  import AIPlayerLibrary from '$lib/components/ai-player/AIPlayerLibrary.svelte'
   import { swipe } from '$lib/utils/swipe'
   import { Bug } from 'lucide-svelte'
   import { MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH, MAX_SIDEBAR_RATIO } from '$lib/constants/layout'
@@ -174,6 +179,9 @@
       ui.setActivePanel('story')
     }
   })
+
+  let campaignType = $derived(CampaignTypeService.getCampaignType(campaign.current))
+  let isGMCampaignUI = $derived(CampaignTypeService.usesGMCampaignUI(campaignType))
 </script>
 
 <svelte:window
@@ -217,13 +225,17 @@
     <div class="flex flex-1 flex-col overflow-hidden">
       <Header />
 
-      {#if story.currentStory}
+      {#if story.currentStory && !isGMCampaignUI}
         <TurnOrderStrip />
       {/if}
 
       <main class="flex-1 overflow-hidden">
         {#if ui.activePanel === 'story' && story.currentStory}
-          <StoryView />
+          {#if isGMCampaignUI}
+            <GMCampaignScreen />
+          {:else}
+            <StoryView />
+          {/if}
         {:else if ui.activePanel === 'gallery' && story.currentStory}
           <GalleryTab />
         {:else if ui.activePanel === 'lorebook' && story.currentStory}
@@ -238,6 +250,8 @@
           <RulesetEditor />
         {:else if ui.activePanel === 'worldbuilding'}
           <WorldbuildingAssistant />
+        {:else if ui.activePanel === 'ai-players'}
+          <AIPlayerLibrary />
         {:else if ui.activePanel === 'library' || !story.currentStory}
           <LibraryView />
         {:else if children}
@@ -279,6 +293,7 @@
 
   <!-- Debug Log Modal -->
   <DebugLogModal />
+  <MigrationLogModal />
 
   <!-- Sync Modal -->
   <SyncModal />

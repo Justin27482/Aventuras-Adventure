@@ -3,10 +3,12 @@ import { MAX_CONTENT_INTENSITY } from '$lib/services/content-intensity'
 import type {
   Campaign,
   CampaignSettings,
+  CampaignType,
   CampaignActorCategory,
   CampaignControlMode,
   CampaignPartyMember,
   CampaignSession,
+  CampaignFormationState,
   Character,
   Item,
   SceneTurnState,
@@ -19,6 +21,7 @@ import {
   validateSpotlightCharacter,
   buildSessionPartySnapshot,
 } from '$lib/services/campaign/campaign-rules'
+import { assertCanStartNormalSession } from '$lib/services/campaign/formation-rules'
 import {
   TurnOrderService,
   type SceneMode,
@@ -26,6 +29,7 @@ import {
   type TurnOrderMode,
 } from '$lib/services/campaign/turn-order-service'
 import { TurnDirector, type TurnType } from '$lib/services/campaign/turn-director'
+import { aiPlayerRoutingService } from '$lib/services/ai-player/ai-player-routing-service'
 
 const DEFAULT_NARRATIVE_CONTROL: CampaignControlMode = 'autonomous'
 const DEFAULT_COMBAT_CONTROL: CampaignControlMode = 'autonomous'
@@ -49,11 +53,13 @@ class CampaignStore {
   partyMembers = $state<CampaignPartyMember[]>([])
   sessions = $state<CampaignSession[]>([])
   activeSession = $state<CampaignSession | null>(null)
+  formationState = $state<CampaignFormationState | null>(null)
   sessionParty = $state<SessionPartyMember[]>([])
   sceneTurnState = $state<SceneTurnState | null>(null)
   previousSceneMode = $state<SceneMode | null>(null)
   lastSceneTransition = $state<string | null>(null)
   loading = $state(false)
+  aiPlayerAssignments = $state<Record<string, string>>({})  // characterId -> aiPlayerId mapping (G.1)
   private turnDirector = new TurnDirector()
 
   activeParty = $derived(
@@ -70,11 +76,13 @@ class CampaignStore {
     this.partyMembers = []
     this.sessions = []
     this.activeSession = null
+    this.formationState = null
     this.sessionParty = []
     this.sceneTurnState = null
     this.previousSceneMode = null
     this.lastSceneTransition = null
     this.loading = false
+    this.aiPlayerAssignments = {}
   }
 
   async loadForStory(storyId: string): Promise<void> {
@@ -87,11 +95,14 @@ class CampaignStore {
         this.partyMembers = []
         this.sessions = []
         this.activeSession = null
+        this.formationState = null
         this.sessionParty = []
+        this.aiPlayerAssignments = {}
         return
       }
 
       this.settings = await database.getCampaignSettings(campaign.id)
+      this.formationState = await database.getCampaignFormationState(campaign.id).catch(() => null)
 
       this.partyMembers = await database.getCampaignPartyMembers(campaign.id)
       this.sessions = await database.getCampaignSessions(campaign.id)
@@ -99,9 +110,30 @@ class CampaignStore {
       this.sessionParty = this.activeSession
         ? await database.getSessionPartyMembers(this.activeSession.id)
         : []
+
+      // G.1: Load AI player assignments for turn routing detection
+      await this.loadAIPlayerAssignments(campaign.id)
+
       await this.loadSceneTurnState(null)
     } finally {
       this.loading = false
+    }
+  }
+
+  /**
+   * G.1: Load AI player assignments and cache them for turn routing.
+   */
+  private async loadAIPlayerAssignments(campaignId: string): Promise<void> {
+    try {
+      const assignments = await database.getPlayerCharactersForCampaign(campaignId)
+      this.aiPlayerAssignments = Object.fromEntries(
+        assignments
+          .filter((a) => !a.leftAt)  // Only active assignments
+          .map((a) => [a.characterId, a.aiPlayerId])
+      )
+    } catch {
+      // If AI players aren't enabled or there's an error, default to empty
+      this.aiPlayerAssignments = {}
     }
   }
 
@@ -249,12 +281,26 @@ class CampaignStore {
     const previousSceneMode = this.previousSceneMode ?? currentSceneMode
     const activeActor = this.getCurrentTurnActor()
 
+    // G.1: Check if active actor is AI-controlled (synchronous check via cached data)
+    const isAIPlayerControlled = this.isActiveActorAIControlled()
+
     return this.turnDirector.getNextTurnType({
       sceneMode: currentSceneMode,
       previousSceneMode,
       activeActor,
       pendingRoll: null,
+      isAIPlayerControlled,
     })
+  }
+
+  /**
+   * G.1: Check if the current active actor is controlled by an AI player.
+   * Uses a synchronous check against cached player character assignments.
+   */
+  private isActiveActorAIControlled(): boolean {
+    const activeActorId = this.sceneTurnState?.activeActorId ?? null
+    if (!activeActorId) return false
+    return activeActorId in this.aiPlayerAssignments
   }
 
   async setSceneMode(
@@ -381,6 +427,10 @@ class CampaignStore {
           worldCharter: null,
           gmPersona: null,
           companionCombatPolicy: 'companions_autonomous',
+          aiPlayersEnabled: false,
+          defaultAIPlayerCount: 4,
+          sessionZeroPhase: null,
+          sessionZeroStatus: 'not_started',
           createdAt: now,
           updatedAt: now,
         }
@@ -398,6 +448,7 @@ class CampaignStore {
       rulesetId: DEFAULT_RULESET_ID,
       spotlightCharacterId: null,
       status: 'active',
+      campaignType: 'human_gm_solo',
       createdAt: story.createdAt,
       updatedAt: story.updatedAt,
     }
@@ -414,6 +465,10 @@ class CampaignStore {
       worldCharter: null,
       gmPersona: null,
       companionCombatPolicy: 'companions_autonomous',
+      aiPlayersEnabled: false,
+      defaultAIPlayerCount: 4,
+      sessionZeroPhase: null,
+      sessionZeroStatus: 'not_started',
       createdAt: now,
       updatedAt: now,
     }
@@ -573,6 +628,16 @@ class CampaignStore {
     this.current = updated
   }
 
+  async setCampaignType(campaignType: CampaignType): Promise<void> {
+    if (!this.current) throw new Error('No campaign loaded')
+    await database.updateCampaignType(this.current.id, campaignType)
+    this.current = {
+      ...this.current,
+      campaignType,
+      updatedAt: Date.now(),
+    }
+  }
+
   async setItemOwnership(
     item: Item,
     ownership: {
@@ -596,6 +661,11 @@ class CampaignStore {
     if (this.activeSession) {
       throw new Error('End the active session before starting a new session')
     }
+    assertCanStartNormalSession(
+      this.formationState,
+      this.activeParty.length,
+      options.primaryCharacterId,
+    )
     const primary = this.partyMembers.find(
       (member) => member.characterId === options.primaryCharacterId && member.active,
     )

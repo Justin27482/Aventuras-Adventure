@@ -60,7 +60,6 @@
 
   // Editor tab state
   let editorActiveTab = $state<'system' | 'user'>('system')
-  let editorHasUserContent = $state(false)
   let mobileView = $state<'editor' | 'preview'>('editor')
 
   // Dirty guard state
@@ -333,25 +332,23 @@
       <!-- Desktop: System/User tabs + action buttons in header row -->
       {#if selectedTemplateId && editorRef && !isMobile.current}
         <div class="ml-auto flex items-center gap-1">
-          {#if editorHasUserContent}
-            <ToggleGroup.Root
-              type="single"
-              value={editorActiveTab}
-              onValueChange={(v) => {
-                if (v) editorActiveTab = v as 'system' | 'user'
-              }}
-              variant="outline"
-              size="sm"
-              class="mr-1 gap-0"
+          <ToggleGroup.Root
+            type="single"
+            value={editorActiveTab}
+            onValueChange={(v) => {
+              if (v) editorActiveTab = v as 'system' | 'user'
+            }}
+            variant="outline"
+            size="sm"
+            class="mr-1 gap-0"
+          >
+            <ToggleGroup.Item value="system" class="h-7 rounded-r-none px-2.5 text-xs"
+              >System</ToggleGroup.Item
             >
-              <ToggleGroup.Item value="system" class="h-7 rounded-r-none px-2.5 text-xs"
-                >System</ToggleGroup.Item
-              >
-              <ToggleGroup.Item value="user" class="h-7 rounded-l-none px-2.5 text-xs"
-                >User</ToggleGroup.Item
-              >
-            </ToggleGroup.Root>
-          {/if}
+            <ToggleGroup.Item value="user" class="h-7 rounded-l-none px-2.5 text-xs"
+              >User</ToggleGroup.Item
+            >
+          </ToggleGroup.Root>
 
           <VariablePalette
             iconOnly
@@ -430,25 +427,23 @@
           </ToggleGroup.Item>
         </ToggleGroup.Root>
 
-        {#if editorHasUserContent}
-          <ToggleGroup.Root
-            type="single"
-            value={editorActiveTab}
-            onValueChange={(v) => {
-              if (v) editorActiveTab = v as 'system' | 'user'
-            }}
-            variant="outline"
-            size="sm"
-            class="gap-0"
+        <ToggleGroup.Root
+          type="single"
+          value={editorActiveTab}
+          onValueChange={(v) => {
+            if (v) editorActiveTab = v as 'system' | 'user'
+          }}
+          variant="outline"
+          size="sm"
+          class="gap-0"
+        >
+          <ToggleGroup.Item value="system" class="h-7 rounded-r-none px-2.5 text-xs"
+            >System</ToggleGroup.Item
           >
-            <ToggleGroup.Item value="system" class="h-7 rounded-r-none px-2.5 text-xs"
-              >System</ToggleGroup.Item
-            >
-            <ToggleGroup.Item value="user" class="h-7 rounded-l-none px-2.5 text-xs"
-              >User</ToggleGroup.Item
-            >
-          </ToggleGroup.Root>
-        {/if}
+          <ToggleGroup.Item value="user" class="h-7 rounded-l-none px-2.5 text-xs"
+            >User</ToggleGroup.Item
+          >
+        </ToggleGroup.Root>
 
         <VariablePalette
           customVariables={fullPack?.variables ?? []}
@@ -552,7 +547,6 @@
               onTestVarsOpen={() => (showTestVars = true)}
               onDirtyChange={handleDirtyChange}
               onActiveTabChange={(tab) => (editorActiveTab = tab)}
-              onHasUserContent={(has) => (editorHasUserContent = has)}
             />
           </div>
         {:else}
@@ -693,7 +687,7 @@
                             Template issues
                           </p>
                           <ul class="text-muted-foreground mt-1 list-disc space-y-1 pl-4">
-                            {#each compatibility.issues as issue (issue.templateId)}
+                            {#each compatibility.issues as issue (`${issue.templateId}:${issue.type}:${issue.message}`)}
                               <li>{issue.templateId}: {issue.message}</li>
                             {/each}
                           </ul>

@@ -154,7 +154,7 @@ function convertNewlinesToBr(node: Node): void {
     const parent = text.parentNode
     if (!parent) continue
 
-    const content = text.textContent || ''
+    const content = (text.textContent || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
     const parts = content.split('\n')
 
     if (parts.length <= 1) continue
@@ -267,7 +267,8 @@ export function sanitizeTextForTTS(html: string, options: TTSSanitizeOptions): s
   const text = fragment.textContent ?? ''
 
   return text
-    .replace(/\r/g, '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .replace(/[ \t]{2,}/g, ' ')
     .trim()

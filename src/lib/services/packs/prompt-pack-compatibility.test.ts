@@ -41,6 +41,23 @@ describe('checkPromptPackCompatibility', () => {
     ])
   })
 
+  it('reports multiple findings for the same template independently', () => {
+    const report = checkPromptPackCompatibility(
+      [template('narrative-helper', '{{ unknownOne }} {{ unknownTwo }}')],
+      ['narrative-helper'],
+    )
+
+    expect(report.issues).toHaveLength(2)
+    expect(report.issues.map((issue) => issue.templateId)).toEqual([
+      'narrative-helper',
+      'narrative-helper',
+    ])
+    expect(report.issues.map((issue) => issue.message)).toEqual([
+      "Template references unknown variable 'unknownOne'",
+      "Template references unknown variable 'unknownTwo'",
+    ])
+  })
+
   it('reports invalid Liquid syntax', () => {
     const report = checkPromptPackCompatibility(
       [template('adventure', '{% if protagonistName %}broken')],

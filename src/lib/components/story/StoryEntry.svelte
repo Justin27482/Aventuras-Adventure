@@ -1182,6 +1182,7 @@
         translatedNarrative: entry.translatedContent ?? undefined,
         imageGenerationMode: story.currentStory.settings?.imageGenerationMode,
         allCharacters: story.characters,
+        allItems: story.items,
         imageSettings: settings.systemServicesSettings.imageGeneration,
         getImageProfile: (id: string) => settings.getImageProfile(id),
       }

@@ -13,6 +13,8 @@
     "release": "node scripts/release.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "migrations:check": "node scripts/check_migrations.js --check",
+    "migrations:fix": "node scripts/check_migrations.js",
     "format": "prettier --write \"**/*.{ts,js,svelte,json,css,html}\""
   },
   "license": "AGPL-3.0",

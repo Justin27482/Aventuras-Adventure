@@ -15,13 +15,17 @@ import {
 import { TranslationService } from '$lib/services/ai/utils/TranslationService'
 import { QUICK_START_SEEDS } from '$lib/services/templates'
 import { replaceUserPlaceholders } from '$lib/components/wizard/wizardTypes'
-import type { Story, VaultScenario, Character, Entry, StoryEntry } from '$lib/types'
+import type { Story, VaultScenario, Character, Entry, StoryEntry, CampaignSettings, CampaignType } from '$lib/types'
 import { lorebookVault } from '$lib/stores/lorebookVault.svelte'
 import { descriptorsToString, stringToDescriptors } from '$lib/utils/visualDescriptors'
 import { packService } from '$lib/services/packs/pack-service'
 import { database } from '$lib/services/database'
 import type { PresetPack, CustomVariable } from '$lib/services/packs/types'
 import { LorebookImportExport } from '$lib/services/lorebookImportExport'
+import {
+  isPartyPendingCreation,
+  validatePartyPendingRoster,
+} from '$lib/services/campaign/campaign-creation-rules'
 
 // Import Modular Stores
 import { NarrativeStore } from './narrativeStore.svelte'
@@ -62,8 +66,10 @@ export class WizardStore {
 
   // Wizard State
   currentStep = $state(1)
-  totalSteps = 8
+  totalSteps = 9
   isCreatingStory = $state(false)
+  campaignType = $state<CampaignType>('human_gm_solo')
+  createPartyDuringSessionZero = $state(false)
 
   // Pack selection state
   selectedPackId = $state<string>('default-pack')
@@ -72,9 +78,23 @@ export class WizardStore {
   customVariableValues = $state<Record<string, string>>({})
   packsLoaded = $state(false)
 
+  aiPlayers = $state<import('$lib/types').AIPlayer[]>([])
+  aiPlayerAssignments = $state<Record<string, string>>({})
+  aiPlayerRosterIds = $state<string[]>([])
+  aiPlayersLoaded = $state(false)
+
   // Track auto-linked lorebook IDs so they can be removed when source is cleared
   private _scenarioLinkedLorebookVaultId = $state<string | null>(null)
   private _protagonistLinkedLorebookVaultId = $state<string | null>(null)
+
+  // Captured from the source campaign when prefilling from an existing story ("copy campaign"),
+  // then applied to the newly created campaign so a duplicate keeps its configuration instead of
+  // resetting to defaults.
+  private _copiedRulesetId = $state<string | null>(null)
+  private _copiedCampaignSettings = $state<Omit<
+    CampaignSettings,
+    'campaignId' | 'createdAt' | 'updatedAt'
+  > | null>(null)
 
   onClose: () => void
 
@@ -163,6 +183,19 @@ export class WizardStore {
     }
 
     const branchId = sourceStory.currentBranchId ?? null
+
+    // Campaign settings (ruleset, party sizing, AI Players, content intensity, etc.) so a
+    // duplicated campaign keeps the same configuration instead of resetting to defaults.
+    const sourceCampaign = await database.getCampaignByStoryId(sourceStory.id)
+    if (sourceCampaign) {
+      this._copiedRulesetId = sourceCampaign.rulesetId
+      const sourceSettings = await database.getCampaignSettings(sourceCampaign.id)
+      if (sourceSettings) {
+        const { campaignId: _campaignId, createdAt: _createdAt, updatedAt: _updatedAt, ...rest } =
+          sourceSettings
+        this._copiedCampaignSettings = rest
+      }
+    }
 
     // Setting seed from current location (fallback to story description)
     const locations = await database.getLocationsForBranch(sourceStory.id, branchId)
@@ -266,7 +299,7 @@ export class WizardStore {
       case 2: // World & Setting
         return this.setting.settingSeed.trim().length > 0
       case 3: // Character (required - must have protagonist)
-        return this.character.protagonist !== null
+        return this.isPartyPendingCreation || this.character.protagonist !== null
       case 4: // Supporting Cast (optional)
         return true
       case 5: // Lorebook (optional)
@@ -275,11 +308,32 @@ export class WizardStore {
         return true
       case 7: // Writing Style
         return true
-      case 8: // Opening
+      case 8: // AI Player assignments (optional)
+        return validatePartyPendingRoster(
+          this.campaignType,
+          this.createPartyDuringSessionZero,
+          this.aiPlayerRosterIds,
+        )
+      case 9: // Opening
         return this.narrative.storyTitle.trim().length > 0
       default:
         return false
     }
+  }
+
+  get isPartyPendingCreation(): boolean {
+    return isPartyPendingCreation(this.campaignType, this.createPartyDuringSessionZero)
+  }
+
+  setCampaignType(type: CampaignType): void {
+    this.campaignType = type
+    if (type !== 'human_gm_ai_players') this.createPartyDuringSessionZero = false
+  }
+
+  setAIPlayerRosterMembership(aiPlayerId: string, included: boolean): void {
+    this.aiPlayerRosterIds = included
+      ? [...new Set([...this.aiPlayerRosterIds, aiPlayerId])]
+      : this.aiPlayerRosterIds.filter((id) => id !== aiPlayerId)
   }
 
   nextStep() {
@@ -304,6 +358,19 @@ export class WizardStore {
     this.availablePacks = await packService.getAllPacks()
     this.packsLoaded = true
     await this.loadPackVariables(this.selectedPackId)
+  }
+
+  async loadAIPlayers(): Promise<void> {
+    if (this.aiPlayersLoaded) return
+    this.aiPlayers = await database.listAIPlayers()
+    this.aiPlayersLoaded = true
+  }
+
+  setAIPlayerAssignment(characterName: string, aiPlayerId: string): void {
+    const next = { ...this.aiPlayerAssignments }
+    if (aiPlayerId) next[characterName] = aiPlayerId
+    else delete next[characterName]
+    this.aiPlayerAssignments = next
   }
 
   async loadPackVariables(packId: string): Promise<void> {
@@ -513,6 +580,14 @@ export class WizardStore {
   // Create Story
   async createStory() {
     if (!this.narrative.storyTitle.trim() || this.isCreatingStory) return
+    const partyPendingCreation = isPartyPendingCreation(
+      this.campaignType,
+      this.createPartyDuringSessionZero,
+    )
+    const requestedCampaignType = this.campaignType
+    const requestedRosterIds = [...this.aiPlayerRosterIds]
+    const requestedPackId = this.selectedPackId
+    const requestedCustomVariableValues = { ...this.customVariableValues }
 
     // Use manual opening if provided
     if (!this.narrative.generatedOpening && this.narrative.manualOpeningText.trim()) {
@@ -543,10 +618,22 @@ export class WizardStore {
       }
     }
 
-    if (!this.narrative.generatedOpening?.scene?.trim()) {
+    if (!this.narrative.generatedOpening?.scene?.trim() && !partyPendingCreation) {
       this.narrative.openingError =
         'Please provide an opening scene (write your own or generate with AI)'
       return
+    }
+
+    if (!this.narrative.generatedOpening && partyPendingCreation) {
+      this.narrative.generatedOpening = {
+        scene: '',
+        title: this.narrative.storyTitle,
+        initialLocation: {
+          name: this.setting.expandedSetting?.keyLocations[0]?.name || 'Campaign Setting',
+          description:
+            this.setting.expandedSetting?.keyLocations[0]?.description || this.setting.settingSeed,
+        },
+      }
     }
 
     const protagonistName = this.character.protagonist?.name || 'the protagonist'
@@ -583,7 +670,7 @@ export class WizardStore {
       scene: replaceUserPlaceholders(this.narrative.generatedOpening.scene, protagonistName),
     }
 
-    if (!processedOpening.scene.trim()) {
+    if (!processedOpening.scene.trim() && !partyPendingCreation) {
       this.narrative.openingError =
         'The opening scene is empty. Please write or generate an opening before starting.'
       return
@@ -633,6 +720,10 @@ export class WizardStore {
     }
 
     const storyData = await scenarioService.prepareStoryData(wizardData, processedOpening)
+    if (partyPendingCreation) {
+      storyData.protagonist = {}
+      storyData.characters = []
+    }
     const worldCharter = buildWorldCharterFromWizard(wizardData)
 
     if (storyData.protagonist) {
@@ -788,12 +879,15 @@ export class WizardStore {
     try {
       console.info('[Wizard] Starting campaign persistence', {
         title: storyData.title,
-        packId: this.selectedPackId,
-        customVariableCount: Object.keys(this.customVariableValues).length,
+        packId: requestedPackId,
+        customVariableCount: Object.keys(requestedCustomVariableValues).length,
       })
       const newStory = await story.createStoryFromWizard({
         ...storyData,
+        allowEmptyOpening: partyPendingCreation,
         importedEntries: processedEntries.length > 0 ? processedEntries : undefined,
+        packId: requestedPackId,
+        customVariableValues: requestedCustomVariableValues,
         translations,
       })
       console.info('[Wizard] Story transaction completed', { storyId: newStory.id })
@@ -801,26 +895,87 @@ export class WizardStore {
       // Assign pack and save custom variable values
       console.info('[Wizard] Assigning story pack', {
         storyId: newStory.id,
-        packId: this.selectedPackId,
+        packId: requestedPackId,
       })
-      await database.setStoryPack(newStory.id, this.selectedPackId)
+      await database.setStoryPack(newStory.id, requestedPackId)
       console.info('[Wizard] Story pack assigned', { storyId: newStory.id })
-      if (Object.keys(this.customVariableValues).length > 0) {
+      if (Object.keys(requestedCustomVariableValues).length > 0) {
         console.info('[Wizard] Saving custom variable values', {
           storyId: newStory.id,
-          count: Object.keys(this.customVariableValues).length,
+          count: Object.keys(requestedCustomVariableValues).length,
         })
-        await database.setStoryCustomVariables(newStory.id, this.customVariableValues)
+        await database.setStoryCustomVariables(newStory.id, requestedCustomVariableValues)
         console.info('[Wizard] Custom variable values saved', { storyId: newStory.id })
       }
 
       console.info('[Wizard] Reloading created campaign', { storyId: newStory.id })
       await story.loadStory(newStory.id)
+      const createdCampaign = await database.getCampaignByStoryId(newStory.id)
+      if (!createdCampaign) throw new Error('Created campaign row could not be loaded')
+      await database.updateCampaignType(createdCampaign.id, requestedCampaignType)
+      {
+        const createdCharacters = await database.getCharacters(newStory.id)
+        const assignments = Object.entries(this.aiPlayerAssignments)
+        for (const [characterName, aiPlayerId] of assignments) {
+          const character = createdCharacters.find((item) => item.name === characterName)
+          if (!character) continue
+          await database.upsertPlayerCharacter({
+            id: crypto.randomUUID(),
+            campaignId: createdCampaign.id,
+            aiPlayerId,
+            characterId: character.id,
+            roleplayNotes: null,
+            characterSecrets: [],
+            interPlayerRelationshipOverrides: {},
+            joinedAt: Date.now(),
+            leftAt: null,
+          })
+        }
+        const rosterIds = new Set([
+          ...requestedRosterIds,
+          ...Object.values(this.aiPlayerAssignments),
+        ])
+        const now = Date.now()
+        for (const aiPlayerId of rosterIds) {
+          await database.upsertCampaignAIPlayer({
+            id: crypto.randomUUID(),
+            campaignId: createdCampaign.id,
+            aiPlayerId,
+            joinedAt: now,
+            leftAt: null,
+          })
+        }
+        if (partyPendingCreation) {
+          await database.upsertCampaignFormationState({
+            campaignId: createdCampaign.id,
+            status: 'party_pending',
+            requiredAIPlayerIds: [...rosterIds],
+            source: 'created_pending',
+            createdAt: now,
+            updatedAt: now,
+          })
+        }
+      }
       console.info('[Wizard] Created campaign reloaded', { storyId: newStory.id })
+      if (campaign.current && this._copiedRulesetId && campaign.current.rulesetId !== this._copiedRulesetId) {
+        console.info('[Wizard] Applying copied ruleset', { storyId: newStory.id })
+        await campaign.setRuleset(this._copiedRulesetId)
+      }
+      if (campaign.settings && this._copiedCampaignSettings) {
+        console.info('[Wizard] Applying copied campaign settings', { storyId: newStory.id })
+        await campaign.updateSettings(this._copiedCampaignSettings)
+      }
       if (campaign.settings && !campaign.settings.worldCharter && worldCharter) {
         console.info('[Wizard] Saving generated world charter', { storyId: newStory.id })
         await campaign.updateSettings({ worldCharter })
       }
+      if (
+        (Object.keys(this.aiPlayerAssignments).length > 0 || requestedRosterIds.length > 0)
+      ) {
+        console.info('[Wizard] Enabling AI Players for assigned profiles', { storyId: newStory.id })
+        await database.updateCampaignSettings(createdCampaign.id, { aiPlayersEnabled: true })
+      }
+      await campaign.loadForStory(newStory.id)
       ui.setActivePanel('story')
       this.onClose()
     } catch (error) {

@@ -8,6 +8,7 @@ export type TurnType =
   | 'qa'
   | 'scene_transition'
   | 'montage'
+  | 'ai_player_turn'
 
 export interface PendingRollLike {
   id: string
@@ -21,6 +22,7 @@ export interface TurnDirectorInput {
   activeActor?: TurnOrderActor | null
   pendingRoll?: PendingRollLike | null
   turnOrderMode?: TurnOrderMode
+  isAIPlayerControlled?: boolean
 }
 
 export class TurnDirector {
@@ -29,7 +31,12 @@ export class TurnDirector {
       return 'action_resolution'
     }
 
+    // AI player turns take precedence over NPC actions (same category, but different orchestration)
     const actor = input.activeActor
+    if (input.isAIPlayerControlled && actor?.category === 'player') {
+      return 'ai_player_turn'
+    }
+
     if (actor && actor.category !== 'player') {
       return 'npc_action'
     }

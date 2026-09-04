@@ -1142,6 +1142,19 @@ function roundToTenth(value: number): number {
   return Math.round(value * 10) / 10
 }
 
+const LEGACY_FONT_SIZE_LEVELS: Record<string, number> = {
+  small: 2,
+  medium: 4,
+  large: 6,
+}
+
+function normalizeFontSizeLevel(value: string | number | null | undefined): number {
+  const legacyLevel = typeof value === 'string' ? LEGACY_FONT_SIZE_LEVELS[value] : undefined
+  const numericLevel = legacyLevel ?? Number(value)
+  if (!Number.isFinite(numericLevel)) return 4
+  return Math.min(10, Math.max(1, Math.round(numericLevel)))
+}
+
 function clampVaultLorebookTextBaseRem(value: number): number {
   return Math.min(
     VAULT_LOREBOOK_TEXT_BASE_REM_MAX,
@@ -1156,7 +1169,7 @@ function getDefaultReadingWindowFormattingSettings(): ReadingWindowFormattingSet
 export function getDefaultUISettings(): UISettings {
   return {
     theme: 'campaign-ember',
-    fontSize: 'medium',
+    fontSize: 4,
     fontFamily: 'default',
     fontSource: 'default',
     showWordCount: true,
@@ -1489,8 +1502,13 @@ class SettingsStore {
         // Apply theme immediately to prevent FOUC
         this.applyTheme(theme as ThemeId)
       }
-      if (fontSize) this.uiSettings.fontSize = fontSize as 'small' | 'medium' | 'large'
-      // Apply font size immediately (uses default 'medium' if not stored)
+      if (fontSize) {
+        this.uiSettings.fontSize = normalizeFontSizeLevel(fontSize)
+        if (fontSize in LEGACY_FONT_SIZE_LEVELS) {
+          await database.setSetting('font_size', String(this.uiSettings.fontSize))
+        }
+      }
+      // Apply font size immediately (uses level 4 if not stored)
       this.applyFontSize(this.uiSettings.fontSize)
 
       // Load font family settings
@@ -2530,17 +2548,18 @@ class SettingsStore {
     this.applyTheme(theme)
   }
 
-  /**
-   * Apply font size to the DOM using data-font-size attribute
-   */
-  private applyFontSize(size: 'small' | 'medium' | 'large') {
-    document.documentElement.setAttribute('data-font-size', size)
+  /** Apply the 1-10 display scale. Level 6 preserves the legacy Large size (18px). */
+  private applyFontSize(size: number) {
+    const level = normalizeFontSizeLevel(size)
+    document.documentElement.setAttribute('data-font-size', String(level))
+    document.documentElement.style.fontSize = `${12 + level}px`
   }
 
-  async setFontSize(size: 'small' | 'medium' | 'large') {
-    this.uiSettings.fontSize = size
-    await database.setSetting('font_size', size)
-    this.applyFontSize(size)
+  async setFontSize(size: number) {
+    const level = normalizeFontSizeLevel(size)
+    this.uiSettings.fontSize = level
+    this.applyFontSize(level)
+    await database.setSetting('font_size', String(level))
   }
 
   /**
@@ -3129,7 +3148,7 @@ class SettingsStore {
       this.apiSettings.openRouterContextCompressionEnabled.toString(),
     )
     await database.setSetting('theme', this.uiSettings.theme)
-    await database.setSetting('font_size', this.uiSettings.fontSize)
+    await database.setSetting('font_size', String(this.uiSettings.fontSize))
     await database.setSetting('show_word_count', this.uiSettings.showWordCount.toString())
     await database.setSetting('auto_save', this.uiSettings.autoSave.toString())
     await database.setSetting('spellcheck_enabled', this.uiSettings.spellcheckEnabled.toString())

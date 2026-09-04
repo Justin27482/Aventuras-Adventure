@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { generateStructured } from '../sdk'
+import { renderPackPrompt } from '$lib/services/prompts/render-pack-prompt'
 
 export const worldbuildingFields = [
   'title',
@@ -44,31 +45,29 @@ const responseSchema = z.object({
 export type WorldbuildingResponse = z.infer<typeof responseSchema>
 
 export class WorldbuildingAssistantService {
-  private history: Array<{ role: 'user' | 'assistant'; content: string }> = []
-
-  reset() {
-    this.history = []
-  }
-
-  async respond(draft: WorldbuildingDraft, userMessage: string): Promise<WorldbuildingResponse> {
+  async respond(
+    draft: WorldbuildingDraft,
+    userMessage: string,
+    history: Array<{ role: 'user' | 'assistant'; content: string }>,
+    promptPackId: string,
+  ): Promise<WorldbuildingResponse> {
+    const prompt = await renderPackPrompt(promptPackId, 'worldbuilding-assistant', {
+      worldbuildingDraft: JSON.stringify(draft, null, 2),
+      worldbuildingConversation: JSON.stringify(
+        [...history, { role: 'user', content: userMessage }],
+        null,
+        2,
+      ),
+      worldbuildingUserMessage: userMessage,
+    })
     const response = await generateStructured(
       {
         presetId: 'agentic',
         schema: responseSchema,
-        system: `You are an interview-driven tabletop worldbuilding assistant. Help the user brainstorm and make decisions through natural discussion. Ask focused follow-up questions, offer several contrasting options when they are undecided, and explain implications for play. You have one explicit tool-like operation: update_worldbuilding_draft. Use it only to propose concrete updates derived from the conversation; never invent a user preference silently. The application will show the proposal for approval, so omit unchanged fields. Preserve hard boundaries and never weaken them. Return only the requested structured response.`,
-        prompt: JSON.stringify({
-          operation: 'update_worldbuilding_draft',
-          currentDraft: draft,
-          conversation: [...this.history, { role: 'user', content: userMessage }],
-          instruction:
-            'Respond to the latest message and propose only changes the user clearly requested or accepted.',
-        }),
+        system: prompt.system,
+        prompt: prompt.user,
       },
       'worldbuildingAssistant',
-    )
-    this.history.push(
-      { role: 'user', content: userMessage },
-      { role: 'assistant', content: response.reply },
     )
     return response
   }

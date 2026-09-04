@@ -27,6 +27,7 @@ import { database } from '$lib/services/database'
 import { templateEngine } from '$lib/services/templates/engine'
 import { createLogger } from '$lib/log'
 import { stripPicTags } from '$lib/utils/inlineImageParser'
+import { formatCharacterAppearance } from '$lib/utils/characterAppearance'
 import {
   buildClassificationResultSchema,
   clampNumber,
@@ -231,7 +232,7 @@ export class ClassifierService extends BaseAIService {
 
     // Format existing entities for the prompt
     const existingCharacters = characterClassificationEnabled
-      ? this.formatExistingCharacters(context.existingCharacters)
+      ? this.formatExistingCharacters(context.existingCharacters, context.existingItems)
       : '(character classification disabled for this story)'
     const existingLocations = locationClassificationEnabled
       ? context.existingLocations.map((l) => l.name).join(', ') || '(none)'
@@ -1283,7 +1284,7 @@ export class ClassifierService extends BaseAIService {
   /**
    * Format existing characters for the prompt.
    */
-  private formatExistingCharacters(characters: Character[]): string {
+  private formatExistingCharacters(characters: Character[], items: Item[]): string {
     if (characters.length === 0) return '(none)'
 
     return characters
@@ -1291,30 +1292,11 @@ export class ClassifierService extends BaseAIService {
         let entry = `- ${c.name}`
         if (c.relationship) entry += ` (${c.relationship})`
         if (c.status && c.status !== 'active') entry += ` [${c.status}]`
-        if (c.visualDescriptors && Object.keys(c.visualDescriptors).length > 0) {
-          entry += `\n  Appearance: ${this.formatVisualDescriptors(c.visualDescriptors)}`
-        }
+        const appearance = formatCharacterAppearance(c, items)
+        if (appearance) entry += `\n  Appearance: ${appearance}`
         return entry
       })
       .join('\n')
-  }
-
-  /**
-   * Format visual descriptors object into a readable string.
-   */
-  private formatVisualDescriptors(descriptors: Character['visualDescriptors']): string {
-    if (!descriptors) return ''
-
-    const parts: string[] = []
-    if (descriptors.face) parts.push(`Face: ${descriptors.face}`)
-    if (descriptors.hair) parts.push(`Hair: ${descriptors.hair}`)
-    if (descriptors.eyes) parts.push(`Eyes: ${descriptors.eyes}`)
-    if (descriptors.build) parts.push(`Build: ${descriptors.build}`)
-    if (descriptors.clothing) parts.push(`Clothing: ${descriptors.clothing}`)
-    if (descriptors.accessories) parts.push(`Accessories: ${descriptors.accessories}`)
-    if (descriptors.distinguishing) parts.push(`Distinguishing: ${descriptors.distinguishing}`)
-
-    return parts.join(', ')
   }
 
   /**

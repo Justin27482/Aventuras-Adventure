@@ -4,6 +4,7 @@ const { mockDatabase } = vi.hoisted(() => ({
   mockDatabase: {
     getCampaignByStoryId: vi.fn(),
     getCampaignSettings: vi.fn(),
+    getCampaignFormationState: vi.fn(),
     getCampaignPartyMembers: vi.fn(),
     getCampaignSessions: vi.fn(),
     getSceneTurnState: vi.fn(),
@@ -12,6 +13,8 @@ const { mockDatabase } = vi.hoisted(() => ({
     upsertSceneTurnState: vi.fn(),
     upsertCampaignPartyMember: vi.fn(),
     updateCampaignSpotlight: vi.fn(),
+    updateCampaignType: vi.fn(),
+    deleteRollLedgerEntry: vi.fn(),
     updateItem: vi.fn(),
     createCampaignSession: vi.fn(),
     addSessionPartyMember: vi.fn(),
@@ -71,6 +74,7 @@ describe('campaign store session boundaries', () => {
 
     mockDatabase.getCampaignByStoryId.mockResolvedValue(null)
     mockDatabase.getCampaignSettings.mockResolvedValue(null)
+    mockDatabase.getCampaignFormationState.mockResolvedValue(null)
     mockDatabase.getCampaignPartyMembers.mockResolvedValue([])
     mockDatabase.getCampaignSessions.mockResolvedValue([])
     mockDatabase.getSceneTurnState.mockResolvedValue(null)
@@ -79,6 +83,8 @@ describe('campaign store session boundaries', () => {
     mockDatabase.upsertSceneTurnState.mockResolvedValue(undefined)
     mockDatabase.upsertCampaignPartyMember.mockResolvedValue(undefined)
     mockDatabase.updateCampaignSpotlight.mockResolvedValue(undefined)
+    mockDatabase.updateCampaignType.mockResolvedValue(undefined)
+    mockDatabase.deleteRollLedgerEntry.mockResolvedValue(undefined)
     mockDatabase.updateItem.mockResolvedValue(undefined)
     mockDatabase.createCampaignSession.mockResolvedValue(undefined)
     mockDatabase.addSessionPartyMember.mockResolvedValue(undefined)
@@ -190,6 +196,37 @@ describe('campaign store session boundaries', () => {
     expect(database.withTransaction).not.toHaveBeenCalled()
     expect(database.createStory).toHaveBeenCalledTimes(1)
     expect(database.addStoryEntry).toHaveBeenCalledTimes(1)
+  })
+
+  it('persists the prompt pack while creating a party-pending story without an opening', async () => {
+    await story.createStoryFromWizard({
+      title: 'The Bloom',
+      genre: 'Fantasy',
+      mode: 'adventure',
+      settings: {
+        pov: 'third',
+        tense: 'present',
+      },
+      protagonist: {},
+      startingLocation: {
+        name: 'Campaign Setting',
+        description: 'A world waiting for its party.',
+      },
+      initialItems: [],
+      openingScene: '',
+      allowEmptyOpening: true,
+      characters: [],
+      packId: 'custom-pack',
+      customVariableValues: { campaignMood: 'ominous' },
+    })
+
+    expect(database.createStory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        packId: 'custom-pack',
+        customVariableValues: { campaignMood: 'ominous' },
+      }),
+    )
+    expect(database.addStoryEntry).not.toHaveBeenCalled()
   })
 
   it('starts and ends a session while preserving the party snapshot boundary', async () => {
@@ -329,6 +366,8 @@ describe('campaign store session boundaries', () => {
       nsfwIntensity: 0,
       worldCharter: null,
       companionCombatPolicy: 'companions_autonomous',
+      aiPlayersEnabled: false,
+      defaultAIPlayerCount: 4,
       createdAt: 1,
       updatedAt: 1,
     })
@@ -475,5 +514,24 @@ describe('campaign store session boundaries', () => {
 
     expect(campaign.sceneTurnState?.sceneMode).toBe('social')
     expect(campaign.sceneTurnState?.turnOrderMode).toBe('round_robin')
+  })
+
+  it('updates campaign type and persists it', async () => {
+    await campaign.ensureForStory({
+      id: 'story-1',
+      title: 'The Night Road',
+      description: null,
+      createdAt: 1,
+      updatedAt: 1,
+      characters: [],
+    })
+
+    await campaign.setCampaignType('human_gm_ai_players')
+
+    expect(campaign.current?.campaignType).toBe('human_gm_ai_players')
+    expect(mockDatabase.updateCampaignType).toHaveBeenCalledWith(
+      campaign.current?.id,
+      'human_gm_ai_players',
+    )
   })
 })

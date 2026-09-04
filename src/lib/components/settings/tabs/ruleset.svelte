@@ -25,6 +25,7 @@
   import { Textarea } from '$lib/components/ui/textarea'
   import { Badge } from '$lib/components/ui/badge'
   import * as Select from '$lib/components/ui/select'
+  import { SCENE_RELEVANCE_OPTIONS, normalizeSceneRelevance } from '$lib/services/ai-player/scene-ability-filter'
   import { Check, Copy, Plus, Save, Settings2, Trash2, X } from 'lucide-svelte'
 
   type DefinitionKind =
@@ -51,6 +52,7 @@
     governingStatKey: string
     resourceKey: string
     resourceCost: string
+    sceneRelevance: string[]
     level: string
     xpThreshold: string
     maxFormula: string
@@ -121,6 +123,7 @@
       governingStatKey: '',
       resourceKey: '',
       resourceCost: '0',
+      sceneRelevance: [],
       level: '1',
       xpThreshold: '0',
       maxFormula: '10 + level',
@@ -146,6 +149,9 @@
       ] as const) {
         const current = value[field] as string | number | null | undefined
         if (current !== undefined) next[field] = current === null ? '' : String(current)
+      }
+      if (Array.isArray(value.sceneRelevance)) {
+        next.sceneRelevance = normalizeSceneRelevance(value.sceneRelevance)
       }
     }
     draft = next
@@ -197,6 +203,7 @@
           description: draft.description.trim() || null,
           resourceKey: draft.resourceKey.trim() || null,
           resourceCost: Number(draft.resourceCost) || 0,
+          sceneRelevance: normalizeSceneRelevance(draft.sceneRelevance),
         } as RulesetAbility)
       if (draft.kind === 'level')
         await database.upsertRulesetLevel({
@@ -822,7 +829,8 @@
             <label for="definition-description" class="text-xs font-medium">Description</label
             ><Textarea id="definition-description" bind:value={draft.description} rows={2} />
           </div>
-          {#if draft.kind === 'ability'}<div class="space-y-1">
+          {#if draft.kind === 'ability'}
+            <div class="space-y-1">
               <label for="definition-resource" class="text-xs font-medium">Resource key</label
               ><Input id="definition-resource" bind:value={draft.resourceKey} />
             </div>
@@ -832,7 +840,29 @@
                 type="number"
                 bind:value={draft.resourceCost}
               />
-            </div>{/if}
+            </div>
+            <div class="space-y-2 sm:col-span-2">
+              <span class="text-xs font-medium">Scene relevance</span>
+              <div class="flex flex-wrap gap-2" role="group" aria-label="Scene relevance">
+                {#each SCENE_RELEVANCE_OPTIONS as scene (scene)}
+                  <label class="border-border flex items-center gap-2 rounded-md border px-2 py-1 text-[11px]">
+                    <input
+                      type="checkbox"
+                      checked={draft?.sceneRelevance.includes(scene) ?? false}
+                      onchange={(event) => {
+                        if (!draft) return
+                        const checked = (event.currentTarget as HTMLInputElement).checked
+                        draft.sceneRelevance = checked
+                          ? [...new Set([...draft.sceneRelevance, scene])]
+                          : draft.sceneRelevance.filter((value) => value !== scene)
+                      }}
+                    />
+                    {scene}
+                  </label>
+                {/each}
+              </div>
+            </div>
+          {/if}
         {:else if draft.kind === 'check_rule'}
           <div class="space-y-1">
             <label for="definition-notation" class="text-xs font-medium">Notation</label><Input
