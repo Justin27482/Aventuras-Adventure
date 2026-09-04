@@ -14,7 +14,7 @@ const { database, generatePlainText, renderStoryPrompt } = vi.hoisted(() => ({
 
 vi.mock('$lib/services/database', () => ({ database }))
 vi.mock('$lib/services/ai/sdk', () => ({ generatePlainText }))
-vi.mock('$lib/services/prompts/render-story-prompt', () => ({ renderStoryPrompt }))
+vi.mock('$lib/services/prompts', () => ({ renderStoryPrompt }))
 
 import { storePrivatePrologueMemory } from './private-prologue-memory'
 
@@ -31,9 +31,17 @@ const baseAssignment = {
 }
 
 const narration = {
-  id: 'm1', type: 'narration', campaignId: 'campaign-1', sessionId: null, timestamp: 1,
-  audience: 'private_player', visibility: 'player_safe', actorId: null, actorName: 'GM',
-  content: 'The ledger sits behind the darkroom shelf.', narrativeWeight: 'normal',
+  id: 'm1',
+  type: 'narration',
+  campaignId: 'campaign-1',
+  sessionId: null,
+  timestamp: 1,
+  audience: 'private_player',
+  visibility: 'player_safe',
+  actorId: null,
+  actorName: 'GM',
+  content: 'The ledger sits behind the darkroom shelf.',
+  narrativeWeight: 'normal',
   canPromoteToLog: false,
 } as const
 

@@ -6,7 +6,7 @@ const { generateStructured, renderPackPrompt } = vi.hoisted(() => ({
 }))
 
 vi.mock('../sdk', () => ({ generateStructured }))
-vi.mock('$lib/services/prompts/render-pack-prompt', () => ({ renderPackPrompt }))
+vi.mock('$lib/services/prompts', () => ({ renderPackPrompt }))
 
 import { WorldbuildingAssistantService } from './WorldbuildingAssistantService'
 

@@ -1,6 +1,6 @@
 import { database } from '$lib/services/database'
 import { generatePlainText } from '$lib/services/ai/sdk'
-import { renderStoryPrompt } from '$lib/services/prompts/render-story-prompt'
+import { renderStoryPrompt } from '$lib/services/prompts'
 import type { AIPlayerMemory } from '$lib/types'
 import type { ChatMessage } from './chat-types'
 
@@ -15,19 +15,58 @@ export interface StorePrivatePrologueMemoryInput {
 function buildTranscript(messages: ChatMessage[]): string {
   return messages
     .filter(
-      (message): message is Extract<ChatMessage, { type: 'narration' | 'table_talk' | 'proposal' }> =>
-        message.type === 'narration' || message.type === 'table_talk' || message.type === 'proposal',
+      (
+        message,
+      ): message is Extract<ChatMessage, { type: 'narration' | 'table_talk' | 'proposal' }> =>
+        message.type === 'narration' ||
+        message.type === 'table_talk' ||
+        message.type === 'proposal',
     )
-    .map((message) => `${message.actorName}: ${message.type === 'proposal' ? message.proposal.action : message.content}`)
+    .map(
+      (message) =>
+        `${message.actorName}: ${message.type === 'proposal' ? message.proposal.action : message.content}`,
+    )
     .join('\n')
 }
 
 /** Distinctive words the memory can later be recalled by, mirroring lorebook keywords. */
 function deriveKeywords(transcript: string, characterName: string | null): string[] {
   const stopWords = new Set([
-    'the', 'and', 'that', 'this', 'with', 'from', 'they', 'them', 'their', 'have', 'has', 'was',
-    'were', 'what', 'when', 'where', 'which', 'would', 'could', 'should', 'about', 'into', 'your',
-    'you', 'her', 'his', 'she', 'him', 'for', 'not', 'but', 'are', 'its', 'said', 'says',
+    'the',
+    'and',
+    'that',
+    'this',
+    'with',
+    'from',
+    'they',
+    'them',
+    'their',
+    'have',
+    'has',
+    'was',
+    'were',
+    'what',
+    'when',
+    'where',
+    'which',
+    'would',
+    'could',
+    'should',
+    'about',
+    'into',
+    'your',
+    'you',
+    'her',
+    'his',
+    'she',
+    'him',
+    'for',
+    'not',
+    'but',
+    'are',
+    'its',
+    'said',
+    'says',
   ])
   const counts = new Map<string, number>()
   for (const word of transcript.toLowerCase().match(/[a-z][a-z'-]{3,}/g) ?? []) {

@@ -24,7 +24,7 @@ const {
 }))
 
 vi.mock('$lib/services/ai/sdk', () => ({ generatePlainText, generateStructured }))
-vi.mock('$lib/services/prompts/render-story-prompt', () => ({ renderStoryPrompt }))
+vi.mock('$lib/services/prompts', () => ({ renderStoryPrompt }))
 vi.mock('$lib/services/context/context-builder', () => ({
   ContextBuilder: { forAIPlayer: contextFactory },
 }))

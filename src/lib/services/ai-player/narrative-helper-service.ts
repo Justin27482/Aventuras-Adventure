@@ -1,5 +1,5 @@
 import { generatePlainText } from '$lib/services/ai/sdk'
-import { renderStoryPrompt } from '$lib/services/prompts/render-story-prompt'
+import { renderStoryPrompt } from '$lib/services/prompts'
 import type { EntryMetadata } from '$lib/types'
 
 export type NarrativeHelperAudience = 'full_table' | 'player_subset' | 'private_player'

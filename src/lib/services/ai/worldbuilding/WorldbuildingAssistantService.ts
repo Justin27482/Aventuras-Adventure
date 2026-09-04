@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { generateStructured } from '../sdk'
-import { renderPackPrompt } from '$lib/services/prompts/render-pack-prompt'
+import { generateStructured } from '../sdk/generate'
+import { renderPackPrompt } from '$lib/services/prompts'
 
 export const worldbuildingFields = [
   'title',

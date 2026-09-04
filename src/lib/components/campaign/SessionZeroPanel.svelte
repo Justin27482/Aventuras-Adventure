@@ -1,8 +1,17 @@
 <script lang="ts">
-  import { Check, ChevronRight, Circle, CircleCheck, Loader2, RotateCcw, UsersRound, X } from 'lucide-svelte'
+  import {
+    Check,
+    ChevronRight,
+    Circle,
+    CircleCheck,
+    Loader2,
+    RotateCcw,
+    UsersRound,
+    X,
+  } from 'lucide-svelte'
   import { database } from '$lib/services/database'
   import { generatePlainText } from '$lib/services/ai/sdk'
-  import { renderStoryPrompt } from '$lib/services/prompts/render-story-prompt'
+  import { renderStoryPrompt } from '$lib/services/prompts'
   import type { AIPlayer, CampaignAIPlayer } from '$lib/types'
   import type { ChatStore } from '$lib/stores/chat-store.svelte'
   import { campaign } from '$lib/stores/campaign.svelte'
@@ -335,7 +344,9 @@
     <div class="min-w-0">
       <p class="text-foreground text-xs font-semibold">Session Zero</p>
       <p class="text-muted-foreground truncate text-[11px]">
-        {activePhase ? `${activePhase.label}: ${activePhase.prompt}` : 'Build the AI player table before play.'}
+        {activePhase
+          ? `${activePhase.label}: ${activePhase.prompt}`
+          : 'Build the AI player table before play.'}
       </p>
     </div>
   </div>
@@ -349,7 +360,11 @@
             ? 'Complete Session Zero?'
             : `Move to ${phases[activePhaseIndex + 1].label}?`}
         </span>
-        <button class="session-zero-secondary" aria-label="Cancel phase advance" onclick={() => (confirmingAdvance = false)}>
+        <button
+          class="session-zero-secondary"
+          aria-label="Cancel phase advance"
+          onclick={() => (confirmingAdvance = false)}
+        >
           <X class="h-3.5 w-3.5" />
         </button>
         <button class="session-zero-action" onclick={() => void advance()}>
@@ -358,15 +373,29 @@
       {:else}
         {#if confirmingStop}
           <span class="text-destructive text-xs">Clear this Session Zero attempt?</span>
-          <button class="session-zero-secondary" aria-label="Cancel Session Zero reset" onclick={() => (confirmingStop = false)}>
+          <button
+            class="session-zero-secondary"
+            aria-label="Cancel Session Zero reset"
+            onclick={() => (confirmingStop = false)}
+          >
             <X class="h-3.5 w-3.5" />
           </button>
-          <button class="session-zero-danger" disabled={isStopping} onclick={() => void stopAndReset()}>
-            {#if isStopping}<Loader2 class="h-3.5 w-3.5 animate-spin" />{:else}<RotateCcw class="h-3.5 w-3.5" />{/if}
+          <button
+            class="session-zero-danger"
+            disabled={isStopping}
+            onclick={() => void stopAndReset()}
+          >
+            {#if isStopping}<Loader2 class="h-3.5 w-3.5 animate-spin" />{:else}<RotateCcw
+                class="h-3.5 w-3.5"
+              />{/if}
             {isStopping ? 'Resetting...' : 'Reset'}
           </button>
         {:else}
-          <button class="session-zero-secondary" title="Stop and restart Session Zero" onclick={() => (confirmingStop = true)}>
+          <button
+            class="session-zero-secondary"
+            title="Stop and restart Session Zero"
+            onclick={() => (confirmingStop = true)}
+          >
             <RotateCcw class="h-3.5 w-3.5" />
           </button>
         {/if}
@@ -377,7 +406,9 @@
           onclick={() => (confirmingAdvance = true)}
         >
           {activePhaseIndex === phases.length - 1 ? 'Complete' : 'Next Phase'}
-          {#if activePhaseIndex === phases.length - 1}<Check class="h-3.5 w-3.5" />{:else}<ChevronRight class="h-3.5 w-3.5" />{/if}
+          {#if activePhaseIndex === phases.length - 1}<Check
+              class="h-3.5 w-3.5"
+            />{:else}<ChevronRight class="h-3.5 w-3.5" />{/if}
         </button>
       {/if}
     {:else if sessionZeroStatus === 'not_started'}
@@ -393,7 +424,11 @@
   {#if error}<p class="text-destructive w-full text-xs">{error}</p>{/if}
   {#if activePhase && phaseReadiness}
     <div class="border-border/70 flex w-full flex-wrap items-center gap-x-4 gap-y-1 border-t pt-2">
-      <span class={phaseReadiness.ready ? 'text-emerald-500 text-xs font-medium' : 'text-amber-500 text-xs font-medium'}>
+      <span
+        class={phaseReadiness.ready
+          ? 'text-xs font-medium text-emerald-500'
+          : 'text-xs font-medium text-amber-500'}
+      >
         {phaseReadiness.ready ? 'Ready to advance' : 'Not ready'}
       </span>
       {#each phaseReadiness.criteria as criterion (criterion.label)}
@@ -407,7 +442,7 @@
         </span>
       {/each}
       {#if phaseReadiness.blockedReason}
-        <span class="text-amber-500 text-xs">{phaseReadiness.blockedReason}</span>
+        <span class="text-xs text-amber-500">{phaseReadiness.blockedReason}</span>
       {/if}
     </div>
   {/if}

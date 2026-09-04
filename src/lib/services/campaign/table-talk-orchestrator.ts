@@ -15,7 +15,7 @@
 import { generatePlainText, generateStructured } from '$lib/services/ai/sdk'
 import type { AIPlayerPersonality } from '$lib/types'
 import { z } from 'zod'
-import { renderStoryPrompt } from '$lib/services/prompts/render-story-prompt'
+import { renderStoryPrompt } from '$lib/services/prompts'
 import { ContextBuilder } from '$lib/services/context/context-builder'
 import { packService } from '$lib/services/packs/pack-service'
 import { database } from '$lib/services/database'
@@ -60,7 +60,11 @@ export interface TableTalkResponderCandidate {
   name: string
 }
 
-export function selectTableTalkLore(entries: Entry[], query: string, characterName: string): Entry[] {
+export function selectTableTalkLore(
+  entries: Entry[],
+  query: string,
+  characterName: string,
+): Entry[] {
   const normalizedQuery = query.toLowerCase()
   const normalizedCharacterName = characterName.toLowerCase()
   return entries
@@ -166,7 +170,8 @@ export class TableTalkOrchestrator {
     }
 
     const intensityLabel = this.getIntensityLabel(request.tableTalkIntensity)
-    const shouldReact = request.forceResponse || this.shouldGenerateReaction(request.tableTalkIntensity)
+    const shouldReact =
+      request.forceResponse || this.shouldGenerateReaction(request.tableTalkIntensity)
 
     if (!shouldReact) {
       return {
@@ -200,7 +205,10 @@ export class TableTalkOrchestrator {
       aiPlayerCharacterName: request.character.playerName ? request.character.name : '',
       aiPlayerProfileContext: `${profileContext}\n\n${worldContext}`,
     })
-    await packService.ensurePromptTemplateComplete(decisionContext.getPackId(), 'ai-player-decision')
+    await packService.ensurePromptTemplateComplete(
+      decisionContext.getPackId(),
+      'ai-player-decision',
+    )
     const decisionPrompt = await decisionContext.render('ai-player-decision')
     if (!decisionPrompt.system.trim()) {
       throw new Error('Prompt pack is missing required system content for ai-player-decision')
@@ -278,9 +286,7 @@ export class TableTalkOrchestrator {
   /**
    * Detect sentiment from generated text
    */
-  private static detectSentiment(
-    text: string,
-  ): 'positive' | 'neutral' | 'negative' | 'humorous' {
+  private static detectSentiment(text: string): 'positive' | 'neutral' | 'negative' | 'humorous' {
     const lower = text.toLowerCase()
 
     // Check for humor indicators

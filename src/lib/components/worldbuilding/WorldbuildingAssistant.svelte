@@ -2,7 +2,7 @@
   import { ui } from '$lib/stores/ui.svelte'
   import { database } from '$lib/services/database'
   import { generatePlainText } from '$lib/services/ai/sdk'
-  import { renderPackPrompt } from '$lib/services/prompts/render-pack-prompt'
+  import { renderPackPrompt } from '$lib/services/prompts'
   import { packService } from '$lib/services/packs/pack-service'
   import type { PresetPack } from '$lib/services/packs/types'
   import type { WorldbuildingWorkspace } from '$lib/types'

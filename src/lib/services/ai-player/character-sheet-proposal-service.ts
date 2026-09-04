@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { generateStructured } from '$lib/services/ai/sdk'
 import { database } from '$lib/services/database'
-import { renderPackPrompt } from '$lib/services/prompts/render-pack-prompt'
+import { renderPackPrompt } from '$lib/services/prompts'
 import { renderAIPlayerVoiceProfile } from './personality-service'
 import type { CharacterSheetProposal, FullRuleset } from '$lib/types'
 
@@ -39,7 +39,11 @@ export class CharacterSheetProposalService {
     const voice = renderAIPlayerVoiceProfile(player)
     const prompt = await renderPackPrompt(packId ?? 'default-pack', 'ai-player-character-sheet', {
       aiPlayerVoicePrompt: voice,
-      characterCreationWorldContext: [story.title, story.description, campaignSettings?.worldCharter]
+      characterCreationWorldContext: [
+        story.title,
+        story.description,
+        campaignSettings?.worldCharter,
+      ]
         .filter(Boolean)
         .join('\n\n'),
       characterCreationRuleset: JSON.stringify({
@@ -50,7 +54,8 @@ export class CharacterSheetProposalService {
         skills: input.ruleset.skills,
         slots: input.ruleset.slots,
       }),
-      characterCreationGuidance: input.guidance?.trim() || 'Create a campaign-appropriate character.',
+      characterCreationGuidance:
+        input.guidance?.trim() || 'Create a campaign-appropriate character.',
     })
     const payload = await generateStructured(
       { presetId: 'agentic', schema: draftSchema, system: prompt.system, prompt: prompt.user },

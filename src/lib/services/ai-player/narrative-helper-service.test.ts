@@ -8,7 +8,7 @@ const { generatePlainText, renderStoryPrompt } = vi.hoisted(() => ({
 vi.mock('$lib/services/ai/sdk', () => ({
   generatePlainText,
 }))
-vi.mock('$lib/services/prompts/render-story-prompt', () => ({ renderStoryPrompt }))
+vi.mock('$lib/services/prompts', () => ({ renderStoryPrompt }))
 
 import { NarrativeHelperService, buildNarrativeHelperMetadata } from './narrative-helper-service'
 
@@ -22,7 +22,9 @@ describe('NarrativeHelperService', () => {
   })
 
   it('expands a GM-ready summary into polished narration', async () => {
-    generatePlainText.mockResolvedValue('A tense standoff settles as the party approaches the shrine.')
+    generatePlainText.mockResolvedValue(
+      'A tense standoff settles as the party approaches the shrine.',
+    )
 
     const service = new NarrativeHelperService()
     const result = await service.expandSummary({
@@ -55,7 +57,9 @@ describe('NarrativeHelperService', () => {
   })
 
   it('regenerates a summary without inventing new facts', async () => {
-    generatePlainText.mockResolvedValue('The party approaches the shrine with the relic still uncertain in hand.')
+    generatePlainText.mockResolvedValue(
+      'The party approaches the shrine with the relic still uncertain in hand.',
+    )
 
     const service = new NarrativeHelperService()
     const result = await service.regenerate({
@@ -94,7 +98,8 @@ describe('NarrativeHelperService', () => {
       source: 'gm-narration-helper',
       narrativeHelper: {
         summary: 'The party reaches the shrine and argues about the relic.',
-        generatedNarration: 'The party approaches the shrine with the relic still uncertain in hand.',
+        generatedNarration:
+          'The party approaches the shrine with the relic still uncertain in hand.',
       },
     })
   })

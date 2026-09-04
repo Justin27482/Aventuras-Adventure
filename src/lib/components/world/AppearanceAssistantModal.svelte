@@ -5,13 +5,12 @@
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import { Textarea } from '$lib/components/ui/textarea'
-  import { enhanceAppearance } from '$lib/services/prompts/enhance-appearance'
+  import { enhanceAppearance } from '$lib/services/prompts'
   import { database } from '$lib/services/database'
   import { campaign } from '$lib/stores/campaign.svelte'
   import {
     APPEARANCE_DESCRIPTOR_LABELS_SETTING_KEY,
     DEFAULT_VISUAL_DESCRIPTOR_LABELS,
-    descriptorsToString,
     getAvailableVisualDescriptorLabels,
     parseVisualDescriptors,
   } from '$lib/utils/visualDescriptors'
@@ -40,7 +39,6 @@
   let extraNotes = $state('')
   let isEnhancing = $state(false)
   let error = $state<string | null>(null)
-  let isLoadingLabels = $state(false)
   let wasOpen = false
   let hasUserEdited = false
 
@@ -75,7 +73,6 @@
   }
 
   async function loadLabels() {
-    isLoadingLabels = true
     try {
       const stored = await database.getSetting(APPEARANCE_DESCRIPTOR_LABELS_SETTING_KEY)
       const parsed = stored ? (JSON.parse(stored) as VisualDescriptorLabel[]) : []
@@ -92,8 +89,6 @@
       }
     } catch (cause) {
       error = cause instanceof Error ? cause.message : 'Unable to load appearance labels.'
-    } finally {
-      isLoadingLabels = false
     }
   }
 
