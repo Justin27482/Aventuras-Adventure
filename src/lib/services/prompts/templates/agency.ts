@@ -286,7 +286,8 @@ const aiPlayerPrivatePrologueMemory: PromptTemplate = {
   id: 'private-prologue-memory',
   name: 'AI Player Private Prologue Memory',
   category: 'agency',
-  description: 'Summarizes a completed private prologue into a first-person memory only that AI Player retains',
+  description:
+    'Summarizes a completed private prologue into a first-person memory only that AI Player retains',
   content: `You are writing a private memory note for an AI Player's own future reference. Summarize only what actually happened in the transcript below; do not invent new facts, names, or outcomes. Write in first person from the character's point of view, 2-4 sentences, capturing key events, decisions, and any relationships or secrets established. This note is never shown to other players unless this AI Player chooses to share it.`,
   userContent: `Private prologue transcript:
 {{ privatePrologueTranscript }}

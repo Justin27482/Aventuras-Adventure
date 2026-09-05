@@ -70,7 +70,6 @@ export async function generateInCharacterReply(input: {
     campaignId: input.campaignId,
     aiPlayerId: input.aiPlayerId,
     characterId: input.character.id,
-    sceneId: null,
     sceneMode: input.sceneMode,
     action: generated.action,
     reasoning: generated.reasoning,
@@ -101,7 +100,11 @@ export async function generateInCharacterReply(input: {
 export async function generatePrivatePrologueReply(
   request: PrivatePrologueReplyRequest,
 ): Promise<ChatProposal> {
-  const resolved = await resolveAssignedCharacter(request.storyId, request.campaignId, request.aiPlayerId)
+  const resolved = await resolveAssignedCharacter(
+    request.storyId,
+    request.campaignId,
+    request.aiPlayerId,
+  )
   if (!resolved) {
     throw new Error('The private prologue AI Player does not have an assigned character.')
   }

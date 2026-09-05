@@ -168,7 +168,6 @@ ${context.translatedNarrative}`
       .filter((entry): entry is string => entry !== null)
 
     if (renderedCharacters.length === 0) return ''
-    return renderedCharacters
-      .join('\n\n')
+    return renderedCharacters.join('\n\n')
   }
 }

@@ -25,7 +25,10 @@
   import { Textarea } from '$lib/components/ui/textarea'
   import { Badge } from '$lib/components/ui/badge'
   import * as Select from '$lib/components/ui/select'
-  import { SCENE_RELEVANCE_OPTIONS, normalizeSceneRelevance } from '$lib/services/ai-player/scene-ability-filter'
+  import {
+    SCENE_RELEVANCE_OPTIONS,
+    normalizeSceneRelevance,
+  } from '$lib/services/ai-player/scene-ability-filter'
   import { Check, Copy, Plus, Save, Settings2, Trash2, X } from 'lucide-svelte'
 
   type DefinitionKind =
@@ -845,7 +848,9 @@
               <span class="text-xs font-medium">Scene relevance</span>
               <div class="flex flex-wrap gap-2" role="group" aria-label="Scene relevance">
                 {#each SCENE_RELEVANCE_OPTIONS as scene (scene)}
-                  <label class="border-border flex items-center gap-2 rounded-md border px-2 py-1 text-[11px]">
+                  <label
+                    class="border-border flex items-center gap-2 rounded-md border px-2 py-1 text-[11px]"
+                  >
                     <input
                       type="checkbox"
                       checked={draft?.sceneRelevance.includes(scene) ?? false}

@@ -356,9 +356,11 @@
       <span class="text-muted-foreground text-xs">{activePhaseIndex! + 1}/{phases.length}</span>
       {#if confirmingAdvance}
         <span class="text-muted-foreground text-xs">
-          {activePhaseIndex === phases.length - 1
+          {activePhaseIndex === null
             ? 'Complete Session Zero?'
-            : `Move to ${phases[activePhaseIndex + 1].label}?`}
+            : activePhaseIndex === phases.length - 1
+              ? 'Complete Session Zero?'
+              : `Move to ${phases[activePhaseIndex + 1].label}?`}
         </span>
         <button
           class="session-zero-secondary"

@@ -12,9 +12,7 @@ export interface SelectMemoriesOptions {
 const DEFAULT_MAX_MEMORIES = 8
 
 function memoryTerms(memory: AIPlayerMemory): string[] {
-  return [memory.title, ...memory.keywords]
-    .map((term) => term.trim().toLowerCase())
-    .filter(Boolean)
+  return [memory.title, ...memory.keywords].map((term) => term.trim().toLowerCase()).filter(Boolean)
 }
 
 /**
@@ -54,10 +52,7 @@ export function selectRelevantMemories(
  * AI Player can reference it as prior life experience without treating it as
  * something that happened in the current game.
  */
-export function renderMemoriesForPrompt(
-  memories: AIPlayerMemory[],
-  campaignId: string,
-): string {
+export function renderMemoriesForPrompt(memories: AIPlayerMemory[], campaignId: string): string {
   if (memories.length === 0) return ''
   return memories
     .map((memory) => {

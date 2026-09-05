@@ -50,7 +50,7 @@ export interface ChatRoll extends ChatMessageBase {
   rollEntry: RollLedgerEntry
   displayLabel: string // e.g., "Persuasion Check", "Initiative"
   formattedResult: string // e.g., "18 + 2 = 20"
-  outcome: 'success' | 'failure' | 'critical_success' | 'critical_failure' | null
+  outcome: RollLedgerEntry['outcome']
   narrativeContext?: string // Why this roll was made
 }
 

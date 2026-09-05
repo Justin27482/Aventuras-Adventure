@@ -27,7 +27,10 @@ export interface ConsensusTypingState {
 
 export interface ConsensusInput {
   proposals: AIPlayerProposal[]
-  generateMessage: (proposal: AIPlayerProposal, proposals: AIPlayerProposal[]) => Promise<string | null>
+  generateMessage: (
+    proposal: AIPlayerProposal,
+    proposals: AIPlayerProposal[],
+  ) => Promise<string | null>
   signal?: AbortSignal
   config?: ConsensusConfig
   onMessage?: (message: ConsensusMessage) => void

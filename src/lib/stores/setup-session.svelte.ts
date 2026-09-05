@@ -145,8 +145,8 @@ export class SetupSessionStore {
       this.messages = []
       return
     }
-    const session = this.sessions.find((item) => item.id === id) ??
-      (await database.getCampaignSetupSession(id))
+    const session =
+      this.sessions.find((item) => item.id === id) ?? (await database.getCampaignSetupSession(id))
     if (!session) throw new Error('Setup session not found')
     const [participants, messages] = await Promise.all([
       database.getCampaignSetupSessionPlayers(id),

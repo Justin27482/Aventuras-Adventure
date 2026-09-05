@@ -2,6 +2,7 @@
   import { createEventDispatcher } from 'svelte'
   import { campaign } from '$lib/stores/campaign.svelte'
   import { prerollService } from '$lib/services/ai-player/preroll-service'
+  import type { CampaignSettings } from '$lib/types'
   import type { PrerolledEncounter, PrerolledLoot } from '$lib/services/ai-player/preroll-service'
 
   interface Props {
@@ -18,7 +19,12 @@
     refreshLoot: void
   }>()
 
-  let { campaignId = '', encounterDifficulty = 'moderate', showEncounters = true, showLoot = false }: Props = $props()
+  let {
+    campaignId: _campaignId = '',
+    encounterDifficulty = 'moderate',
+    showEncounters = true,
+    showLoot = false,
+  }: Props = $props()
 
   let encounters = $state<PrerolledEncounter[]>([])
   let loot = $state<PrerolledLoot[]>([])
@@ -33,10 +39,28 @@
 
     isLoadingEncounters = true
     try {
-      // Call pre-roll service to generate encounters
+      const settings: CampaignSettings = campaign.current.settings ?? {
+        campaignId: campaign.current.id,
+        defaultPartySize: 4,
+        maxPartySize: 6,
+        sceneMode: 'free',
+        turnOrderMode: 'free',
+        diceEnforcement: 'guided',
+        nsfwIntensity: 0,
+        worldCharter: null,
+        gmPersona: null,
+        companionCombatPolicy: 'companions_autonomous',
+        aiPlayersEnabled: false,
+        defaultAIPlayerCount: 4,
+        tableTalkIntensity: 3,
+        sessionZeroPhase: null,
+        sessionZeroStatus: 'not_started',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }
       const generated = await prerollService.prerollEncountersForSession(
         campaign.current,
-        campaign.current.settings || {},
+        settings,
         'combat',
         3,
       )
@@ -54,11 +78,26 @@
 
     isLoadingLoot = true
     try {
-      const generated = await prerollService.prerollLootForSession(
-        campaign.current,
-        campaign.current.settings || {},
-        3,
-      )
+      const settings: CampaignSettings = campaign.current.settings ?? {
+        campaignId: campaign.current.id,
+        defaultPartySize: 4,
+        maxPartySize: 6,
+        sceneMode: 'free',
+        turnOrderMode: 'free',
+        diceEnforcement: 'guided',
+        nsfwIntensity: 0,
+        worldCharter: null,
+        gmPersona: null,
+        companionCombatPolicy: 'companions_autonomous',
+        aiPlayersEnabled: false,
+        defaultAIPlayerCount: 4,
+        tableTalkIntensity: 3,
+        sessionZeroPhase: null,
+        sessionZeroStatus: 'not_started',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }
+      const generated = await prerollService.prerollLootForSession(campaign.current, settings, 3)
       loot = generated
     } catch (error) {
       console.error('Error loading loot:', error)
@@ -109,7 +148,6 @@
         return '#999999'
     }
   }
-
 </script>
 
 <div class="preroll-menu">
@@ -126,7 +164,10 @@
         <div class="header-title">
           <span class="icon">⚔️</span>
           <span>Encounters</span>
-          <span class="difficulty-badge" style="background-color: {getDifficultyColor(encounterDifficulty)}">
+          <span
+            class="difficulty-badge"
+            style="background-color: {getDifficultyColor(encounterDifficulty)}"
+          >
             {encounterDifficulty}
           </span>
         </div>
@@ -226,7 +267,14 @@
                 >
                   <div class="loot-header">
                     <span class="loot-name">{lootItem.itemName}</span>
-                    <span class="loot-rarity" class:common={lootItem.rarity === 'common'} class:uncommon={lootItem.rarity === 'uncommon'} class:rare={lootItem.rarity === 'rare'} class:legendary={lootItem.rarity === 'legendary' || lootItem.rarity === 'very_rare'}>
+                    <span
+                      class="loot-rarity"
+                      class:common={lootItem.rarity === 'common'}
+                      class:uncommon={lootItem.rarity === 'uncommon'}
+                      class:rare={lootItem.rarity === 'rare'}
+                      class:legendary={lootItem.rarity === 'legendary' ||
+                        lootItem.rarity === 'very_rare'}
+                    >
                       {lootItem.rarity}
                     </span>
                   </div>

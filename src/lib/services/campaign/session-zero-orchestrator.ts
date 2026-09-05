@@ -1,5 +1,4 @@
-import { generateText, generateStructured } from '$lib/services/ai/sdk'
-import { RollDetectionService } from '$lib/services/campaign/roll-detection-service'
+import { generateText } from '$lib/services/ai/sdk'
 import { TableTalkOrchestrator } from '$lib/services/campaign/table-talk-orchestrator'
 import type { CharacterStats } from '$lib/types'
 
@@ -162,7 +161,8 @@ export class SessionZeroOrchestrator {
     phases.push({
       phase: 'character_creation',
       type: 'narration',
-      content: '⚔️ **Session Zero: Character Creation**\n\nAI characters will suggest their starting stats.',
+      content:
+        '⚔️ **Session Zero: Character Creation**\n\nAI characters will suggest their starting stats.',
       nextAction: 'sheet_modal',
       estimatedDuration: '5-10 minutes',
     })
@@ -201,8 +201,7 @@ export class SessionZeroOrchestrator {
     phases.push({
       phase: 'bonding',
       type: 'narration',
-      content:
-        '💝 **Session Zero: Party Bonding**\n\nThe party members get to know each other.',
+      content: '💝 **Session Zero: Party Bonding**\n\nThe party members get to know each other.',
       nextAction: 'ic_dialogue',
       estimatedDuration: '3-5 minutes',
     })
@@ -254,7 +253,8 @@ export class SessionZeroOrchestrator {
     phases.push({
       phase: 'secrets',
       type: 'narration',
-      content: '🔐 **Session Zero: Establish Secrets**\n\nEach character has a secret others might uncover.',
+      content:
+        '🔐 **Session Zero: Establish Secrets**\n\nEach character has a secret others might uncover.',
       nextAction: 'secret_assignment',
       estimatedDuration: '3-5 minutes',
     })
@@ -308,7 +308,7 @@ Include their role/class and something memorable about them.`
       characterId: character.id,
       characterName: character.name,
       introduction: `🎭 **${character.name}**: "${introText}"`,
-      personality: character.personality,
+      personality: character.personality ?? 'Unknown personality',
     }
   }
 
@@ -349,7 +349,7 @@ Return ONLY the questions, one per line, without numbering.`
    * Generate proposed character stats for Session Zero
    */
   private static async generateCharacterStats(
-    character: CharacterStats,
+    _character: CharacterStats,
   ): Promise<Record<string, string | number>> {
     // Simplified proposal - in real system, would call full character generation
     return {
@@ -402,6 +402,7 @@ Return ONLY the dialogue, no character name or quotation marks.`
     if (!actor) return null
 
     return await TableTalkOrchestrator.generateReaction({
+      storyId: 'session-zero',
       campaignId: 'session-zero',
       aiPlayerId: actor.id,
       character: { name: actor.name },

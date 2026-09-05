@@ -7,7 +7,7 @@ import { SessionZeroOrchestrator } from '$lib/services/campaign/session-zero-orc
 
 /**
  * Session Zero State Manager
- * 
+ *
  * Tracks current phase and coordinates phase transitions.
  * Used by: Player Chat pane, GMCampaignScreen
  */

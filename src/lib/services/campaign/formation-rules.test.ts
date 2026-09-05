@@ -9,10 +9,19 @@ import {
 
 function setup(overrides: Partial<CampaignSetupSession> = {}): CampaignSetupSession {
   return {
-    id: 'setup-1', campaignId: 'campaign-1', sequence: 1, title: 'Meet Mara',
-    kind: 'private_character_creation', phase: 'character_creation', status: 'planned',
-    audience: { kind: 'private_player', aiPlayerId: 'ai-1' }, createdAt: 1,
-    startedAt: null, completedAt: null, updatedAt: 1, ...overrides,
+    id: 'setup-1',
+    campaignId: 'campaign-1',
+    sequence: 1,
+    title: 'Meet Mara',
+    kind: 'private_character_creation',
+    phase: 'character_creation',
+    status: 'planned',
+    audience: { kind: 'private_player', aiPlayerId: 'ai-1' },
+    createdAt: 1,
+    startedAt: null,
+    completedAt: null,
+    updatedAt: 1,
+    ...overrides,
   }
 }
 
@@ -59,15 +68,19 @@ describe('campaign formation rules', () => {
   })
 
   it('enforces one active setup session per campaign', () => {
-    expect(() =>
-      assertCanActivateSetupSession([setup({ status: 'active' })], 'setup-2'),
-    ).toThrow(/active setup session/)
+    expect(() => assertCanActivateSetupSession([setup({ status: 'active' })], 'setup-2')).toThrow(
+      /active setup session/,
+    )
   })
 
   it('blocks normal sessions while party formation is pending', () => {
     const formation: CampaignFormationState = {
-      campaignId: 'campaign-1', status: 'party_pending', requiredAIPlayerIds: ['ai-1'],
-      source: 'created_pending', createdAt: 1, updatedAt: 1,
+      campaignId: 'campaign-1',
+      status: 'party_pending',
+      requiredAIPlayerIds: ['ai-1'],
+      source: 'created_pending',
+      createdAt: 1,
+      updatedAt: 1,
     }
     expect(() => assertCanStartNormalSession(formation, 1, 'character-1')).toThrow(
       /Complete party formation/,

@@ -27,7 +27,14 @@
   let hasAIPlayers = $derived(CampaignTypeService.hasAIPlayers(campaignType))
   let tableTalkIntensity = $derived(campaign.settings?.tableTalkIntensity ?? 4)
   let confirmedAudience = $state<InteractionAudience>({ kind: 'full_table' })
-  let promotedMessageIds = $state<Set<string>>(new Set())
+  let promotedMessageIds = $derived(
+    new Set(
+      story.entries.flatMap((entry) => {
+        const chatMessageId = (entry.metadata as Record<string, unknown> | null)?.chatMessageId
+        return typeof chatMessageId === 'string' ? [chatMessageId] : []
+      }),
+    ),
+  )
   let sessionZeroActive = $derived(campaign.settings?.sessionZeroPhase !== null)
   let gmControlsCollapsed = $state(false)
   // Collapsed by default: undecided whether these setup sessions become standalone narrative.
@@ -66,8 +73,10 @@
     }
     if (loadedSetupSessionId !== state.session.id) {
       loadedSetupSessionId = state.session.id
-      const setupChatStore = initializeChatStore(campaign.current?.id ?? '', null, async (message) =>
-        database.addCampaignSetupChatMessage(state.session!.id, message),
+      const setupChatStore = initializeChatStore(
+        campaign.current?.id ?? '',
+        null,
+        async (message) => database.addCampaignSetupChatMessage(state.session!.id, message),
       )
       setupChatStore.addMessages(state.messages)
       chatStore = setupChatStore
@@ -77,22 +86,16 @@
 
   async function promoteToLog(message: ChatNarration | ChatProposal): Promise<void> {
     if (promotedMessageIds.has(message.id)) return
-    await story.addEntry('narration', message.type === 'proposal' ? message.proposal.action : message.content, {
-      source: 'gm-campaign-chat',
-      chatMessageId: message.id,
-      chatMessageType: message.type,
-    })
-    promotedMessageIds = new Set([...promotedMessageIds, message.id])
-  }
-
-  $effect(() => {
-    promotedMessageIds = new Set(
-      story.entries.flatMap((entry) => {
-        const chatMessageId = (entry.metadata as Record<string, unknown> | null)?.chatMessageId
-        return typeof chatMessageId === 'string' ? [chatMessageId] : []
-      }),
+    await story.addEntry(
+      'narration',
+      message.type === 'proposal' ? message.proposal.action : message.content,
+      {
+        source: 'gm-campaign-chat',
+        chatMessageId: message.id,
+        chatMessageType: message.type,
+      },
     )
-  })
+  }
 
   $effect(() => {
     // Log campaign type for debugging

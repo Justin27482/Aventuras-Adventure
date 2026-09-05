@@ -55,9 +55,7 @@ export function assertCanActivateSetupSession(
   sessions: CampaignSetupSession[],
   sessionId: string,
 ): void {
-  const active = sessions.find(
-    (session) => session.status === 'active' && session.id !== sessionId,
-  )
+  const active = sessions.find((session) => session.status === 'active' && session.id !== sessionId)
   if (active) throw new Error('Complete or abandon the active setup session first')
 }
 
@@ -75,7 +73,8 @@ export function assertCanStartNormalSession(
 
 export function setupSessionDisplayLabel(session: CampaignSetupSession): string {
   if (session.kind === 'table_bonding') return `Session 0.5 · ${session.title}`
-  if (session.kind === 'private_character_creation') return `Private Character Creation · ${session.title}`
+  if (session.kind === 'private_character_creation')
+    return `Private Character Creation · ${session.title}`
   if (session.kind === 'private_prologue') return `Private Prologue · ${session.title}`
   return `Session Zero · ${session.title}`
 }

@@ -1,4 +1,4 @@
-import type { Character, Item, VisualDescriptors } from '$lib/types'
+import type { Character, Item } from '$lib/types'
 import { formatDescriptorsForPrompt } from './visualDescriptors'
 
 type ClothingMetadata = {
@@ -34,7 +34,8 @@ function formatOutfitItem(item: Item): string {
   ) {
     condition.push(`worn (${clothing.durability}/${clothing.maxDurability})`)
   }
-  if (clothing.exposedZones?.length) condition.push(`exposed at ${clothing.exposedZones.join(', ')}`)
+  if (clothing.exposedZones?.length)
+    condition.push(`exposed at ${clothing.exposedZones.join(', ')}`)
 
   const description = item.description?.trim()
   return `${item.name}${description ? ` (${description})` : ''}${condition.length ? ` [${condition.join('; ')}]` : ''}`
@@ -46,15 +47,18 @@ function formatOutfitItem(item: Item): string {
  * derived from that character's owned, equipped clothing so equipment changes stay current.
  */
 export function formatCharacterAppearance(
-  character: Pick<Character, 'id' | 'visualDescriptors'>,
+  character: Pick<Character, 'id'> & { visualDescriptors?: Character['visualDescriptors'] },
   items: Item[],
 ): string {
-  const baseline = formatDescriptorsForPrompt(character.visualDescriptors)
+  const baseline = formatDescriptorsForPrompt(character.visualDescriptors ?? {})
   const outfit = items
     .filter((item) => isEquippedClothingForCharacter(item, character.id))
     .map(formatOutfitItem)
 
   if (outfit.length === 0) return baseline
-  const sections = [baseline && `Baseline appearance: ${baseline}`, `Current outfit: ${outfit.join('; ')}`]
+  const sections = [
+    baseline && `Baseline appearance: ${baseline}`,
+    `Current outfit: ${outfit.join('; ')}`,
+  ]
   return sections.filter(Boolean).join('\n  ')
 }

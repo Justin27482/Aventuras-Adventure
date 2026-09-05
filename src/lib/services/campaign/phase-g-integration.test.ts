@@ -1,9 +1,9 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { TurnDirector } from './turn-director'
 
 /**
  * G.1-G.3 Integration Test: Full AI Player Turn Flow
- * 
+ *
  * This test demonstrates the complete Phase G foundation working together:
  * 1. TurnDirector detects AI player turns (G.1)
  * 2. AIPlayerRoutingService validates audience scopes (G.2)
@@ -11,7 +11,7 @@ import { TurnDirector } from './turn-director'
  */
 describe('Phase G: AI Player Turn Flow Integration', () => {
   const turnDirector = new TurnDirector()
-  
+
   it('routes an AI player turn through the full orchestration flow (G.1-G.3)', () => {
     // G.1: TurnDirector detects AI player turn
     const nextTurn = turnDirector.getNextTurnType({
@@ -50,10 +50,10 @@ describe('Phase G: AI Player Turn Flow Integration', () => {
 
   it('maintains turn order mixing AI and human players (G.1-G.3 prerequisite)', () => {
     const turnOrder = [
-      { id: 'char-kyra', name: 'Kyra', category: 'player' as const },     // Human
-      { id: 'char-mara', name: 'Mara', category: 'player' as const },     // AI
-      { id: 'char-rowan', name: 'Rowan', category: 'player' as const },   // AI
-      { id: 'enemy-shade', name: 'Shade', category: 'enemy' as const },   // NPC
+      { id: 'char-kyra', name: 'Kyra', category: 'player' as const }, // Human
+      { id: 'char-mara', name: 'Mara', category: 'player' as const }, // AI
+      { id: 'char-rowan', name: 'Rowan', category: 'player' as const }, // AI
+      { id: 'enemy-shade', name: 'Shade', category: 'enemy' as const }, // NPC
     ]
 
     const results = turnOrder.map((actor) => {
@@ -69,9 +69,9 @@ describe('Phase G: AI Player Turn Flow Integration', () => {
     })
 
     expect(results[0].turnType).not.toBe('ai_player_turn') // Kyra (human)
-    expect(results[1].turnType).toBe('ai_player_turn')     // Mara (AI)
-    expect(results[2].turnType).toBe('ai_player_turn')     // Rowan (AI)
-    expect(results[3].turnType).toBe('npc_action')         // Shade (NPC)
+    expect(results[1].turnType).toBe('ai_player_turn') // Mara (AI)
+    expect(results[2].turnType).toBe('ai_player_turn') // Rowan (AI)
+    expect(results[3].turnType).toBe('npc_action') // Shade (NPC)
   })
 
   it('ensures AI player detection and routing work together (G.1 + G.2)', () => {

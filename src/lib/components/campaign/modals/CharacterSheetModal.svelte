@@ -23,8 +23,12 @@
     close: void
   }>()
 
-  let { isOpen = false, mode = 'mechanics', character = null, proposedAdjustments = {} }: Props =
-    $props()
+  let {
+    isOpen = false,
+    mode = 'mechanics',
+    character = null,
+    proposedAdjustments = {},
+  }: Props = $props()
 
   let adjustments = $state<StatAdjustment[]>([])
   let editingField = $state<string | null>(null)
@@ -83,7 +87,7 @@
     editValue = ''
   }
 
-  function handleCancel(field: string) {
+  function handleCancel(_field: string) {
     editingField = null
     editValue = ''
   }
@@ -137,13 +141,25 @@
     return adjustments.some((adj) => adj.proposedValue !== null)
   }
 
-  const modeLabel = mode === 'session_zero' ? 'Character Creation' : 'Adjustments'
-  const characterName = character?.name ?? 'Unknown'
+  let modeLabel = $derived(mode === 'session_zero' ? 'Character Creation' : 'Adjustments')
+  let characterName = $derived(character?.name ?? 'Unknown')
 </script>
 
 {#if isOpen}
-  <div class="modal-overlay" onclick={handleClose}>
-    <div class="modal-container" onclick={(e) => e.stopPropagation()}>
+  <div
+    class="modal-overlay"
+    onclick={handleClose}
+    onkeydown={(e) => e.key === 'Escape' && handleClose()}
+    role="button"
+    tabindex="0"
+  >
+    <div
+      class="modal-container"
+      onclick={(e) => e.stopPropagation()}
+      role="dialog"
+      tabindex="0"
+      onkeydown={(e) => e.key === 'Escape' && handleClose()}
+    >
       <!-- Header -->
       <div class="modal-header">
         <div class="header-content">
@@ -223,7 +239,10 @@
             {:else if adjustment.canEdit && mode === 'session_zero'}
               <!-- No proposal, but editable (session zero) -->
               <div class="stat-actions">
-                <button class="btn-edit" onclick={() => handleEdit(adjustment.field, adjustment.currentValue)}>
+                <button
+                  class="btn-edit"
+                  onclick={() => handleEdit(adjustment.field, adjustment.currentValue)}
+                >
                   Edit Value
                 </button>
               </div>
@@ -249,7 +268,9 @@
       <div class="modal-footer">
         <div class="footer-status">
           {#if hasPendingChanges()}
-            <span class="pending-indicator">⚠️ {adjustments.filter((a) => a.proposedValue !== null).length} pending changes</span>
+            <span class="pending-indicator"
+              >⚠️ {adjustments.filter((a) => a.proposedValue !== null).length} pending changes</span
+            >
           {/if}
         </div>
         <div class="footer-actions">

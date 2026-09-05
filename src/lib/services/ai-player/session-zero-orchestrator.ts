@@ -1,4 +1,4 @@
-import type { AIPlayerInteraction, InteractionAudience, PlayerCharacter, PlayerLevelSecret } from '$lib/types'
+import type { AIPlayerInteraction, InteractionAudience, PlayerLevelSecret } from '$lib/types'
 
 export type SessionZeroPhase =
   | 'introductions'
@@ -96,7 +96,8 @@ export class SessionZeroOrchestrator {
     }
 
     const uniqueIds = [...new Set(audience.aiPlayerIds)]
-    if (uniqueIds.length === 0) throw new Error('Player subset interaction requires at least one player')
+    if (uniqueIds.length === 0)
+      throw new Error('Player subset interaction requires at least one player')
     if (uniqueIds.some((id) => !activeAIPlayerIds.includes(id))) {
       throw new Error('Player subset interaction contains an inactive AI Player')
     }
@@ -108,20 +109,27 @@ export class SessionZeroOrchestrator {
     return activeAIPlayerIds.filter((id) => !scope.includes(id))
   }
 
-  hasPrivateAudienceRestriction(audience: InteractionAudience, activeAIPlayerIds: string[]): boolean {
+  hasPrivateAudienceRestriction(
+    audience: InteractionAudience,
+    activeAIPlayerIds: string[],
+  ): boolean {
     if (audience.kind !== 'private_player') return false
     return this.getExcludedAudience(audience, activeAIPlayerIds).length > 0
   }
 
-  buildRelationshipOverridesForCharacter(characterId: string, notes: Record<string, string>): Record<string, string> {
-    return Object.fromEntries(
-      Object.entries(notes).filter(([key]) => key !== characterId),
-    )
+  buildRelationshipOverridesForCharacter(
+    characterId: string,
+    notes: Record<string, string>,
+  ): Record<string, string> {
+    return Object.fromEntries(Object.entries(notes).filter(([key]) => key !== characterId))
   }
 
   buildSessionZeroSummary(): string {
     const entries = this.phaseHistory.map((phase) => {
-      const secrets = phase.secrets.length > 0 ? `Secrets: ${phase.secrets.map((secret) => secret.secretContent).join(' | ')}` : 'Secrets: none'
+      const secrets =
+        phase.secrets.length > 0
+          ? `Secrets: ${phase.secrets.map((secret) => secret.secretContent).join(' | ')}`
+          : 'Secrets: none'
       const relationshipNotes = Object.keys(phase.relationshipOverrides).length
         ? `Relationship notes: ${Object.values(phase.relationshipOverrides).join(' | ')}`
         : 'Relationship notes: none'

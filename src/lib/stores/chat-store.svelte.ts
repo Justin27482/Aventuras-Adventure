@@ -6,7 +6,7 @@
  */
 
 import { writable, derived, type Writable, type Readable } from 'svelte/store'
-import type { ChatMessage, ChatState } from './chat-types'
+import type { ChatMessage, ChatState } from '$lib/services/campaign/chat-types'
 
 function sortMessagesByTimestamp(messages: ChatMessage[]): ChatMessage[] {
   return [...messages].sort(
@@ -49,10 +49,14 @@ function createChatStore(
    */
   function addMessages(messages: ChatMessage[]) {
     state.update((s) => {
-      const existingMessageIds = new Set(s.messages.map((message) => message.id))
-      const newMessages = messages.filter((message) => !existingMessageIds.has(message.id))
+      const existingMessageIds = new Set(s.messages.map((message: ChatMessage) => message.id))
+      const newMessages = messages.filter(
+        (message: ChatMessage) => !existingMessageIds.has(message.id),
+      )
       const lastTimestamp =
-        newMessages.length > 0 ? newMessages[newMessages.length - 1].timestamp : s.lastMessageTimestamp
+        newMessages.length > 0
+          ? newMessages[newMessages.length - 1].timestamp
+          : s.lastMessageTimestamp
       return {
         ...s,
         messages: sortMessagesByTimestamp([...s.messages, ...newMessages]),
@@ -66,7 +70,9 @@ function createChatStore(
     state.update((s) => ({
       ...s,
       messages: sortMessagesByTimestamp(
-        s.messages.map((message) => (message.id === updatedMessage.id ? updatedMessage : message)),
+        s.messages.map((message: ChatMessage) =>
+          message.id === updatedMessage.id ? updatedMessage : message,
+        ),
       ),
     }))
   }
@@ -74,7 +80,7 @@ function createChatStore(
   function removeMessage(id: string) {
     state.update((s) => ({
       ...s,
-      messages: s.messages.filter((message) => message.id !== id),
+      messages: s.messages.filter((message: ChatMessage) => message.id !== id),
     }))
   }
 
@@ -123,24 +129,20 @@ function createChatStore(
   /**
    * Get messages by type
    */
-  const proposalMessages: Readable<ChatMessage[]> = derived(
-    state,
-    ($state) => $state.messages.filter((m) => m.type === 'proposal'),
+  const proposalMessages: Readable<ChatMessage[]> = derived(state, ($state) =>
+    $state.messages.filter((m: ChatMessage) => m.type === 'proposal'),
   )
 
-  const rollMessages: Readable<ChatMessage[]> = derived(
-    state,
-    ($state) => $state.messages.filter((m) => m.type === 'roll'),
+  const rollMessages: Readable<ChatMessage[]> = derived(state, ($state) =>
+    $state.messages.filter((m: ChatMessage) => m.type === 'roll'),
   )
 
-  const tableTalkMessages: Readable<ChatMessage[]> = derived(
-    state,
-    ($state) => $state.messages.filter((m) => m.type === 'table_talk'),
+  const tableTalkMessages: Readable<ChatMessage[]> = derived(state, ($state) =>
+    $state.messages.filter((m: ChatMessage) => m.type === 'table_talk'),
   )
 
-  const narrationMessages: Readable<ChatMessage[]> = derived(
-    state,
-    ($state) => $state.messages.filter((m) => m.type === 'narration'),
+  const narrationMessages: Readable<ChatMessage[]> = derived(state, ($state) =>
+    $state.messages.filter((m: ChatMessage) => m.type === 'narration'),
   )
 
   /**
@@ -148,7 +150,7 @@ function createChatStore(
    */
   function getVisibleMessages(audience: 'full_table' | 'private_subset' | 'private_player') {
     return derived(state, ($state) =>
-      $state.messages.filter((m) => {
+      $state.messages.filter((m: ChatMessage) => {
         // System messages always visible
         if (m.type === 'system') return true
         // Filter by requested audience

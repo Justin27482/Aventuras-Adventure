@@ -9,7 +9,7 @@
   import { Textarea } from '$lib/components/ui/textarea'
   import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card'
   import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs'
-  import { BookOpenText, Check, Loader2, RefreshCw, Sparkles, Wand2 } from 'lucide-svelte'
+  import { BookOpenText, Check, Loader2, RefreshCw, Sparkles } from 'lucide-svelte'
 
   let activeTab = $state<'raw' | 'summary'>('raw')
   let summary = $state('')
@@ -104,24 +104,47 @@
       </TabsList>
 
       <TabsContent value="raw" class="space-y-3">
-        <Textarea bind:value={summary} class="min-h-32 text-sm" placeholder="Write the scene summary or GM notes here..." />
+        <Textarea
+          bind:value={summary}
+          class="min-h-32 text-sm"
+          placeholder="Write the scene summary or GM notes here..."
+        />
         <div class="flex gap-2">
           <Button class="gap-2" onclick={polishSummary} disabled={isGenerating || !summary.trim()}>
-            {#if isGenerating}<Loader2 class="h-4 w-4 animate-spin" />{:else}<Sparkles class="h-4 w-4" />{/if}
+            {#if isGenerating}<Loader2 class="h-4 w-4 animate-spin" />{:else}<Sparkles
+                class="h-4 w-4"
+              />{/if}
             {isGenerating ? 'Polishing...' : 'Polish Summary'}
           </Button>
         </div>
       </TabsContent>
 
       <TabsContent value="summary" class="space-y-3">
-        <Textarea bind:value={polishedDraft} class="min-h-32 text-sm" placeholder="Polished narration will appear here..." />
+        <Textarea
+          bind:value={polishedDraft}
+          class="min-h-32 text-sm"
+          placeholder="Polished narration will appear here..."
+        />
         <div class="flex flex-wrap gap-2">
-          <Button variant="outline" class="gap-2" onclick={regenerate} disabled={isGenerating || !polishedDraft.trim()}>
-            {#if isGenerating}<Loader2 class="h-4 w-4 animate-spin" />{:else}<RefreshCw class="h-4 w-4" />{/if}
+          <Button
+            variant="outline"
+            class="gap-2"
+            onclick={regenerate}
+            disabled={isGenerating || !polishedDraft.trim()}
+          >
+            {#if isGenerating}<Loader2 class="h-4 w-4 animate-spin" />{:else}<RefreshCw
+                class="h-4 w-4"
+              />{/if}
             {isGenerating ? 'Regenerating...' : 'Regenerate'}
           </Button>
-          <Button class="gap-2" onclick={acceptNarration} disabled={isAccepting || !polishedDraft.trim()}>
-            {#if isAccepting}<Loader2 class="h-4 w-4 animate-spin" />{:else}<Check class="h-4 w-4" />{/if}
+          <Button
+            class="gap-2"
+            onclick={acceptNarration}
+            disabled={isAccepting || !polishedDraft.trim()}
+          >
+            {#if isAccepting}<Loader2 class="h-4 w-4 animate-spin" />{:else}<Check
+                class="h-4 w-4"
+              />{/if}
             {isAccepting ? 'Saving...' : 'Accept into Story'}
           </Button>
         </div>
@@ -129,7 +152,7 @@
     </Tabs>
 
     {#if error}
-      <p class="text-destructive rounded-md border border-destructive/30 p-2 text-xs">{error}</p>
+      <p class="text-destructive border-destructive/30 rounded-md border p-2 text-xs">{error}</p>
     {/if}
   </CardContent>
 </Card>

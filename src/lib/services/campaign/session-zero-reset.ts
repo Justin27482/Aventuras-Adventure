@@ -14,9 +14,7 @@ export function getSessionZeroAttempt(
   return {
     startedAt: startMarker.timestamp,
     messageIds: messages
-      .filter(
-        (message) => message.sessionId === null && message.timestamp >= startMarker.timestamp,
-      )
+      .filter((message) => message.sessionId === null && message.timestamp >= startMarker.timestamp)
       .map((message) => message.id),
   }
 }

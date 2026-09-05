@@ -93,7 +93,8 @@ export class CharacterStore {
         'wizard:portraitDescription',
       )
     } catch (error) {
-      this.protagonistError = error instanceof Error ? error.message : 'Failed to generate description'
+      this.protagonistError =
+        error instanceof Error ? error.message : 'Failed to generate description'
     } finally {
       this.isGeneratingPortraitDescription = false
     }

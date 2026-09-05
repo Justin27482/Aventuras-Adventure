@@ -1,16 +1,10 @@
-import { describe, expect, it, vi } from 'vitest'
-import type {
-  AIPlayer,
-  AIPlayerProposal,
-  InteractionAudience,
-  PlayerCharacter,
-  PlayerLevelSecret,
-} from '$lib/types'
+import { describe, expect, it } from 'vitest'
+import type { AIPlayer, AIPlayerProposal, InteractionAudience, PlayerLevelSecret } from '$lib/types'
 import { getAudiencePlayerIds } from './ai-player-rules'
 import { SessionZeroOrchestrator } from './session-zero-orchestrator'
 
 describe('Multi-Agent Orchestration — Full Coverage (C.14)', () => {
-  const players: Record<string, AIPlayer> = {
+  const _players: Record<string, AIPlayer> = {
     'player-1': {
       id: 'player-1',
       name: 'Mara',
@@ -192,8 +186,8 @@ describe('Multi-Agent Orchestration — Full Coverage (C.14)', () => {
     const interactionPhase = orchestrator.recordPhase('bonding-scene', {
       playerIds: ['player-1', 'player-2'],
       relationshipNotes: {
-        'player-1': 'Mara now understands Rowan\'s investigative methods.',
-        'player-2': 'Rowan trusts Mara\'s judgment.',
+        'player-1': "Mara now understands Rowan's investigative methods.",
+        'player-2': "Rowan trusts Mara's judgment.",
       },
       interaction: {
         id: 'interaction-1',
@@ -202,7 +196,7 @@ describe('Multi-Agent Orchestration — Full Coverage (C.14)', () => {
         audience: { kind: 'private_player', aiPlayerId: 'player-1' },
         transcript: [
           { role: 'gm', content: 'Mara, I have a sensitive matter to discuss.' },
-          { role: 'player-1', content: 'I\'m listening.' },
+          { role: 'player-1', content: "I'm listening." },
         ],
         disclosedToAudience: false,
         createdAt: 1000,
@@ -288,7 +282,10 @@ describe('Multi-Agent Orchestration — Full Coverage (C.14)', () => {
 
     // Invalid players in subset
     expect(() => {
-      getAudiencePlayerIds({ kind: 'player_subset', aiPlayerIds: ['player-1', 'player-9'] }, activeAIPlayerIds)
+      getAudiencePlayerIds(
+        { kind: 'player_subset', aiPlayerIds: ['player-1', 'player-9'] },
+        activeAIPlayerIds,
+      )
     }).toThrow('Player subset interaction contains an inactive AI Player')
   })
 
@@ -311,11 +308,11 @@ describe('Multi-Agent Orchestration — Full Coverage (C.14)', () => {
     })
 
     // Phase 4: Bonding Scene (record relationship overrides)
-    const bondingPhase = orchestrator.recordPhase('bonding-scene', {
+    const _bondingPhase = orchestrator.recordPhase('bonding-scene', {
       playerIds: activeAIPlayerIds,
       relationshipNotes: {
         'player-1': 'Mara leads when it matters.',
-        'player-2': 'Rowan solves what Mara can\'t.',
+        'player-2': "Rowan solves what Mara can't.",
         'player-3': 'Kael reminds the party of darker truths.',
       },
     })

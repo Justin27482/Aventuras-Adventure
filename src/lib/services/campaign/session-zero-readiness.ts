@@ -20,11 +20,10 @@ export function getSessionZeroReadiness(
   activePlayerNames: string[],
 ): SessionZeroReadiness {
   if (phase === 'introductions') {
-    const sessionStartedAt = messages.find(
-      (message) =>
-        message.type === 'system' &&
-        message.content === SESSION_ZERO_START_MESSAGE,
-    )?.timestamp ?? 0
+    const sessionStartedAt =
+      messages.find(
+        (message) => message.type === 'system' && message.content === SESSION_ZERO_START_MESSAGE,
+      )?.timestamp ?? 0
     const introducedNames = new Set(
       messages
         .filter(
@@ -96,7 +95,8 @@ export function getSessionZeroReadiness(
   }
 
   const plannedCriteria: Record<Exclude<SessionZeroPhase, 'introductions' | 'premises'>, string> = {
-    character_creation: 'Create, review, and approve a character sheet for each participating AI Player',
+    character_creation:
+      'Create, review, and approve a character sheet for each participating AI Player',
     bonding: 'Run the party bonding scene and record relationship outcomes',
     secrets: 'Review optional private hooks and persist approved secrets',
   }

@@ -44,7 +44,7 @@ describe('PrerollService (Phase F)', () => {
 
   it('pre-rolls 15 encounters by default (F.1)', async () => {
     let callCount = 0
-    generateStructured.mockImplementation(async ({ prompt }: { prompt: string }) => ({
+    generateStructured.mockImplementation(async ({ prompt: _prompt }: { prompt: string }) => ({
       name: `Encounter ${callCount + 1}`,
       enemies: 'Goblins and a Hobgoblin',
       difficulty: callCount % 5 === 0 ? 'deadly' : callCount % 2 === 0 ? 'hard' : 'moderate',

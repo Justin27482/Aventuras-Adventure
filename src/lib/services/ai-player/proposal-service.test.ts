@@ -101,20 +101,26 @@ describe('AIPlayerProposalService', () => {
     generateStructured.mockImplementation(
       () =>
         new Promise((resolve) => {
-          pending.push(() =>
-            resolve({ action: 'Act.', reasoning: 'Reason.', confidence: 6 }),
-          )
+          pending.push(() => resolve({ action: 'Act.', reasoning: 'Reason.', confidence: 6 }))
         }),
     )
 
     const resultPromise = new AIPlayerProposalService().generateProposals([
       {
-        storyId: 'story-1', campaignId: 'campaign-1', aiPlayerId: 'player-1', characterId: 'character-1',
-        sceneMode: 'combat', sceneSummary: 'A threat appears.',
+        storyId: 'story-1',
+        campaignId: 'campaign-1',
+        aiPlayerId: 'player-1',
+        characterId: 'character-1',
+        sceneMode: 'combat',
+        sceneSummary: 'A threat appears.',
       },
       {
-        storyId: 'story-1', campaignId: 'campaign-1', aiPlayerId: 'player-2', characterId: 'character-2',
-        sceneMode: 'combat', sceneSummary: 'A threat appears.',
+        storyId: 'story-1',
+        campaignId: 'campaign-1',
+        aiPlayerId: 'player-2',
+        characterId: 'character-2',
+        sceneMode: 'combat',
+        sceneSummary: 'A threat appears.',
       },
     ])
 

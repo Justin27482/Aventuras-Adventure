@@ -63,13 +63,13 @@ export class CampaignTypeService {
   static getLabel(type: CampaignType): string {
     switch (type) {
       case 'human_gm_ai_players':
-        return 'I\'m the GM with AI Players'
+        return "I'm the GM with AI Players"
       case 'human_gm_solo':
-        return 'I\'m the GM with Human Party'
+        return "I'm the GM with Human Party"
       case 'ai_gm':
-        return 'AI GM, I\'m Playing'
+        return "AI GM, I'm Playing"
       case 'human_player':
-        return 'I\'m a Player'
+        return "I'm a Player"
       default:
         return 'Standard Campaign'
     }

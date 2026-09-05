@@ -14,7 +14,14 @@ export const SCENE_RELEVANCE_OPTIONS = [
 export function normalizeSceneRelevance(values?: string[] | null): string[] {
   if (!Array.isArray(values)) return []
 
-  return [...new Set(values.map((value) => value.trim()).filter(Boolean).map((value) => value.toLowerCase()))]
+  return [
+    ...new Set(
+      values
+        .map((value) => value.trim())
+        .filter(Boolean)
+        .map((value) => value.toLowerCase()),
+    ),
+  ]
 }
 
 export function filterAbilitiesForScene(

@@ -320,8 +320,12 @@
             onclick={onGeneratePortraitDescription}
             disabled={isGeneratingPortraitDescription || !manualCharacterName.trim()}
           >
-            {#if isGeneratingPortraitDescription}<Loader2 class="h-3.5 w-3.5 animate-spin" />{:else}<Sparkles class="h-3.5 w-3.5" />{/if}
-            {isGeneratingPortraitDescription ? 'Generating Description...' : 'Generate Portrait Description'}
+            {#if isGeneratingPortraitDescription}<Loader2
+                class="h-3.5 w-3.5 animate-spin"
+              />{:else}<Sparkles class="h-3.5 w-3.5" />{/if}
+            {isGeneratingPortraitDescription
+              ? 'Generating Description...'
+              : 'Generate Portrait Description'}
           </Button>
         </div>
 

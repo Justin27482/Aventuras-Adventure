@@ -184,6 +184,10 @@ class DatabaseService {
     await new Promise((resolve) => setTimeout(resolve, ms))
   }
 
+  async withTransaction<T>(operation: () => Promise<T> | T): Promise<T> {
+    return await this.transactionQueue.then(async () => await operation())
+  }
+
   private isBusyError(error: unknown): boolean {
     const message = error instanceof Error ? error.message : String(error)
     return /database is locked|database table is locked|SQLITE_BUSY|code 5/i.test(message)

@@ -14,13 +14,16 @@ export function validateCharacterSheetDraft(
   ruleset: FullRuleset,
 ): void {
   if (!draft.name.trim()) throw new Error('Character name is required')
-  if (draft.sheet.rulesetId !== ruleset.ruleset.id) throw new Error('Character sheet ruleset does not match')
+  if (draft.sheet.rulesetId !== ruleset.ruleset.id)
+    throw new Error('Character sheet ruleset does not match')
   const stats = new Map(ruleset.stats.map((stat) => [stat.key, stat]))
   for (const [key, value] of Object.entries(draft.sheet.statValues)) {
     const stat = stats.get(key)
     if (!stat) throw new Error(`Unknown stat ${key}`)
-    if (!Number.isFinite(value) || value < stat.minValue || value > stat.maxValue) {
-      throw new Error(`${stat.label} must be between ${stat.minValue} and ${stat.maxValue}`)
+    const minValue = stat.minValue ?? Number.NEGATIVE_INFINITY
+    const maxValue = stat.maxValue ?? Number.POSITIVE_INFINITY
+    if (!Number.isFinite(value) || value < minValue || value > maxValue) {
+      throw new Error(`${stat.label} must be between ${minValue} and ${maxValue}`)
     }
   }
   const resourceKeys = new Set(ruleset.resources.map((resource) => resource.key))
@@ -77,7 +80,8 @@ export class CharacterSheetEditorService {
     storyId: string
     ruleset: FullRuleset
   }): Promise<{ characterId: string; revisionId: string }> {
-    if (input.proposal.status !== 'pending') throw new Error('Only pending proposals can be approved')
+    if (input.proposal.status !== 'pending')
+      throw new Error('Only pending proposals can be approved')
     validateCharacterSheetDraft(input.editedDraft, input.ruleset)
     return database.approveCharacterSheetProposal(input.proposal, input.editedDraft, input.storyId)
   }

@@ -3,13 +3,17 @@ import type { AIPlayer, InteractionAudience, PlayerCharacter } from '$lib/types'
 export function validateAIPlayerProfile(player: AIPlayer): void {
   if (!player.id.trim()) throw new Error('AI Player must have an id')
   if (!player.name.trim()) throw new Error('AI Player must have a name')
-  if (player.basePersonality.riskTolerance < 0 || player.basePersonality.riskTolerance > 10) {
+  const riskTolerance = player.basePersonality.riskTolerance ?? 5
+  const immersion = player.basePersonality.immersion ?? 5
+  const arousal = player.basePersonality.arousal ?? 0
+
+  if (riskTolerance < 0 || riskTolerance > 10) {
     throw new Error('AI Player risk tolerance must be between 0 and 10')
   }
-  if (player.basePersonality.immersion < 0 || player.basePersonality.immersion > 10) {
+  if (immersion < 0 || immersion > 10) {
     throw new Error('AI Player immersion must be between 0 and 10')
   }
-  if (player.basePersonality.arousal < 0 || player.basePersonality.arousal > 10) {
+  if (arousal < 0 || arousal > 10) {
     throw new Error('AI Player arousal must be between 0 and 10')
   }
 }
@@ -47,7 +51,8 @@ export function getAudiencePlayerIds(
   }
 
   const uniqueIds = [...new Set(audience.aiPlayerIds)]
-  if (uniqueIds.length === 0) throw new Error('Player subset interaction requires at least one player')
+  if (uniqueIds.length === 0)
+    throw new Error('Player subset interaction requires at least one player')
   if (uniqueIds.some((id) => !activeAIPlayerIds.includes(id))) {
     throw new Error('Player subset interaction contains an inactive AI Player')
   }

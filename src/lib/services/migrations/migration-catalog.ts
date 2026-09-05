@@ -99,7 +99,8 @@ export const MIGRATION_CATALOG: MigrationCatalogEntry[] = Object.entries(rawMigr
     return {
       version,
       filename,
-      description: migrationDescriptions[version] ?? filename.replace(/^\d+_/, '').replace(/\.sql$/, ''),
+      description:
+        migrationDescriptions[version] ?? filename.replace(/^\d+_/, '').replace(/\.sql$/, ''),
       sql,
       affectedObjects: affectedObjects(sql),
     }

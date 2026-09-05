@@ -6,7 +6,7 @@
  */
 
 import { roll, type RollRequest, type RollResult } from '$lib/services/dice'
-import type { RollLedgerEntry, RulesetCheckRule } from '$lib/types'
+import type { RollLedgerEntry } from '$lib/types'
 import { RollDetectionService, type DetectedRoll } from './roll-detection-service'
 
 export interface FormattedRollResult {
@@ -99,8 +99,7 @@ export class RollResolutionService {
       rollEntry: entry,
       outcome: entry.outcome,
       succeeded: entry.outcome === 'success' || entry.outcome === 'critical_success',
-      isCritical:
-        entry.outcome === 'critical_success' || entry.outcome === 'critical_failure',
+      isCritical: entry.outcome === 'critical_success' || entry.outcome === 'critical_failure',
     }
   }
 

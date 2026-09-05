@@ -1,0 +1,9 @@
+
+> aventura@0.7.6 check
+> svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings false
+
+Loading svelte-check in workspace: e:\source\Aventuras-Adventure
+Getting Svelte diagnostics...
+
+[32msvelte-check found 0 errors and 0 warnings
+[39m

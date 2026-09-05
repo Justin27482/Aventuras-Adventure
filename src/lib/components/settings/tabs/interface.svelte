@@ -142,7 +142,6 @@
       isCheckingUpdates = false
     }
   }
-
 </script>
 
 <div class="space-y-4">

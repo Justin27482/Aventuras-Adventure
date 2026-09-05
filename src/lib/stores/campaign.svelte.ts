@@ -29,7 +29,6 @@ import {
   type TurnOrderMode,
 } from '$lib/services/campaign/turn-order-service'
 import { TurnDirector, type TurnType } from '$lib/services/campaign/turn-director'
-import { aiPlayerRoutingService } from '$lib/services/ai-player/ai-player-routing-service'
 
 const DEFAULT_NARRATIVE_CONTROL: CampaignControlMode = 'autonomous'
 const DEFAULT_COMBAT_CONTROL: CampaignControlMode = 'autonomous'
@@ -59,7 +58,7 @@ class CampaignStore {
   previousSceneMode = $state<SceneMode | null>(null)
   lastSceneTransition = $state<string | null>(null)
   loading = $state(false)
-  aiPlayerAssignments = $state<Record<string, string>>({})  // characterId -> aiPlayerId mapping (G.1)
+  aiPlayerAssignments = $state<Record<string, string>>({}) // characterId -> aiPlayerId mapping (G.1)
   private turnDirector = new TurnDirector()
 
   activeParty = $derived(
@@ -128,8 +127,8 @@ class CampaignStore {
       const assignments = await database.getPlayerCharactersForCampaign(campaignId)
       this.aiPlayerAssignments = Object.fromEntries(
         assignments
-          .filter((a) => !a.leftAt)  // Only active assignments
-          .map((a) => [a.characterId, a.aiPlayerId])
+          .filter((a) => !a.leftAt) // Only active assignments
+          .map((a) => [a.characterId, a.aiPlayerId]),
       )
     } catch {
       // If AI players aren't enabled or there's an error, default to empty
@@ -429,6 +428,7 @@ class CampaignStore {
           companionCombatPolicy: 'companions_autonomous',
           aiPlayersEnabled: false,
           defaultAIPlayerCount: 4,
+          tableTalkIntensity: 3,
           sessionZeroPhase: null,
           sessionZeroStatus: 'not_started',
           createdAt: now,
@@ -467,6 +467,7 @@ class CampaignStore {
       companionCombatPolicy: 'companions_autonomous',
       aiPlayersEnabled: false,
       defaultAIPlayerCount: 4,
+      tableTalkIntensity: 3,
       sessionZeroPhase: null,
       sessionZeroStatus: 'not_started',
       createdAt: now,

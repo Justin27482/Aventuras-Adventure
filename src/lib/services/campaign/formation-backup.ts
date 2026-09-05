@@ -30,5 +30,10 @@ export function canRestoreFormationBackup(input: {
   normalSessionCount: number
   setupSessionCount: number
 }): boolean {
-  return input.restoredAt === null && input.liveCharacterCount === 0 && input.normalSessionCount === 0 && input.setupSessionCount === 0
+  return (
+    input.restoredAt === null &&
+    input.liveCharacterCount === 0 &&
+    input.normalSessionCount === 0 &&
+    input.setupSessionCount === 0
+  )
 }

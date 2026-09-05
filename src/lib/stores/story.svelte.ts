@@ -5967,25 +5967,29 @@ class StoryStore {
     }
 
     // Party-pending Human GM campaigns begin in setup chat and intentionally have no prose opening.
-    const openingEntry = openingScene ? await database.addStoryEntry({
-      id: crypto.randomUUID(),
-      storyId,
-      type: 'narration',
-      content: openingScene,
-      parentId: null,
-      position: 0,
-      metadata: {
-        source: 'wizard',
-        tokenCount: countTokens(openingScene),
-        timeStart: { ...(storyData.timeTracker ?? { years: 0, days: 0, hours: 0, minutes: 0 }) },
-        timeEnd: { ...(storyData.timeTracker ?? { years: 0, days: 0, hours: 0, minutes: 0 }) },
-      },
-      branchId: null,
-      translatedContent: data.translations?.openingScene ?? null,
-      translationLanguage: data.translations?.openingScene
-        ? (data.translations?.language ?? null)
-        : null,
-    }) : null
+    const openingEntry = openingScene
+      ? await database.addStoryEntry({
+          id: crypto.randomUUID(),
+          storyId,
+          type: 'narration',
+          content: openingScene,
+          parentId: null,
+          position: 0,
+          metadata: {
+            source: 'wizard',
+            tokenCount: countTokens(openingScene),
+            timeStart: {
+              ...(storyData.timeTracker ?? { years: 0, days: 0, hours: 0, minutes: 0 }),
+            },
+            timeEnd: { ...(storyData.timeTracker ?? { years: 0, days: 0, hours: 0, minutes: 0 }) },
+          },
+          branchId: null,
+          translatedContent: data.translations?.openingScene ?? null,
+          translationLanguage: data.translations?.openingScene
+            ? (data.translations?.language ?? null)
+            : null,
+        })
+      : null
     if (openingEntry) log('Added opening scene')
 
     // Add imported lorebook entries
@@ -6060,7 +6064,11 @@ class StoryStore {
       try {
         await campaign.seedPartyFromCharacters(createdCharacters)
       } catch (error) {
-        console.error('[StoryStore] Party seeding failed for new campaign:', campaign.current.id, error)
+        console.error(
+          '[StoryStore] Party seeding failed for new campaign:',
+          campaign.current.id,
+          error,
+        )
       }
     }
 

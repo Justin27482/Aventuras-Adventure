@@ -56,7 +56,11 @@ describe('visual descriptors', () => {
       { key: 'presence', label: 'Presence', minNsfwIntensity: 3 },
     ]
 
-    expect(getAvailableVisualDescriptorLabels(labels, 2).some((label) => label.key === 'presence')).toBe(false)
-    expect(getAvailableVisualDescriptorLabels(labels, 3).some((label) => label.key === 'presence')).toBe(true)
+    expect(
+      getAvailableVisualDescriptorLabels(labels, 2).some((label) => label.key === 'presence'),
+    ).toBe(false)
+    expect(
+      getAvailableVisualDescriptorLabels(labels, 3).some((label) => label.key === 'presence'),
+    ).toBe(true)
   })
 })

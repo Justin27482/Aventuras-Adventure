@@ -1,6 +1,9 @@
 <script lang="ts">
   import { initializeChatStore, type ChatStore } from '$lib/stores/chat-store.svelte'
-  import { RollDetectionService, type DetectedRoll } from '$lib/services/campaign/roll-detection-service'
+  import {
+    RollDetectionService,
+    type DetectedRoll,
+  } from '$lib/services/campaign/roll-detection-service'
   import { RollResolutionService } from '$lib/services/campaign/roll-resolution-service'
   import { TableTalkOrchestrator } from '$lib/services/campaign/table-talk-orchestrator'
   import { aiPlayerTurnOrchestrator } from '$lib/services/ai-player/ai-player-turn-orchestrator'
@@ -16,11 +19,15 @@
   } from '$lib/services/campaign/chat-types'
   import type { InteractionAudience } from '$lib/types'
   import type { CampaignSetupSessionKind } from '$lib/types'
-  import { generatePrivatePrologueReply, generateGroupSetupReplies } from '$lib/services/campaign/private-prologue-reply'
+  import {
+    generatePrivatePrologueReply,
+    generateGroupSetupReplies,
+  } from '$lib/services/campaign/private-prologue-reply'
   import { extractInlineOOC } from '$lib/utils/extractInlineOOC'
   import { campaign } from '$lib/stores/campaign.svelte'
   import { story } from '$lib/stores/story.svelte'
   import { tick } from 'svelte'
+  import { SvelteSet } from 'svelte/reactivity'
 
   interface Props {
     hasAIPlayers?: boolean
@@ -37,7 +44,7 @@
   }
 
   let {
-    hasAIPlayers = false,
+    hasAIPlayers: _hasAIPlayers = false,
     tableTalkIntensity = 4,
     audience = { kind: 'full_table' },
     chatStore = initializeChatStore(campaign.current?.id ?? '', campaign.activeSession?.id ?? null),
@@ -65,7 +72,7 @@
   let promotingMessageId = $state<string | null>(null)
   let isPromotingAll = $state(false)
   let promotionError = $state<string | null>(null)
-  let hydratedCampaignId = $state<string | null>(null)
+  let _hydratedCampaignId = $state<string | null>(null)
   let hydratedSessionKey = $state<string | null>(null)
   let chatFeed = $state<HTMLDivElement | null>(null)
   let editingMessageId = $state<string | null>(null)
@@ -76,7 +83,9 @@
 
   const currentTurn = $derived(campaign.getCurrentTurnActor())
   const isAIPlayerTurn = $derived(campaign.getCurrentTurnType() === 'ai_player_turn')
-  const isSessionZero = $derived(campaign.settings?.sessionZeroPhase !== null || setupSessionId !== null)
+  const isSessionZero = $derived(
+    campaign.settings?.sessionZeroPhase !== null || setupSessionId !== null,
+  )
   const setupSessionReadOnly = $derived(setupSessionId !== null && !setupSessionActive)
   // Combined IC/OOC feed: every message type renders together, tagged by type, in one timeline.
   const visibleMessages = $derived(chatMessages.messages)
@@ -156,12 +165,14 @@
     const campaignId = campaign.current?.id
     const sessionId = campaign.activeSession?.id ?? null
     const sessionZero = campaign.settings?.sessionZeroPhase !== null
-    const sessionKey = campaignId ? `${campaignId}:${setupSessionId ?? sessionId ?? (sessionZero ? 'session-zero' : 'none')}` : null
+    const sessionKey = campaignId
+      ? `${campaignId}:${setupSessionId ?? sessionId ?? (sessionZero ? 'session-zero' : 'none')}`
+      : null
     if (!campaignId || !story.currentStory || hydratedSessionKey === sessionKey) return
 
     if (setupSessionId) {
       hydratedSessionKey = sessionKey
-      hydratedCampaignId = campaignId
+      _hydratedCampaignId = campaignId
       return
     }
 
@@ -169,7 +180,7 @@
     // while the active pane starts empty until a new session begins.
     chatStore.clearMessages()
     hydratedSessionKey = sessionKey
-    hydratedCampaignId = campaignId
+    _hydratedCampaignId = campaignId
     // Campaign-wide table talk remains available between sessions. Narrative history
     // stays empty because it is loaded only for an active session or Session Zero.
     void hydrateChat(campaignId, sessionId)
@@ -180,7 +191,10 @@
       const sessionMessages = await database
         .getCampaignChatMessages(campaignId, sessionId)
         .catch((error) => {
-          console.warn('[PlayerChatPane] Native chat history is unavailable; rebuilding history.', error)
+          console.warn(
+            '[PlayerChatPane] Native chat history is unavailable; rebuilding history.',
+            error,
+          )
           return []
         })
       const tableTalkMessages = sessionId
@@ -215,7 +229,7 @@
         reviewStatus: proposal.reviewStatus === 'accepted' ? 'approved' : proposal.reviewStatus,
       }))
       const persistedMessages = [...sessionMessages, ...tableTalkMessages]
-      const seenSessionZeroStart = new Set<string>()
+      const seenSessionZeroStart = new SvelteSet<string>()
       const deDuplicatedMessages = persistedMessages.filter((message) => {
         if (
           message.type !== 'system' ||
@@ -347,7 +361,8 @@
   }
 
   async function handlePolishNarration() {
-    if (!inputText.trim() || !campaign.current || !story.currentStory || isPolishingNarration) return
+    if (!inputText.trim() || !campaign.current || !story.currentStory || isPolishingNarration)
+      return
 
     isPolishingNarration = true
     narrationHelperError = null
@@ -372,7 +387,8 @@
     try {
       await onPromoteToLog(message)
     } catch (error) {
-      promotionError = error instanceof Error ? error.message : 'Unable to add message to Story Log.'
+      promotionError =
+        error instanceof Error ? error.message : 'Unable to add message to Story Log.'
     } finally {
       promotingMessageId = null
     }
@@ -407,8 +423,7 @@
 
   function startEditingMessage(message: ChatNarration | ChatProposal | ChatTableTalk) {
     editingMessageId = message.id
-    editMessageText =
-      message.type === 'proposal' ? message.proposal.action : message.content
+    editMessageText = message.type === 'proposal' ? message.proposal.action : message.content
     continuityError = null
   }
 
@@ -461,7 +476,8 @@
       }
       cancelEditingMessage()
     } catch (error) {
-      continuityError = error instanceof Error ? error.message : 'Unable to save continuity correction.'
+      continuityError =
+        error instanceof Error ? error.message : 'Unable to save continuity correction.'
     }
   }
 
@@ -516,7 +532,8 @@
       }
       chatStore.removeMessage(message.id)
     } catch (error) {
-      continuityError = error instanceof Error ? error.message : 'Unable to delete continuity message.'
+      continuityError =
+        error instanceof Error ? error.message : 'Unable to delete continuity message.'
     }
   }
 
@@ -553,9 +570,7 @@
       database.getPlayerCharactersForCampaign(campaign.current.id),
       database.listAIPlayers(),
     ])
-    const playerById = new Map(
-      aiPlayers.map((player) => [player.id, player]),
-    )
+    const playerById = new Map(aiPlayers.map((player) => [player.id, player]))
     const assignmentByPlayerId = new Map(
       assignments
         .filter((assignment) => assignment.leftAt === null)
@@ -564,7 +579,8 @@
     const participants = roster
       .filter((member) => member.leftAt === null)
       .filter(
-        (member) => setupParticipantIds.length === 0 || setupParticipantIds.includes(member.aiPlayerId),
+        (member) =>
+          setupParticipantIds.length === 0 || setupParticipantIds.includes(member.aiPlayerId),
       )
       .map((member) => {
         const player = playerById.get(member.aiPlayerId)
@@ -601,9 +617,14 @@
         ]
       : []
     const maximumResponders = Math.min(tableTalkIntensity >= 6 ? 3 : 2, participants.length)
-    const transcript = chatMessages.messages
-      .slice(-6)
-      .map((message) => `${message.actorName}: ${message.type === 'proposal' ? message.proposal.action : message.content ?? ''}`)
+    const summarizeMessage = (message: ChatMessage): string => {
+      if (message.type === 'proposal') return `${message.actorName}: ${message.proposal.action}`
+      if ('content' in message && typeof message.content === 'string') {
+        return `${message.actorName}: ${message.content}`
+      }
+      return `${message.actorName}: ${message.type}`
+    }
+    const transcript = chatMessages.messages.slice(-6).map(summarizeMessage)
     let responders = [...mentioned, ...rotatingParticipants].slice(0, maximumResponders)
     if (options?.honorMentions) {
       try {
@@ -678,9 +699,7 @@
           intensity: reaction.intensity,
         })
       } finally {
-        typingResponders = typingResponders.filter(
-          (responder) => responder.id !== aiPlayerId,
-        )
+        typingResponders = typingResponders.filter((responder) => responder.id !== aiPlayerId)
       }
     }
   }
@@ -736,9 +755,13 @@
           aiPlayerId: audience.aiPlayerId,
           narration: message.content,
           sceneMode: campaign.sceneTurnState?.sceneMode ?? campaign.settings?.sceneMode ?? 'free',
-          recentActions: chatMessages.messages.slice(-6).map((item) =>
-            `${item.actorName}: ${item.type === 'proposal' ? item.proposal.action : item.content ?? ''}`,
-          ),
+          recentActions: chatMessages.messages.slice(-6).map((item) => {
+            if (item.type === 'proposal') return `${item.actorName}: ${item.proposal.action}`
+            if ('content' in item && typeof item.content === 'string') {
+              return `${item.actorName}: ${item.content}`
+            }
+            return `${item.actorName}: ${item.type}`
+          }),
         })
         chatStore.addMessage(reply)
       } catch (error) {
@@ -768,9 +791,13 @@
           aiPlayerIds: setupParticipantIds,
           narration: message.content,
           sceneMode: campaign.sceneTurnState?.sceneMode ?? campaign.settings?.sceneMode ?? 'free',
-          recentActions: chatMessages.messages.slice(-6).map((item) =>
-            `${item.actorName}: ${item.type === 'proposal' ? item.proposal.action : item.content ?? ''}`,
-          ),
+          recentActions: chatMessages.messages.slice(-6).map((item) => {
+            if (item.type === 'proposal') return `${item.actorName}: ${item.proposal.action}`
+            if ('content' in item && typeof item.content === 'string') {
+              return `${item.actorName}: ${item.content}`
+            }
+            return `${item.actorName}: ${item.type}`
+          }),
           onTypingStart: (aiPlayerId) => {
             typingResponders = [
               ...typingResponders.filter((responder) => responder.id !== aiPlayerId),
@@ -778,7 +805,9 @@
             ]
           },
           onReply: (reply) => {
-            typingResponders = typingResponders.filter((responder) => responder.id !== reply.proposal.aiPlayerId)
+            typingResponders = typingResponders.filter(
+              (responder) => responder.id !== reply.proposal.aiPlayerId,
+            )
             chatStore.addMessage(reply)
           },
         })
@@ -798,7 +827,11 @@
 
   function handleSendTableTalk() {
     narrationHelperError = null
-    if (!inputText.trim() || !campaign.current || (!campaign.activeSession && !allowSessionZeroChat && !setupSessionActive)) {
+    if (
+      !inputText.trim() ||
+      !campaign.current ||
+      (!campaign.activeSession && !allowSessionZeroChat && !setupSessionActive)
+    ) {
       narrationHelperError = 'Start a session before sending table talk.'
       return
     }
@@ -850,7 +883,8 @@
       (!campaign.activeSession && !allowSessionZeroChat && !setupSessionActive) ||
       isExecutingRoll
     ) {
-      if (!campaign.activeSession && !allowSessionZeroChat && !setupSessionActive) rollError = 'Start a session before rolling dice.'
+      if (!campaign.activeSession && !allowSessionZeroChat && !setupSessionActive)
+        rollError = 'Start a session before rolling dice.'
       return
     }
 
@@ -870,7 +904,9 @@
         visibility: 'player_safe',
       })
       const actorName =
-        story.characters.find((character) => character.id === actorId)?.name ?? currentTurn?.name ?? 'Actor'
+        story.characters.find((character) => character.id === actorId)?.name ??
+        currentTurn?.name ??
+        'Actor'
 
       chatStore.addMessage({
         id: crypto.randomUUID(),
@@ -918,7 +954,10 @@
   <div class="chat-feed" bind:this={chatFeed}>
     {#if visibleMessages.length > 0}
       {#each visibleMessages as message (message.id)}
-        <div class="chat-message {message.type}" class:declined={message.type === 'proposal' && message.reviewStatus === 'declined'}>
+        <div
+          class="chat-message {message.type}"
+          class:declined={message.type === 'proposal' && message.reviewStatus === 'declined'}
+        >
           {#if message.type === 'proposal'}
             {@const m = message as ChatProposal}
             <div class="message-header">
@@ -969,7 +1008,9 @@
                 <button class="btn-small" onclick={() => approveProposal(m)}>Reconsider</button>
                 <button class="btn-small" onclick={() => deleteContinuityMessage(m)}>Delete</button>
               {:else}
-                <button class="btn-small" onclick={() => approveProposal(m)}>Approve to Story Log</button>
+                <button class="btn-small" onclick={() => approveProposal(m)}
+                  >Approve to Story Log</button
+                >
                 <button class="btn-small" onclick={() => rejectProposal(m)}>Reject</button>
                 <button class="btn-small" onclick={() => startEditingMessage(m)}>Edit</button>
                 <button class="btn-small" onclick={() => deleteContinuityMessage(m)}>Delete</button>
@@ -1038,25 +1079,26 @@
                 <button class="btn-small" onclick={cancelEditingMessage}>Cancel</button>
               {:else}
                 {#if m.canPromoteToLog}
-                <button
-                  class="btn-small"
-                  disabled={promotingMessageId === m.id || promotedMessageIds.has(m.id)}
-                  onclick={() => handlePromoteToLog(m)}
-                >
-                  {promotingMessageId === m.id
-                    ? 'Adding...'
-                    : promotedMessageIds.has(m.id)
-                      ? 'Added to Story Log'
-                      : 'Add to Story Log'}
-                </button>
+                  <button
+                    class="btn-small"
+                    disabled={promotingMessageId === m.id || promotedMessageIds.has(m.id)}
+                    onclick={() => handlePromoteToLog(m)}
+                  >
+                    {promotingMessageId === m.id
+                      ? 'Adding...'
+                      : promotedMessageIds.has(m.id)
+                        ? 'Added to Story Log'
+                        : 'Add to Story Log'}
+                  </button>
                 {/if}
                 <button class="btn-small" onclick={() => startEditingMessage(m)}>Edit</button>
                 <button class="btn-small" onclick={() => deleteContinuityMessage(m)}>Delete</button>
               {/if}
-              </div>
+            </div>
           {:else if message.type === 'system'}
             <div class="message-content system">
-              {message.icon || '📋'} {message.content}
+              {message.icon || '📋'}
+              {message.content}
             </div>
           {/if}
           <div class="message-time">{formatTime(message.timestamp)}</div>
@@ -1161,7 +1203,9 @@
       {/if}
       <button
         class="btn-secondary"
-        disabled={remainingLogMessages.length === 0 || isPromotingAll || promotingMessageId !== null}
+        disabled={remainingLogMessages.length === 0 ||
+          isPromotingAll ||
+          promotingMessageId !== null}
         onclick={handlePromoteAllToLog}
       >
         {isPromotingAll
@@ -1237,12 +1281,24 @@
     animation: typing-bounce 0.9s infinite ease-in-out;
   }
 
-  .typing-dots i:nth-child(2) { animation-delay: 0.15s; }
-  .typing-dots i:nth-child(3) { animation-delay: 0.3s; }
+  .typing-dots i:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+  .typing-dots i:nth-child(3) {
+    animation-delay: 0.3s;
+  }
 
   @keyframes typing-bounce {
-    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-    30% { transform: translateY(-3px); opacity: 1; }
+    0%,
+    60%,
+    100% {
+      transform: translateY(0);
+      opacity: 0.4;
+    }
+    30% {
+      transform: translateY(-3px);
+      opacity: 1;
+    }
   }
 
   .chat-message {

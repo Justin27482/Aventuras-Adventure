@@ -33,7 +33,7 @@ export interface TableTalkParticipant {
 }
 
 export interface TableTalkRequest {
-  storyId: string
+  storyId?: string
   campaignId: string
   aiPlayerId: string
   character: TableTalkParticipant
@@ -103,10 +103,9 @@ export class TableTalkOrchestrator {
   }
 
   private static async buildWorldContext(request: TableTalkRequest): Promise<string> {
-    const story = await database.getStory(request.storyId)
-    const entries = story
-      ? await database.getEntriesForBranch(request.storyId, story.currentBranchId)
-      : []
+    const storyId = request.storyId ?? 'session-zero'
+    const story = await database.getStory(storyId)
+    const entries = story ? await database.getEntriesForBranch(storyId, story.currentBranchId) : []
     const query = [request.recentAction, ...(request.recentTranscript ?? [])].join('\n')
     const relevantEntries = selectTableTalkLore(entries, query, request.character.name)
     return relevantEntries.length
@@ -185,9 +184,10 @@ export class TableTalkOrchestrator {
       }
     }
 
+    const storyId = request.storyId ?? 'session-zero'
     const aiPlayerName = request.character.playerName ?? request.character.name
     const decisionContext = await ContextBuilder.forAIPlayer(
-      request.storyId,
+      storyId,
       request.aiPlayerId,
       undefined,
       { kind: 'full_table' },
@@ -213,7 +213,7 @@ export class TableTalkOrchestrator {
     if (!decisionPrompt.system.trim()) {
       throw new Error('Prompt pack is missing required system content for ai-player-decision')
     }
-    const prompt = await renderStoryPrompt(request.storyId, 'ai-player-table-talk-reaction', {
+    const prompt = await renderStoryPrompt(storyId, 'ai-player-table-talk-reaction', {
       aiPlayerDecisionPrompt: decisionPrompt.system,
       tableTalkPlayerName: request.character.playerName ?? request.character.name,
       tableTalkCharacterName: request.character.name,

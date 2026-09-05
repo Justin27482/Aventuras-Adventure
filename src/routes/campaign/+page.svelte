@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { story } from '$lib/stores/story.svelte'
   import { campaign } from '$lib/stores/campaign.svelte'
   import GMCampaignScreen from '$lib/components/campaign/GMCampaignScreen.svelte'
   import { CampaignTypeService } from '$lib/services/campaign/campaign-type-service'

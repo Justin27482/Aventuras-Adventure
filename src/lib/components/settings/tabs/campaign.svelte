@@ -169,7 +169,8 @@
         database.getCampaignFormationBackups(campaign.current.id),
       ])
     } catch (error) {
-      campaignSettingsError = error instanceof Error ? error.message : 'Unable to inspect campaign conversion'
+      campaignSettingsError =
+        error instanceof Error ? error.message : 'Unable to inspect campaign conversion'
     } finally {
       conversionBusy = false
     }
@@ -180,7 +181,8 @@
       !campaign.current?.storyId ||
       conversionConfirmation !== campaign.current.title ||
       conversionBusy
-    ) return
+    )
+      return
     conversionBusy = true
     campaignSettingsError = null
     try {
@@ -230,7 +232,8 @@
       onSaveStatus?.('saved')
     } catch (error) {
       onSaveStatus?.('error')
-      campaignSettingsError = error instanceof Error ? error.message : 'Failed to update campaign type'
+      campaignSettingsError =
+        error instanceof Error ? error.message : 'Failed to update campaign type'
       console.error('[CampaignSettings] Failed to set campaign type:', error)
     }
   }
@@ -320,14 +323,21 @@
         await database.upsertCampaignAIPlayer(member)
         tableRoster = [...tableRoster.filter((entry) => entry.aiPlayerId !== aiPlayerId), member]
       } else {
-        if (playerAssignments.some((assignment) => assignment.aiPlayerId === aiPlayerId && !assignment.leftAt)) {
-          throw new Error('Remove this AI Player’s character assignment before removing them from the table roster.')
+        if (
+          playerAssignments.some(
+            (assignment) => assignment.aiPlayerId === aiPlayerId && !assignment.leftAt,
+          )
+        ) {
+          throw new Error(
+            'Remove this AI Player’s character assignment before removing them from the table roster.',
+          )
         }
         await database.removeCampaignAIPlayer(campaign.current.id, aiPlayerId)
         tableRoster = tableRoster.filter((member) => member.aiPlayerId !== aiPlayerId)
       }
     } catch (error) {
-      campaignSettingsError = error instanceof Error ? error.message : 'Unable to update table roster'
+      campaignSettingsError =
+        error instanceof Error ? error.message : 'Unable to update table roster'
     }
   }
 
@@ -481,22 +491,17 @@
               >
                 Human GM with AI Players (Chat-First TTRPG Table)
               </Select.Item>
-              <Select.Item
-                value="human_gm_solo"
-                label="Human GM Solo (Human Party Control)"
-              >
+              <Select.Item value="human_gm_solo" label="Human GM Solo (Human Party Control)">
                 Human GM Solo (Human Party Control)
               </Select.Item>
-              <Select.Item
-                value="ai_gm"
-                label="AI GM (Human Player)"
-              >
+              <Select.Item value="ai_gm" label="AI GM (Human Player)">
                 AI GM (Human Player)
               </Select.Item>
             </Select.Content>
           </Select.Root>
           <p class="text-muted-foreground text-xs">
-            Controls which campaign interface and turn-routing engine is used. Selecting "Human GM with AI Players" activates the unified GM Campaign Screen.
+            Controls which campaign interface and turn-routing engine is used. Selecting "Human GM
+            with AI Players" activates the unified GM Campaign Screen.
           </p>
         </div>
       </CardContent>
@@ -548,7 +553,9 @@
         <div class="flex items-center justify-between gap-4">
           <div class="space-y-0.5">
             <Label for="ai-players-enabled">Enable AI Players</Label>
-            <p class="text-muted-foreground text-xs">Use reusable global AI Player profiles in this campaign.</p>
+            <p class="text-muted-foreground text-xs">
+              Use reusable global AI Player profiles in this campaign.
+            </p>
           </div>
           <Switch
             id="ai-players-enabled"
@@ -561,12 +568,17 @@
             <div class="flex items-center justify-between gap-3">
               <div>
                 <Label>Table roster</Label>
-                <p class="text-muted-foreground text-xs">Rostered AI Players can join Table Talk even without a character.</p>
+                <p class="text-muted-foreground text-xs">
+                  Rostered AI Players can join Table Talk even without a character.
+                </p>
               </div>
-              {#if isLoadingAIPlayers}<span class="text-muted-foreground text-xs">Loading...</span>{/if}
+              {#if isLoadingAIPlayers}<span class="text-muted-foreground text-xs">Loading...</span
+                >{/if}
             </div>
             {#each aiPlayers.filter((player) => player.archivedAt === null) as player (player.id)}
-              <label class="border-border flex items-center justify-between gap-3 rounded-md border p-3">
+              <label
+                class="border-border flex items-center justify-between gap-3 rounded-md border p-3"
+              >
                 <span class="text-sm font-medium">{player.name}</span>
                 <Switch
                   checked={isOnTableRoster(player.id)}
@@ -579,14 +591,20 @@
           <div class="space-y-3 border-t pt-3">
             <div>
               <Label>Character assignments</Label>
-              <p class="text-muted-foreground text-xs">Optional. Only rostered AI Players with a character participate in narrative turns.</p>
+              <p class="text-muted-foreground text-xs">
+                Optional. Only rostered AI Players with a character participate in narrative turns.
+              </p>
             </div>
             {#each story.characters as character (character.id)}
               {@const assignment = getAssignment(character.id)}
-              <div class="border-border grid gap-2 rounded-md border p-3 sm:grid-cols-[1fr_1fr_auto] sm:items-center">
+              <div
+                class="border-border grid gap-2 rounded-md border p-3 sm:grid-cols-[1fr_1fr_auto] sm:items-center"
+              >
                 <div class="min-w-0">
                   <p class="truncate text-sm font-medium">{character.name}</p>
-                  <p class="text-muted-foreground text-xs">{assignment ? 'AI-controlled' : 'No AI Player assigned'}</p>
+                  <p class="text-muted-foreground text-xs">
+                    {assignment ? 'AI-controlled' : 'No AI Player assigned'}
+                  </p>
                 </div>
                 <select
                   class="bg-background border-input text-foreground h-9 min-w-0 rounded-md border px-2 text-sm"
@@ -611,10 +629,13 @@
               </div>
             {/each}
             <p class="text-muted-foreground text-xs">
-              Add an AI Player to the table roster first, then optionally assign them to a character for narrative participation.
+              Add an AI Player to the table roster first, then optionally assign them to a character
+              for narrative participation.
             </p>
             {#if story.characters.length === 0}
-              <p class="text-muted-foreground text-sm">Create a character before assigning an AI Player.</p>
+              <p class="text-muted-foreground text-sm">
+                Create a character before assigning an AI Player.
+              </p>
             {/if}
           </div>
         {/if}
@@ -663,15 +684,25 @@
         </CardHeader>
         <CardContent class="space-y-3">
           <p class="text-muted-foreground text-xs">
-            Convert this campaign to a characterless party-pending state. World data, campaign settings, prompt pack, and AI Player roster are preserved. A recovery backup is created first.
+            Convert this campaign to a characterless party-pending state. World data, campaign
+            settings, prompt pack, and AI Player roster are preserved. A recovery backup is created
+            first.
           </p>
           {#if !conversionPreview}
             <div class="flex flex-wrap gap-2">
-              <Button variant="outline" onclick={() => void loadConversionPreview()} disabled={conversionBusy}>
+              <Button
+                variant="outline"
+                onclick={() => void loadConversionPreview()}
+                disabled={conversionBusy}
+              >
                 {conversionBusy ? 'Inspecting...' : 'Inspect Conversion Impact'}
               </Button>
               {#if formationBackups.some((backup) => backup.restoredAt === null)}
-                <Button variant="outline" onclick={() => void restoreLatestFormationBackup()} disabled={conversionBusy}>
+                <Button
+                  variant="outline"
+                  onclick={() => void restoreLatestFormationBackup()}
+                  disabled={conversionBusy}
+                >
                   Restore Pre-Conversion State
                 </Button>
               {/if}
@@ -683,17 +714,32 @@
               {/each}
             </div>
             <p class="text-destructive text-xs">
-              Live characters, sheets, assignments, party state, and normal sessions will be removed after the backup is verified. Existing story prose is retained and may mention the old cast.
+              Live characters, sheets, assignments, party state, and normal sessions will be removed
+              after the backup is verified. Existing story prose is retained and may mention the old
+              cast.
             </p>
             <div class="space-y-1.5">
-              <Label for="party-pending-confirmation">Type “{campaign.current.title}” to confirm</Label>
+              <Label for="party-pending-confirmation"
+                >Type “{campaign.current.title}” to confirm</Label
+              >
               <Input id="party-pending-confirmation" bind:value={conversionConfirmation} />
             </div>
             <div class="flex gap-2">
-              <Button variant="destructive" onclick={() => void convertToPartyPending()} disabled={conversionBusy || conversionConfirmation !== campaign.current.title}>
+              <Button
+                variant="destructive"
+                onclick={() => void convertToPartyPending()}
+                disabled={conversionBusy || conversionConfirmation !== campaign.current.title}
+              >
                 {conversionBusy ? 'Converting...' : 'Convert to Party Pending'}
               </Button>
-              <Button variant="outline" onclick={() => { conversionPreview = null; conversionConfirmation = '' }} disabled={conversionBusy}>Cancel</Button>
+              <Button
+                variant="outline"
+                onclick={() => {
+                  conversionPreview = null
+                  conversionConfirmation = ''
+                }}
+                disabled={conversionBusy}>Cancel</Button
+              >
             </div>
           {/if}
         </CardContent>
@@ -718,8 +764,7 @@
           <Select.Trigger id="campaign-prompt-pack" class="w-full">
             {isLoadingPromptPacks
               ? 'Loading prompt packs...'
-              : promptPacks.find((pack) => pack.id === selectedPromptPackId)?.name ??
-                'Default'}
+              : (promptPacks.find((pack) => pack.id === selectedPromptPackId)?.name ?? 'Default')}
           </Select.Trigger>
           <Select.Content>
             {#each promptPacks as pack (pack.id)}

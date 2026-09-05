@@ -52,13 +52,17 @@ describe('SetupSessionStore', () => {
     const store = new SetupSessionStore()
     await store.load('campaign-1')
     const first = await store.create({
-      title: 'First', kind: 'private_character_creation',
-      audience: { kind: 'private_player', aiPlayerId: 'ai-1' }, participantIds: ['ai-1'],
+      title: 'First',
+      kind: 'private_character_creation',
+      audience: { kind: 'private_player', aiPlayerId: 'ai-1' },
+      participantIds: ['ai-1'],
     })
     await store.start(first.id)
     const second = await store.create({
-      title: 'Second', kind: 'private_character_creation',
-      audience: { kind: 'private_player', aiPlayerId: 'ai-1' }, participantIds: ['ai-1'],
+      title: 'Second',
+      kind: 'private_character_creation',
+      audience: { kind: 'private_player', aiPlayerId: 'ai-1' },
+      participantIds: ['ai-1'],
     })
 
     await expect(store.start(second.id)).rejects.toThrow(/active setup session/)
@@ -66,10 +70,18 @@ describe('SetupSessionStore', () => {
 
   it('restarts a stopped setup session without losing its timeline', async () => {
     const session = {
-      id: 'setup-1', campaignId: 'campaign-1', sequence: 1, title: 'Private prologue',
-      kind: 'private_prologue', phase: 'free_table', status: 'abandoned',
-      audience: { kind: 'private_player', aiPlayerId: 'ai-1' }, createdAt: 1,
-      startedAt: 2, completedAt: 3, updatedAt: 3,
+      id: 'setup-1',
+      campaignId: 'campaign-1',
+      sequence: 1,
+      title: 'Private prologue',
+      kind: 'private_prologue',
+      phase: 'free_table',
+      status: 'abandoned',
+      audience: { kind: 'private_player', aiPlayerId: 'ai-1' },
+      createdAt: 1,
+      startedAt: 2,
+      completedAt: 3,
+      updatedAt: 3,
     }
     mockDatabase.getCampaignSetupSessions.mockResolvedValue([session])
     mockDatabase.getCampaignSetupSessionPlayers.mockResolvedValue([
@@ -95,9 +107,18 @@ describe('SetupSessionStore', () => {
 
   it('does not restart a completed setup session', async () => {
     const session = {
-      id: 'setup-1', campaignId: 'campaign-1', sequence: 1, title: 'Complete setup',
-      kind: 'table_bonding', phase: 'bonding', status: 'completed',
-      audience: { kind: 'full_table' }, createdAt: 1, startedAt: 2, completedAt: 3, updatedAt: 3,
+      id: 'setup-1',
+      campaignId: 'campaign-1',
+      sequence: 1,
+      title: 'Complete setup',
+      kind: 'table_bonding',
+      phase: 'bonding',
+      status: 'completed',
+      audience: { kind: 'full_table' },
+      createdAt: 1,
+      startedAt: 2,
+      completedAt: 3,
+      updatedAt: 3,
     }
     mockDatabase.getCampaignSetupSessions.mockResolvedValue([session])
     const store = new SetupSessionStore()
@@ -108,9 +129,18 @@ describe('SetupSessionStore', () => {
 
   it('restores participant and chat snapshots when selecting history', async () => {
     const session = {
-      id: 'setup-1', campaignId: 'campaign-1', sequence: 1, title: 'Session 0.5',
-      kind: 'table_bonding', phase: 'bonding', status: 'completed',
-      audience: { kind: 'full_table' }, createdAt: 1, startedAt: 2, completedAt: 3, updatedAt: 3,
+      id: 'setup-1',
+      campaignId: 'campaign-1',
+      sequence: 1,
+      title: 'Session 0.5',
+      kind: 'table_bonding',
+      phase: 'bonding',
+      status: 'completed',
+      audience: { kind: 'full_table' },
+      createdAt: 1,
+      startedAt: 2,
+      completedAt: 3,
+      updatedAt: 3,
     }
     mockDatabase.getCampaignSetupSessions.mockResolvedValue([session])
     mockDatabase.getCampaignSetupSessionPlayers.mockResolvedValue([
@@ -134,17 +164,37 @@ describe('SetupSessionStore', () => {
     ])
     mockDatabase.getCampaignChatMessages.mockResolvedValue([
       {
-        id: 'start', type: 'system', campaignId: 'campaign-1', sessionId: null, timestamp: 10,
-        audience: 'full_table', visibility: 'player_safe', actorId: null, actorName: 'SYSTEM',
-        content: 'Session Zero has begun. Meet the table before the first scene.', severity: 'info',
+        id: 'start',
+        type: 'system',
+        campaignId: 'campaign-1',
+        sessionId: null,
+        timestamp: 10,
+        audience: 'full_table',
+        visibility: 'player_safe',
+        actorId: null,
+        actorName: 'SYSTEM',
+        content: 'Session Zero has begun. Meet the table before the first scene.',
+        severity: 'info',
       },
     ])
     const settings = {
-      campaignId: 'campaign-1', defaultPartySize: 4, maxPartySize: 6, sceneMode: 'free',
-      turnOrderMode: 'free', diceEnforcement: 'guided', nsfwIntensity: 0, worldCharter: null,
-      gmPersona: null, companionCombatPolicy: 'companions_autonomous', aiPlayersEnabled: true,
-      defaultAIPlayerCount: 4, tableTalkIntensity: 4, sessionZeroPhase: 'introductions',
-      sessionZeroStatus: 'in_progress', createdAt: 1, updatedAt: 1,
+      campaignId: 'campaign-1',
+      defaultPartySize: 4,
+      maxPartySize: 6,
+      sceneMode: 'free',
+      turnOrderMode: 'free',
+      diceEnforcement: 'guided',
+      nsfwIntensity: 0,
+      worldCharter: null,
+      gmPersona: null,
+      companionCombatPolicy: 'companions_autonomous',
+      aiPlayersEnabled: true,
+      defaultAIPlayerCount: 4,
+      tableTalkIntensity: 4,
+      sessionZeroPhase: 'introductions',
+      sessionZeroStatus: 'in_progress',
+      createdAt: 1,
+      updatedAt: 1,
     } as const
     const imported = await store.importLegacySessionZero(settings)
 

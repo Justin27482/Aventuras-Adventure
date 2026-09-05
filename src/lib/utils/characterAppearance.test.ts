@@ -71,21 +71,18 @@ describe('formatCharacterAppearance', () => {
   })
 
   it('includes current clothing damage and exposure state', () => {
-    const appearance = formatCharacterAppearance(
-      { id: 'character-1', visualDescriptors: {} },
-      [
-        clothingItem({
-          metadata: {
-            clothing: {
-              isClothing: true,
-              durability: 0,
-              maxDurability: 100,
-              exposedZones: ['torso', 'arms'],
-            },
+    const appearance = formatCharacterAppearance({ id: 'character-1', visualDescriptors: {} }, [
+      clothingItem({
+        metadata: {
+          clothing: {
+            isClothing: true,
+            durability: 0,
+            maxDurability: 100,
+            exposedZones: ['torso', 'arms'],
           },
-        }),
-      ],
-    )
+        },
+      }),
+    ])
 
     expect(appearance).toContain('unusable')
     expect(appearance).toContain('exposed at torso, arms')

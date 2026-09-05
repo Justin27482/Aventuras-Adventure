@@ -28,13 +28,20 @@ function message(
 describe('getSessionZeroReadiness', () => {
   it('unlocks introductions only after every rostered player introduces themselves', () => {
     const messages = [
-      message('system', 'SYSTEM', 'Session Zero has begun. Meet the table before the first scene.', 10),
+      message(
+        'system',
+        'SYSTEM',
+        'Session Zero has begun. Meet the table before the first scene.',
+        10,
+      ),
       message('table_talk', 'Mara', 'I enjoy tactical mysteries.', 11),
       message('table_talk', 'Rowan', 'I keep the group moving.', 12),
     ]
 
     expect(getSessionZeroReadiness('introductions', messages, ['Mara', 'Rowan']).ready).toBe(true)
-    expect(getSessionZeroReadiness('introductions', messages, ['Mara', 'Rowan', 'Tamsin']).ready).toBe(false)
+    expect(
+      getSessionZeroReadiness('introductions', messages, ['Mara', 'Rowan', 'Tamsin']).ready,
+    ).toBe(false)
   })
 
   it('counts premise questions only after the premise was shared', () => {

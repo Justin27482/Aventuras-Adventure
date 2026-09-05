@@ -127,7 +127,10 @@
   }
 
   function originLabel(memory: AIPlayerMemory): string {
-    return memory.originCampaignTitle?.trim() || (memory.originCampaignId ? 'Unknown campaign' : 'No campaign')
+    return (
+      memory.originCampaignTitle?.trim() ||
+      (memory.originCampaignId ? 'Unknown campaign' : 'No campaign')
+    )
   }
 </script>
 
@@ -162,16 +165,30 @@
                 <p class="text-muted-foreground text-xs">
                   {originLabel(memory)}
                   {memory.characterName ? ` · as ${memory.characterName}` : ''}
-                  · {memory.scope === 'cross_campaign' ? 'carries across campaigns' : memory.scope === 'never' ? 'never recalled' : 'this campaign only'}
+                  · {memory.scope === 'cross_campaign'
+                    ? 'carries across campaigns'
+                    : memory.scope === 'never'
+                      ? 'never recalled'
+                      : 'this campaign only'}
                   · {memory.injectionMode}
                   · priority {memory.priority}
                 </p>
               </div>
               <div class="flex shrink-0 gap-1">
-                <Button variant="ghost" size="icon" title="Edit memory" onclick={() => editMemory(memory)}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Edit memory"
+                  onclick={() => editMemory(memory)}
+                >
                   <Pin class="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon" title="Delete memory" onclick={() => void deleteMemory(memory)}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Delete memory"
+                  onclick={() => void deleteMemory(memory)}
+                >
                   <Trash2 class="h-4 w-4" />
                 </Button>
               </div>
@@ -182,23 +199,42 @@
       </div>
     {/if}
 
-    <form class="space-y-3 border-t pt-3" onsubmit={(event) => { event.preventDefault(); void saveMemory() }}>
+    <form
+      class="space-y-3 border-t pt-3"
+      onsubmit={(event) => {
+        event.preventDefault()
+        void saveMemory()
+      }}
+    >
       <div class="space-y-2">
         <Label for="memory-title">Title</Label>
         <Input id="memory-title" bind:value={title} placeholder="e.g. The missing ledger" />
       </div>
       <div class="space-y-2">
         <Label for="memory-content">Memory</Label>
-        <Textarea id="memory-content" rows={3} bind:value={content} placeholder="What this player remembers, in their own words..." />
+        <Textarea
+          id="memory-content"
+          rows={3}
+          bind:value={content}
+          placeholder="What this player remembers, in their own words..."
+        />
       </div>
       <div class="space-y-2">
         <Label for="memory-keywords">Recall keywords</Label>
-        <Input id="memory-keywords" bind:value={keywordsText} placeholder="ledger, darkroom, Elena" />
+        <Input
+          id="memory-keywords"
+          bind:value={keywordsText}
+          placeholder="ledger, darkroom, Elena"
+        />
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div class="space-y-2">
           <Label for="memory-scope">Campaign scope</Label>
-          <select id="memory-scope" class="bg-background h-9 w-full rounded-md border px-2 text-sm" bind:value={scope}>
+          <select
+            id="memory-scope"
+            class="bg-background h-9 w-full rounded-md border px-2 text-sm"
+            bind:value={scope}
+          >
             <option value="campaign">This campaign only</option>
             <option value="cross_campaign">Carries across campaigns</option>
             <option value="never">Never recall</option>
@@ -206,7 +242,11 @@
         </div>
         <div class="space-y-2">
           <Label for="memory-injection">Recall mode</Label>
-          <select id="memory-injection" class="bg-background h-9 w-full rounded-md border px-2 text-sm" bind:value={injectionMode}>
+          <select
+            id="memory-injection"
+            class="bg-background h-9 w-full rounded-md border px-2 text-sm"
+            bind:value={injectionMode}
+          >
             <option value="keyword">On keyword match</option>
             <option value="always">Always</option>
             <option value="never">Never</option>

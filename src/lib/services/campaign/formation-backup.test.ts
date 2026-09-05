@@ -33,9 +33,37 @@ describe('formation backup rules', () => {
   })
 
   it('allows restore only before replacement cast or normal play exists', () => {
-    expect(canRestoreFormationBackup({ restoredAt: null, liveCharacterCount: 0, normalSessionCount: 0, setupSessionCount: 0 })).toBe(true)
-    expect(canRestoreFormationBackup({ restoredAt: null, liveCharacterCount: 1, normalSessionCount: 0, setupSessionCount: 0 })).toBe(false)
-    expect(canRestoreFormationBackup({ restoredAt: null, liveCharacterCount: 0, normalSessionCount: 0, setupSessionCount: 1 })).toBe(false)
-    expect(canRestoreFormationBackup({ restoredAt: 10, liveCharacterCount: 0, normalSessionCount: 0, setupSessionCount: 0 })).toBe(false)
+    expect(
+      canRestoreFormationBackup({
+        restoredAt: null,
+        liveCharacterCount: 0,
+        normalSessionCount: 0,
+        setupSessionCount: 0,
+      }),
+    ).toBe(true)
+    expect(
+      canRestoreFormationBackup({
+        restoredAt: null,
+        liveCharacterCount: 1,
+        normalSessionCount: 0,
+        setupSessionCount: 0,
+      }),
+    ).toBe(false)
+    expect(
+      canRestoreFormationBackup({
+        restoredAt: null,
+        liveCharacterCount: 0,
+        normalSessionCount: 0,
+        setupSessionCount: 1,
+      }),
+    ).toBe(false)
+    expect(
+      canRestoreFormationBackup({
+        restoredAt: 10,
+        liveCharacterCount: 0,
+        normalSessionCount: 0,
+        setupSessionCount: 0,
+      }),
+    ).toBe(false)
   })
 })

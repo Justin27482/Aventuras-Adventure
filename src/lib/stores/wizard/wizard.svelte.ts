@@ -15,7 +15,15 @@ import {
 import { TranslationService } from '$lib/services/ai/utils/TranslationService'
 import { QUICK_START_SEEDS } from '$lib/services/templates'
 import { replaceUserPlaceholders } from '$lib/components/wizard/wizardTypes'
-import type { Story, VaultScenario, Character, Entry, StoryEntry, CampaignSettings, CampaignType } from '$lib/types'
+import type {
+  Story,
+  VaultScenario,
+  Character,
+  Entry,
+  StoryEntry,
+  CampaignSettings,
+  CampaignType,
+} from '$lib/types'
 import { lorebookVault } from '$lib/stores/lorebookVault.svelte'
 import { descriptorsToString, stringToDescriptors } from '$lib/utils/visualDescriptors'
 import { packService } from '$lib/services/packs/pack-service'
@@ -191,8 +199,12 @@ export class WizardStore {
       this._copiedRulesetId = sourceCampaign.rulesetId
       const sourceSettings = await database.getCampaignSettings(sourceCampaign.id)
       if (sourceSettings) {
-        const { campaignId: _campaignId, createdAt: _createdAt, updatedAt: _updatedAt, ...rest } =
-          sourceSettings
+        const {
+          campaignId: _campaignId,
+          createdAt: _createdAt,
+          updatedAt: _updatedAt,
+          ...rest
+        } = sourceSettings
         this._copiedCampaignSettings = rest
       }
     }
@@ -332,7 +344,7 @@ export class WizardStore {
 
   setAIPlayerRosterMembership(aiPlayerId: string, included: boolean): void {
     this.aiPlayerRosterIds = included
-      ? [...new Set([...this.aiPlayerRosterIds, aiPlayerId])]
+      ? [...new SvelteSet([...this.aiPlayerRosterIds, aiPlayerId])]
       : this.aiPlayerRosterIds.filter((id) => id !== aiPlayerId)
   }
 
@@ -665,9 +677,16 @@ export class WizardStore {
       }
     }
 
+    const generatedOpening = this.narrative.generatedOpening ?? {
+      title: 'Untitled Opening',
+      scene: '',
+      initialLocation: { name: '', description: '' },
+    }
     const processedOpening = {
-      ...this.narrative.generatedOpening,
-      scene: replaceUserPlaceholders(this.narrative.generatedOpening.scene, protagonistName),
+      ...generatedOpening,
+      title: generatedOpening.title ?? 'Untitled Opening',
+      scene: replaceUserPlaceholders(generatedOpening.scene ?? '', protagonistName),
+      initialLocation: generatedOpening.initialLocation ?? { name: '', description: '' },
     }
 
     if (!processedOpening.scene.trim() && !partyPendingCreation) {
@@ -931,7 +950,7 @@ export class WizardStore {
             leftAt: null,
           })
         }
-        const rosterIds = new Set([
+        const rosterIds = new SvelteSet([
           ...requestedRosterIds,
           ...Object.values(this.aiPlayerAssignments),
         ])
@@ -957,7 +976,11 @@ export class WizardStore {
         }
       }
       console.info('[Wizard] Created campaign reloaded', { storyId: newStory.id })
-      if (campaign.current && this._copiedRulesetId && campaign.current.rulesetId !== this._copiedRulesetId) {
+      if (
+        campaign.current &&
+        this._copiedRulesetId &&
+        campaign.current.rulesetId !== this._copiedRulesetId
+      ) {
         console.info('[Wizard] Applying copied ruleset', { storyId: newStory.id })
         await campaign.setRuleset(this._copiedRulesetId)
       }
@@ -969,9 +992,7 @@ export class WizardStore {
         console.info('[Wizard] Saving generated world charter', { storyId: newStory.id })
         await campaign.updateSettings({ worldCharter })
       }
-      if (
-        (Object.keys(this.aiPlayerAssignments).length > 0 || requestedRosterIds.length > 0)
-      ) {
+      if (Object.keys(this.aiPlayerAssignments).length > 0 || requestedRosterIds.length > 0) {
         console.info('[Wizard] Enabling AI Players for assigned profiles', { storyId: newStory.id })
         await database.updateCampaignSettings(createdCampaign.id, { aiPlayersEnabled: true })
       }

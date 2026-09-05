@@ -169,12 +169,18 @@
           </Select.Trigger>
           <Select.Content>
             <Select.Item value="human_gm_solo" label="Human GM Solo">Human GM Solo</Select.Item>
-            <Select.Item value="human_gm_ai_players" label="Human GM with AI Players">Human GM with AI Players</Select.Item>
-            <Select.Item value="ai_gm" label="AI GM with Human Player">AI GM with Human Player</Select.Item>
+            <Select.Item value="human_gm_ai_players" label="Human GM with AI Players"
+              >Human GM with AI Players</Select.Item
+            >
+            <Select.Item value="ai_gm" label="AI GM with Human Player"
+              >AI GM with Human Player</Select.Item
+            >
           </Select.Content>
         </Select.Root>
         {#if wizard.campaignType === 'human_gm_ai_players'}
-          <label class="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm">
+          <label
+            class="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm"
+          >
             <span>Create party during Session Zero</span>
             <input type="checkbox" bind:checked={wizard.createPartyDuringSessionZero} />
           </label>
@@ -299,8 +305,7 @@
               wizard.narrative.customGenre,
             )}
           onGeneratePortraitDescription={() =>
-            wizard.character.generatePortraitDescription(wizard.setting.expandedSetting)
-          }
+            wizard.character.generatePortraitDescription(wizard.setting.expandedSetting)}
           onSaveToVault={() =>
             wizard.character.handleSaveProtagonistToVault(
               wizard.image.protagonistVisualDescriptors,

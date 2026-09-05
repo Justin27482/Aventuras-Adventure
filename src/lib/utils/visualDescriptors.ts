@@ -54,7 +54,9 @@ export function descriptorsToString(descriptors: VisualDescriptors | null | unde
   }
   for (const [key, value] of Object.entries(descriptors)) {
     if (!value || CATEGORY_ORDER.includes(key as (typeof CATEGORY_ORDER)[number])) continue
-    const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, (character) => character.toUpperCase())
+    const label = key
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/^./, (character) => character.toUpperCase())
     parts.push(`${label}: ${value}`)
   }
   return parts.join(', ')

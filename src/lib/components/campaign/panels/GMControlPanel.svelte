@@ -2,7 +2,11 @@
   import { campaign } from '$lib/stores/campaign.svelte'
   import { story } from '$lib/stores/story.svelte'
   import { database } from '$lib/services/database'
-  import { forceAIResponse, RESPONSE_LENGTH_LABELS, IC_MAX_SAFE_LENGTH_LEVEL } from '$lib/services/campaign/force-ai-response'
+  import {
+    forceAIResponse,
+    RESPONSE_LENGTH_LABELS,
+    IC_MAX_SAFE_LENGTH_LEVEL,
+  } from '$lib/services/campaign/force-ai-response'
   import type { AIPlayer, CampaignAIPlayer, PlayerCharacter, InteractionAudience } from '$lib/types'
   import type { ChatMessage } from '$lib/services/campaign/chat-types'
   import type { ChatStore } from '$lib/stores/chat-store.svelte'
@@ -76,12 +80,15 @@
   )
   const audienceOptions = $derived(
     activeRoster.map((member) => {
-      const aiPlayerName = aiPlayers.find((player) => player.id === member.aiPlayerId)?.name ?? 'AI Player'
+      const aiPlayerName =
+        aiPlayers.find((player) => player.id === member.aiPlayerId)?.name ?? 'AI Player'
       const characterName = story.characters.find(
         (character) =>
           character.id ===
-          assignments.find((assignment) => assignment.aiPlayerId === member.aiPlayerId && assignment.leftAt === null)
-            ?.characterId,
+          assignments.find(
+            (assignment) =>
+              assignment.aiPlayerId === member.aiPlayerId && assignment.leftAt === null,
+          )?.characterId,
       )?.name
       return {
         aiPlayerId: member.aiPlayerId,
@@ -96,7 +103,12 @@
   // only holds prose the GM chose to promote, not the live proposal/table-talk feed.
   const liveTranscript = $derived(
     chatMessages
-      .filter((message) => message.type === 'narration' || message.type === 'proposal' || message.type === 'table_talk')
+      .filter(
+        (message) =>
+          message.type === 'narration' ||
+          message.type === 'proposal' ||
+          message.type === 'table_talk',
+      )
       .slice(-8)
       .map(
         (message) =>
@@ -122,7 +134,8 @@
         selectedAIPlayerIds = activeRoster.map((member) => member.aiPlayerId)
       })
       .catch((error) => {
-        audienceError = error instanceof Error ? error.message : 'Unable to load AI Player assignments.'
+        audienceError =
+          error instanceof Error ? error.message : 'Unable to load AI Player assignments.'
       })
   })
 
@@ -161,7 +174,9 @@
     forceError = null
     try {
       const recentActions =
-        liveTranscript.length > 0 ? liveTranscript : story.entries.slice(-5).map((entry) => entry.content)
+        liveTranscript.length > 0
+          ? liveTranscript
+          : story.entries.slice(-5).map((entry) => entry.content)
       const otherCharacters = audienceOptions
         .filter((option) => option.aiPlayerId !== forceAIPlayerId)
         .map((option) => ({
@@ -184,7 +199,8 @@
       onForceMessage?.(message)
       forceGuidance = ''
     } catch (error) {
-      forceError = error instanceof Error ? error.message : 'Unable to generate a forced AI response.'
+      forceError =
+        error instanceof Error ? error.message : 'Unable to generate a forced AI response.'
     } finally {
       isForcingResponse = false
     }
@@ -215,15 +231,30 @@
       <h3>Select Audience</h3>
       <div class="audience-options">
         <label>
-          <input type="radio" name="audience" value="full_table" bind:group={selectedAudienceKind} />
+          <input
+            type="radio"
+            name="audience"
+            value="full_table"
+            bind:group={selectedAudienceKind}
+          />
           Full Table (all players see/hear)
         </label>
         <label>
-          <input type="radio" name="audience" value="player_subset" bind:group={selectedAudienceKind} />
+          <input
+            type="radio"
+            name="audience"
+            value="player_subset"
+            bind:group={selectedAudienceKind}
+          />
           Private Subset (select players)
         </label>
         <label>
-          <input type="radio" name="audience" value="private_player" bind:group={selectedAudienceKind} />
+          <input
+            type="radio"
+            name="audience"
+            value="private_player"
+            bind:group={selectedAudienceKind}
+          />
           Private 1:1 (single AI player)
         </label>
       </div>
@@ -252,14 +283,7 @@
 
       <div class="table-talk-intensity">
         <label for="intensity">Table Talk Intensity</label>
-        <input
-          id="intensity"
-          type="range"
-          min="0"
-          max="8"
-          value={tableTalkIntensity}
-          disabled
-        />
+        <input id="intensity" type="range" min="0" max="8" value={tableTalkIntensity} disabled />
         <span class="intensity-label">{tableTalkIntensity}/8</span>
       </div>
 
@@ -304,11 +328,23 @@
       {/if}
       <div class="force-mode-toggle">
         <label>
-          <input type="radio" name="force-mode" value="ic" bind:group={forceMode} disabled={isForcingResponse} />
+          <input
+            type="radio"
+            name="force-mode"
+            value="ic"
+            bind:group={forceMode}
+            disabled={isForcingResponse}
+          />
           IC
         </label>
         <label>
-          <input type="radio" name="force-mode" value="ooc" bind:group={forceMode} disabled={isForcingResponse} />
+          <input
+            type="radio"
+            name="force-mode"
+            value="ooc"
+            bind:group={forceMode}
+            disabled={isForcingResponse}
+          />
           OOC
         </label>
       </div>
@@ -328,13 +364,18 @@
           <Tooltip.Root>
             <Tooltip.Trigger>
               {#snippet child({ props })}
-                <span {...props} class="force-length-warning" aria-label="Longer generation warning">
+                <span
+                  {...props}
+                  class="force-length-warning"
+                  aria-label="Longer generation warning"
+                >
                   <TriangleAlert size={14} />
                 </span>
               {/snippet}
             </Tooltip.Trigger>
             <Tooltip.Content>
-              Due to LLM limitations, longer IC generations may take longer and occasionally need a retry.
+              Due to LLM limitations, longer IC generations may take longer and occasionally need a
+              retry.
             </Tooltip.Content>
           </Tooltip.Root>
         {/if}
@@ -356,7 +397,6 @@
       </button>
     </section>
   {/if}
-
 </div>
 
 <style>

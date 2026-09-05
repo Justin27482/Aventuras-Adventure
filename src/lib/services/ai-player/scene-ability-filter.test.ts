@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { RulesetAbility } from '$lib/types'
-import { SCENE_RELEVANCE_OPTIONS, filterAbilitiesForScene, normalizeSceneRelevance } from './scene-ability-filter'
+import {
+  SCENE_RELEVANCE_OPTIONS,
+  filterAbilitiesForScene,
+  normalizeSceneRelevance,
+} from './scene-ability-filter'
 
 function ability(key: string, sceneRelevance?: string[]): RulesetAbility {
   return {
@@ -27,9 +31,9 @@ describe('filterAbilitiesForScene', () => {
   })
 
   it('matches scene names case-insensitively', () => {
-    expect(filterAbilitiesForScene([ability('travel', ['Travel'])], ' travel ').map((item) => item.key)).toEqual([
-      'travel',
-    ])
+    expect(
+      filterAbilitiesForScene([ability('travel', ['Travel'])], ' travel ').map((item) => item.key),
+    ).toEqual(['travel'])
   })
 
   it('normalizes multi-select scene tags and exposes the allowed options', () => {

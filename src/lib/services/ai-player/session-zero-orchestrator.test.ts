@@ -43,7 +43,12 @@ describe('SessionZeroOrchestrator', () => {
     })
     expect(secrets).toHaveLength(1)
     expect(secrets[0].targetAIPlayerId).toBe('ai-1')
-    expect(orchestrator.hasPrivateAudienceRestriction({ kind: 'private_player', aiPlayerId: 'ai-1' }, ['ai-1', 'ai-2'])).toBe(true)
+    expect(
+      orchestrator.hasPrivateAudienceRestriction({ kind: 'private_player', aiPlayerId: 'ai-1' }, [
+        'ai-1',
+        'ai-2',
+      ]),
+    ).toBe(true)
   })
 
   it('locks private GM interactions away from excluded players', () => {

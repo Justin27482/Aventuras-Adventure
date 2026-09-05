@@ -90,7 +90,9 @@ describe('generateGroupSetupReplies', () => {
       { aiPlayerId: 'player-2', characterId: 'character-2', leftAt: null },
     ])
     database.getAIPlayer.mockImplementation((id: string) =>
-      Promise.resolve(id === 'player-1' ? { id: 'player-1', name: 'Morgan' } : { id: 'player-2', name: 'Sasha' }),
+      Promise.resolve(
+        id === 'player-1' ? { id: 'player-1', name: 'Morgan' } : { id: 'player-2', name: 'Sasha' },
+      ),
     )
     database.getCharacters.mockResolvedValue([
       { id: 'character-1', name: 'Elena' },
@@ -125,10 +127,18 @@ describe('generateGroupSetupReplies', () => {
 
     expect(replies).toHaveLength(2)
     expect(generateProposal).toHaveBeenCalledWith(
-      expect.objectContaining({ aiPlayerId: 'player-1', characterId: 'character-1', audience: { kind: 'full_table' } }),
+      expect.objectContaining({
+        aiPlayerId: 'player-1',
+        characterId: 'character-1',
+        audience: { kind: 'full_table' },
+      }),
     )
     expect(generateProposal).toHaveBeenCalledWith(
-      expect.objectContaining({ aiPlayerId: 'player-2', characterId: 'character-2', audience: { kind: 'full_table' } }),
+      expect.objectContaining({
+        aiPlayerId: 'player-2',
+        characterId: 'character-2',
+        audience: { kind: 'full_table' },
+      }),
     )
     expect(replies.map((reply) => reply.audience)).toEqual(['full_table', 'full_table'])
     expect(replies.map((reply) => reply.actorName)).toEqual(['Morgan (Elena)', 'Sasha (Rowan)'])

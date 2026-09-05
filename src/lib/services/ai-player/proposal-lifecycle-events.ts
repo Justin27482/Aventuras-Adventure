@@ -50,7 +50,9 @@ export type AIPlayerProposalLifecycleEvent =
   | AIPlayerProposalConsensusEndedEvent
   | AIPlayerProposalAcceptedEvent
 
-export function emitAIPlayerProposalProposed(event: Omit<AIPlayerProposalProposedEvent, 'type'>): void {
+export function emitAIPlayerProposalProposed(
+  event: Omit<AIPlayerProposalProposedEvent, 'type'>,
+): void {
   eventBus.emit<AIPlayerProposalProposedEvent>({
     type: 'AIPlayerProposalProposed',
     ...event,

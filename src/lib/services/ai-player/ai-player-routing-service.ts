@@ -85,7 +85,10 @@ export class AIPlayerRoutingService {
         }
         const invalid = audience.aiPlayerIds.filter((id) => !activePlayerIds.includes(id))
         if (invalid.length > 0) {
-          return { valid: false, invalidReason: `Invalid AI players in subset: ${invalid.join(', ')}` }
+          return {
+            valid: false,
+            invalidReason: `Invalid AI players in subset: ${invalid.join(', ')}`,
+          }
         }
         return { valid: true }
       }

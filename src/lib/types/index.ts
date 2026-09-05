@@ -76,10 +76,10 @@ export type CampaignControlMode =
   | 'gm_directed'
 
 export type CampaignType =
-  | 'human_gm_ai_players'  // GM running AI-controlled party
-  | 'human_gm_solo'        // GM with human-only party
-  | 'ai_gm'                // AI GM, human player (existing mode)
-  | 'human_player'         // Player joining someone else's campaign
+  | 'human_gm_ai_players' // GM running AI-controlled party
+  | 'human_gm_solo' // GM with human-only party
+  | 'ai_gm' // AI GM, human player (existing mode)
+  | 'human_player' // Player joining someone else's campaign
 
 export interface Campaign {
   id: string
@@ -89,7 +89,8 @@ export interface Campaign {
   rulesetId: string | null
   spotlightCharacterId: string | null
   status: 'active' | 'paused' | 'completed' | 'archived'
-  campaignType: CampaignType
+  campaignType?: CampaignType
+  settings?: CampaignSettings | null
   createdAt: number
   updatedAt: number
 }
@@ -107,24 +108,43 @@ export interface CampaignSettings {
   companionCombatPolicy: 'companions_autonomous' | 'tactical_delegate' | 'tactical_player'
   aiPlayersEnabled: boolean
   defaultAIPlayerCount: number
-  tableTalkIntensity: number // 0-8 slider for OOC banter
-  sessionZeroPhase: 'introductions' | 'premises' | 'character_creation' | 'bonding' | 'secrets' | null
-  sessionZeroStatus: 'not_started' | 'in_progress' | 'completed'
+  tableTalkIntensity?: number // 0-8 slider for OOC banter
+  sessionZeroPhase?:
+    | 'introductions'
+    | 'premises'
+    | 'character_creation'
+    | 'bonding'
+    | 'secrets'
+    | null
+  sessionZeroStatus?: 'not_started' | 'in_progress' | 'completed'
   createdAt: number
   updatedAt: number
 }
 
 export interface AIPlayerPersonality {
-  coreMotivation: string
+  coreMotivation?: string
   primaryPlaystyle: 'tactical' | 'roleplay' | 'social' | 'hybrid'
-  riskTolerance: number
-  immersion: number
-  arousal: number
-  humorStyle: string
-  decisionSpeed: 'cautious' | 'balanced' | 'impulsive'
-  combatApproach: string
-  socialPriorities: string[]
-  redLines: string[]
+  riskTolerance?: number
+  immersion?: number
+  arousal?: number
+  humorStyle?: string
+  decisionSpeed?: 'cautious' | 'balanced' | 'impulsive'
+  combatApproach?: string
+  socialPriorities?: string[]
+  redLines?: string[]
+}
+
+export interface CharacterStats {
+  id: string
+  name: string
+  background?: string
+  personality?: string
+  role?: string
+  notes?: string
+  stats?: Record<string, number | string>
+  health?: { current: number; max: number }
+  energy?: { current: number; max: number }
+  [key: string]: unknown
 }
 
 export interface AIPlayer {
@@ -356,7 +376,8 @@ export interface AIPlayerProposal {
   aiPlayerId: string
   characterId: string
   campaignId: string
-  sceneMode: string
+  sceneId?: string | null
+  sceneMode?: string
   action: string
   reasoning: string
   confidence: number
@@ -840,6 +861,8 @@ export interface EntryMetadata {
   chapterSourceTitle?: string
   chapterNumber?: number | null
   sourceFilename?: string | null
+  chatMessageId?: string
+  chatMessageType?: string
   // Story time tracking - captures in-story time at entry creation and after classification
   timeStart?: TimeTracker // Story time when this entry began
   timeEnd?: TimeTracker // Story time after classification applied time progression
@@ -871,6 +894,8 @@ export interface Character {
   translatedVisualDescriptors?: VisualDescriptors | null
   translationLanguage?: string | null
 }
+
+export type ChatMessage = import('$lib/services/campaign/chat-types').ChatMessage
 
 // ===== Character Sheet Types (Phase 3) =====
 

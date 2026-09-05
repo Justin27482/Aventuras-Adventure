@@ -86,7 +86,8 @@
     if (
       !campaignId ||
       (loadedCampaignId === campaignId && loadedFormationVersion === formationVersion)
-    ) return
+    )
+      return
     loadedCampaignId = campaignId
     loadedFormationVersion = formationVersion
     void load(campaignId)
@@ -170,15 +171,20 @@
         message.type === 'narration' || message.type === 'table_talk',
     )
     if (relevant.length === 0) return ''
-    return relevant
-      .map((message) => `${message.actorName}: ${message.content}`)
-      .join('\n')
+    return relevant.map((message) => `${message.actorName}: ${message.content}`).join('\n')
   }
 
   async function generateCharacterProposal() {
     const session = setupSessions.selected
     const aiPlayerId = setupSessions.participants[0]?.aiPlayerId
-    if (!session || !aiPlayerId || !campaign.current?.storyId || !fullRuleset || isGeneratingCharacter) return
+    if (
+      !session ||
+      !aiPlayerId ||
+      !campaign.current?.storyId ||
+      !fullRuleset ||
+      isGeneratingCharacter
+    )
+      return
     isGeneratingCharacter = true
     try {
       const proposal = await characterSheetProposalService.generate({
@@ -233,7 +239,8 @@
       revisions = await database.getCharacterSheetRevisions(character.id)
       editorOpen = true
     } catch (error) {
-      actionError = error instanceof Error ? error.message : 'Unable to open assigned character sheet'
+      actionError =
+        error instanceof Error ? error.message : 'Unable to open assigned character sheet'
     } finally {
       busy = false
     }
@@ -515,7 +522,8 @@
       .filter((value): value is string => typeof value === 'string' && Boolean(value.trim()))
     const visibleSecrets = secrets.filter(
       (secret) =>
-        participantIdSet.has(secret.targetAIPlayerId) || secret.visibilityScope === 'all_ai_players',
+        participantIdSet.has(secret.targetAIPlayerId) ||
+        secret.visibilityScope === 'all_ai_players',
     )
     const memories = memoryLists.flat()
     setupRecap = [
@@ -575,14 +583,29 @@
             Next Setup Phase
           </Button>
         {/if}
-        <Button variant="outline" size="sm" onclick={() => void finish('completed')} disabled={busy}>
+        <Button
+          variant="outline"
+          size="sm"
+          onclick={() => void finish('completed')}
+          disabled={busy}
+        >
           Complete
         </Button>
-        <Button variant="outline" size="sm" onclick={() => void finish('abandoned')} disabled={busy}>
+        <Button
+          variant="outline"
+          size="sm"
+          onclick={() => void finish('abandoned')}
+          disabled={busy}
+        >
           <Square class="h-3.5 w-3.5" /> Stop
         </Button>
       {/if}
-      <Button variant="outline" size="sm" onclick={() => creating ? (creating = false) : void openCreator()} disabled={busy || Boolean(setupSessions.active)}>
+      <Button
+        variant="outline"
+        size="sm"
+        onclick={() => (creating ? (creating = false) : void openCreator())}
+        disabled={busy || Boolean(setupSessions.active)}
+      >
         <Plus class="h-3.5 w-3.5" />
         New Setup Session
       </Button>
@@ -592,7 +615,11 @@
   {#if creating}
     <div class="grid gap-2 rounded-md border p-3 md:grid-cols-[1fr_13rem]">
       <Input bind:value={title} placeholder="Setup session title" />
-      <select class="bg-background h-9 rounded-md border px-2 text-sm" bind:value={kind} onchange={() => (participantIds = [])}>
+      <select
+        class="bg-background h-9 rounded-md border px-2 text-sm"
+        bind:value={kind}
+        onchange={() => (participantIds = [])}
+      >
         <option value="private_character_creation">Private Character Creation</option>
         <option value="private_prologue">Private Prologue</option>
         <option value="group_session_zero">Group Session Zero</option>
@@ -612,7 +639,11 @@
         {/each}
       </div>
       <div class="flex gap-2 md:col-span-2">
-        <Button size="sm" onclick={() => void createAndStart()} disabled={busy || participantIds.length === 0}>
+        <Button
+          size="sm"
+          onclick={() => void createAndStart()}
+          disabled={busy || participantIds.length === 0}
+        >
           Start Setup Session
         </Button>
         <Button variant="ghost" size="sm" onclick={() => (creating = false)}>Cancel</Button>
@@ -627,7 +658,10 @@
   {:else if setupSessions.selected}
     <p class="text-muted-foreground flex items-center gap-1 text-xs">
       <History class="h-3.5 w-3.5" />
-      {setupSessions.selected.phase} · {setupSessions.participants.length} participant{setupSessions.participants.length === 1 ? '' : 's'} · {new Date(setupSessions.selected.createdAt).toLocaleString()}
+      {setupSessions.selected.phase} · {setupSessions.participants.length} participant{setupSessions
+        .participants.length === 1
+        ? ''
+        : 's'} · {new Date(setupSessions.selected.createdAt).toLocaleString()}
       {setupSessions.selected.status !== 'active' ? ' · Read only' : ''}
     </p>
   {/if}
@@ -635,7 +669,11 @@
   {#if setupSessions.selected?.kind === 'private_character_creation'}
     <div class="flex flex-wrap items-center gap-2 border-t pt-2">
       {#if setupSessions.selected.status === 'active'}
-        <Button size="sm" onclick={() => void generateCharacterProposal()} disabled={busy || isGeneratingCharacter || !fullRuleset}>
+        <Button
+          size="sm"
+          onclick={() => void generateCharacterProposal()}
+          disabled={busy || isGeneratingCharacter || !fullRuleset}
+        >
           {#if isGeneratingCharacter}<Loader2 class="h-3.5 w-3.5 animate-spin" />{/if}
           Generate AI Character Draft
         </Button>
@@ -655,15 +693,24 @@
         <Button variant="outline" size="sm" onclick={() => openProposal(proposal)}>
           Review {proposal.payload.name}
         </Button>
-        <Button variant="ghost" size="sm" onclick={() => void declineProposal(proposal)}>Decline</Button>
+        <Button variant="ghost" size="sm" onclick={() => void declineProposal(proposal)}
+          >Decline</Button
+        >
       {/each}
     </div>
   {/if}
 
   {#if setupSessions.selected && ['bonding', 'free_table'].includes(setupSessions.selected.phase)}
     <div class="grid gap-2 border-t pt-2 md:grid-cols-[1fr_auto]">
-      <Input bind:value={relationshipNotes} placeholder="Record a relationship or party-dynamic outcome" />
-      <Button size="sm" onclick={() => void saveRelationships()} disabled={!relationshipNotes.trim()}>Save Relationship</Button>
+      <Input
+        bind:value={relationshipNotes}
+        placeholder="Record a relationship or party-dynamic outcome"
+      />
+      <Button
+        size="sm"
+        onclick={() => void saveRelationships()}
+        disabled={!relationshipNotes.trim()}>Save Relationship</Button
+      >
     </div>
   {/if}
 
@@ -672,11 +719,18 @@
       <select class="bg-background h-9 rounded-md border px-2 text-sm" bind:value={secretTargetId}>
         <option value="">Select AI Player</option>
         {#each setupSessions.participants as participant (participant.aiPlayerId)}
-          <option value={participant.aiPlayerId}>{players.find((player) => player.id === participant.aiPlayerId)?.name ?? participant.aiPlayerId}</option>
+          <option value={participant.aiPlayerId}
+            >{players.find((player) => player.id === participant.aiPlayerId)?.name ??
+              participant.aiPlayerId}</option
+          >
         {/each}
       </select>
       <Input bind:value={secretText} placeholder="Private hook or secret context" />
-      <Button size="sm" onclick={() => void saveSecret()} disabled={!secretTargetId || !secretText.trim()}>Save Secret</Button>
+      <Button
+        size="sm"
+        onclick={() => void saveSecret()}
+        disabled={!secretTargetId || !secretText.trim()}>Save Secret</Button
+      >
       <label class="flex items-center gap-2 text-xs md:col-span-3">
         <input type="checkbox" bind:checked={secretShared} /> Share with all setup participants
       </label>
@@ -698,7 +752,8 @@
           Build AI Player Memory
         </Button>
       {/if}
-      {#if setupRecap}<pre class="text-muted-foreground whitespace-pre-wrap text-xs">{setupRecap}</pre>{/if}
+      {#if setupRecap}<pre
+          class="text-muted-foreground text-xs whitespace-pre-wrap">{setupRecap}</pre>{/if}
     </div>
   {/if}
 </div>
@@ -708,7 +763,9 @@
   {#key editorProposal?.id ?? editorCharacter?.id ?? 'editor'}
     <FullCharacterSheetEditor
       open={editorOpen}
-      title={editorProposal ? `Review AI Proposal: ${editorDraft.name}` : `Edit Character: ${editorDraft.name}`}
+      title={editorProposal
+        ? `Review AI Proposal: ${editorDraft.name}`
+        : `Edit Character: ${editorDraft.name}`}
       draft={editorDraft}
       ruleset={fullRuleset}
       {revisions}

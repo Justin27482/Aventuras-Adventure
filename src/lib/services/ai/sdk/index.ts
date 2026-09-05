@@ -16,6 +16,8 @@
  * ```
  */
 
+import { generatePlainText } from './generate'
+
 // Generate functions
 export {
   generateStructured,
@@ -24,6 +26,27 @@ export {
   streamStructured,
   buildProviderOptions,
 } from './generate'
+
+export async function generateText(
+  prompt: string,
+  options?: {
+    model?: string
+    presetId?: string
+    maxTokens?: number
+    system?: string
+  },
+): Promise<string> {
+  const presetId = options?.presetId ?? 'narrative'
+  const system = options?.system ?? ''
+  return generatePlainText(
+    {
+      presetId,
+      system,
+      prompt,
+    },
+    `compat:generateText:${presetId}`,
+  )
+}
 
 // Provider registry
 export { createProviderFromProfile, PROVIDERS } from './providers'

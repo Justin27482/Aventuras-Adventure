@@ -370,11 +370,7 @@ export class ContextBuilder {
     const renderedMemories = renderMemoriesForPrompt(memories, campaign.id)
 
     const sceneText = builder.getContext().narrativeResponse ?? ''
-    const dynamicTraits = deriveEffectiveAIPlayerTraits(
-      player,
-      sceneText,
-      recentTranscript ?? [],
-    )
+    const dynamicTraits = deriveEffectiveAIPlayerTraits(player, sceneText, recentTranscript ?? [])
     const rendered = personalityService.renderDynamicPrompt(player, assignment, {
       campaignTitle: campaign.title,
       sceneMode: builder.getContext().sceneMode ?? '',
@@ -401,7 +397,8 @@ export class ContextBuilder {
       aiPlayerMemories: renderedMemories || 'No relevant memories recalled.',
       aiPlayerProfileContext: rendered.systemPrompt,
       aiPlayerVoiceProfile: renderAIPlayerVoiceProfile(player),
-      otherAIPlayerVoices: otherPlayerVoiceProfiles.join('\n\n') || 'No other AI Players are present.',
+      otherAIPlayerVoices:
+        otherPlayerVoiceProfiles.join('\n\n') || 'No other AI Players are present.',
       priorAIPlayerMessages:
         recentTranscript && recentTranscript.length > 0
           ? recentTranscript.join('\n')

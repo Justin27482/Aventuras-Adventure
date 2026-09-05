@@ -56,31 +56,41 @@ describe('AI Player rules', () => {
 
   it('allows one global player to be assigned in multiple campaigns', () => {
     expect(() =>
-      validatePlayerCharacterAssignment(assignment({ campaignId: 'campaign-2' }), [
-        assignment(),
-      ]),
+      validatePlayerCharacterAssignment(assignment({ campaignId: 'campaign-2' }), [assignment()]),
     ).not.toThrow()
   })
 
   it('rejects duplicate player or character assignments within one campaign', () => {
-    expect(() => validatePlayerCharacterAssignment(assignment(), [assignment({ id: 'other' })])).toThrow()
     expect(() =>
-      validatePlayerCharacterAssignment(
-        assignment({ id: 'other', aiPlayerId: 'player-2' }),
-        [assignment()],
-      ),
+      validatePlayerCharacterAssignment(assignment(), [assignment({ id: 'other' })]),
+    ).toThrow()
+    expect(() =>
+      validatePlayerCharacterAssignment(assignment({ id: 'other', aiPlayerId: 'player-2' }), [
+        assignment(),
+      ]),
     ).toThrow()
   })
 
   it('resolves full-table, subset, and private audiences', () => {
     const active = ['player-1', 'player-2', 'player-3']
     expect(getAudiencePlayerIds({ kind: 'full_table' }, active)).toEqual(active)
-    expect(getAudiencePlayerIds({ kind: 'player_subset', aiPlayerIds: ['player-2', 'player-2'] }, active)).toEqual(['player-2'])
-    expect(getAudiencePlayerIds({ kind: 'private_player', aiPlayerId: 'player-3' }, active)).toEqual(['player-3'])
+    expect(
+      getAudiencePlayerIds(
+        { kind: 'player_subset', aiPlayerIds: ['player-2', 'player-2'] },
+        active,
+      ),
+    ).toEqual(['player-2'])
+    expect(
+      getAudiencePlayerIds({ kind: 'private_player', aiPlayerId: 'player-3' }, active),
+    ).toEqual(['player-3'])
   })
 
   it('rejects audiences outside the active player table', () => {
-    expect(() => getAudiencePlayerIds({ kind: 'private_player', aiPlayerId: 'player-9' }, ['player-1'])).toThrow()
-    expect(() => getAudiencePlayerIds({ kind: 'player_subset', aiPlayerIds: [] }, ['player-1'])).toThrow()
+    expect(() =>
+      getAudiencePlayerIds({ kind: 'private_player', aiPlayerId: 'player-9' }, ['player-1']),
+    ).toThrow()
+    expect(() =>
+      getAudiencePlayerIds({ kind: 'player_subset', aiPlayerIds: [] }, ['player-1']),
+    ).toThrow()
   })
 })

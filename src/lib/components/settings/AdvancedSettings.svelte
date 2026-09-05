@@ -63,7 +63,8 @@
       )
       appearanceLabelsLoaded = true
     } catch (error) {
-      appearanceLabelsError = error instanceof Error ? error.message : 'Unable to load appearance labels.'
+      appearanceLabelsError =
+        error instanceof Error ? error.message : 'Unable to load appearance labels.'
     }
   }
 
@@ -118,14 +119,12 @@
     appearanceLabelsError = null
     try {
       const hint = await generateAppearanceHint(label)
-      await saveAppearanceLabels([
-        ...appearanceLabels,
-        { key, label, minNsfwIntensity, hint },
-      ])
+      await saveAppearanceLabels([...appearanceLabels, { key, label, minNsfwIntensity, hint }])
       newAppearanceLabel = ''
       newAppearanceLabelGate = '0'
     } catch (error) {
-      appearanceLabelsError = error instanceof Error ? error.message : 'Unable to add appearance label.'
+      appearanceLabelsError =
+        error instanceof Error ? error.message : 'Unable to add appearance label.'
     } finally {
       isGeneratingAppearanceHint = false
     }
@@ -139,7 +138,8 @@
       )
       editingAppearanceLabelKey = null
     } catch (error) {
-      appearanceLabelsError = error instanceof Error ? error.message : 'Unable to save appearance label.'
+      appearanceLabelsError =
+        error instanceof Error ? error.message : 'Unable to save appearance label.'
     }
   }
 
@@ -148,7 +148,8 @@
     try {
       await saveAppearanceLabels(appearanceLabels.filter((label) => label.key !== key))
     } catch (error) {
-      appearanceLabelsError = error instanceof Error ? error.message : 'Unable to delete appearance label.'
+      appearanceLabelsError =
+        error instanceof Error ? error.message : 'Unable to delete appearance label.'
     }
   }
 
@@ -284,7 +285,9 @@
       <Collapsible.Root bind:open={showAppearanceLabelsSection}>
         <div class="flex items-center gap-3 p-3 pl-4">
           <Collapsible.Trigger class="group/trigger flex flex-1 items-center gap-2 text-left">
-            <div class="bg-primary/10 text-primary flex h-8 w-8 items-center justify-center rounded-md">
+            <div
+              class="bg-primary/10 text-primary flex h-8 w-8 items-center justify-center rounded-md"
+            >
               <Sparkles class="h-4 w-4" />
             </div>
             <div class="flex-1">
@@ -309,18 +312,33 @@
         <Collapsible.Content>
           <div class="bg-muted/10 space-y-4 border-t p-4">
             <p class="text-muted-foreground text-xs">
-              Built-in labels are always available. Custom labels are global across campaigns and appear only when a campaign meets their minimum content intensity.
+              Built-in labels are always available. Custom labels are global across campaigns and
+              appear only when a campaign meets their minimum content intensity.
             </p>
             <div class="grid gap-2 sm:grid-cols-[1fr_96px_auto]">
               <div class="space-y-1">
                 <Label for="appearance-label-name">New label</Label>
-                <Input id="appearance-label-name" bind:value={newAppearanceLabel} placeholder="e.g. Presence" />
+                <Input
+                  id="appearance-label-name"
+                  bind:value={newAppearanceLabel}
+                  placeholder="e.g. Presence"
+                />
               </div>
               <div class="space-y-1">
                 <Label for="appearance-label-gate">Min. level</Label>
-                <Input id="appearance-label-gate" type="number" min="0" max="8" bind:value={newAppearanceLabelGate} />
+                <Input
+                  id="appearance-label-gate"
+                  type="number"
+                  min="0"
+                  max="8"
+                  bind:value={newAppearanceLabelGate}
+                />
               </div>
-              <Button class="self-end" onclick={addAppearanceLabel} disabled={isGeneratingAppearanceHint}>
+              <Button
+                class="self-end"
+                onclick={addAppearanceLabel}
+                disabled={isGeneratingAppearanceHint}
+              >
                 {isGeneratingAppearanceHint ? 'Creating...' : 'Add label'}
               </Button>
             </div>
@@ -330,15 +348,56 @@
                 {#each appearanceLabels as label (label.key)}
                   {#if editingAppearanceLabelKey === label.key}
                     <div class="grid gap-2 rounded-md border p-3 sm:grid-cols-[1fr_96px]">
-                      <div class="space-y-1"><Label>Label</Label><Input bind:value={label.label} /></div>
-                      <div class="space-y-1"><Label>Min. level</Label><Input type="number" min="0" max="8" bind:value={label.minNsfwIntensity} /></div>
-                      <div class="sm:col-span-2 space-y-1"><Label>Hint</Label><Input bind:value={label.hint} placeholder="Field-specific input guidance" /></div>
-                      <div class="flex gap-2 sm:col-span-2"><Button size="sm" onclick={() => updateAppearanceLabel(label)}>Save</Button><Button size="sm" variant="outline" onclick={() => (editingAppearanceLabelKey = null)}>Cancel</Button></div>
+                      <div class="space-y-1">
+                        <Label>Label</Label><Input bind:value={label.label} />
+                      </div>
+                      <div class="space-y-1">
+                        <Label>Min. level</Label><Input
+                          type="number"
+                          min="0"
+                          max="8"
+                          bind:value={label.minNsfwIntensity}
+                        />
+                      </div>
+                      <div class="space-y-1 sm:col-span-2">
+                        <Label>Hint</Label><Input
+                          bind:value={label.hint}
+                          placeholder="Field-specific input guidance"
+                        />
+                      </div>
+                      <div class="flex gap-2 sm:col-span-2">
+                        <Button size="sm" onclick={() => updateAppearanceLabel(label)}>Save</Button
+                        ><Button
+                          size="sm"
+                          variant="outline"
+                          onclick={() => (editingAppearanceLabelKey = null)}>Cancel</Button
+                        >
+                      </div>
                     </div>
                   {:else}
                     <div class="flex items-center justify-between gap-3 rounded-md border p-3">
-                      <div class="min-w-0"><p class="text-sm font-medium">{label.label} <span class="text-muted-foreground font-normal">Level {label.minNsfwIntensity}+</span></p><p class="text-muted-foreground truncate text-xs">{label.hint || 'No hint configured'}</p></div>
-                      <div class="flex gap-1"><Button size="sm" variant="outline" onclick={() => (editingAppearanceLabelKey = label.key)}>Edit</Button><Button size="sm" variant="destructive" onclick={() => deleteAppearanceLabel(label.key)}>Delete</Button></div>
+                      <div class="min-w-0">
+                        <p class="text-sm font-medium">
+                          {label.label}
+                          <span class="text-muted-foreground font-normal"
+                            >Level {label.minNsfwIntensity}+</span
+                          >
+                        </p>
+                        <p class="text-muted-foreground truncate text-xs">
+                          {label.hint || 'No hint configured'}
+                        </p>
+                      </div>
+                      <div class="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onclick={() => (editingAppearanceLabelKey = label.key)}>Edit</Button
+                        ><Button
+                          size="sm"
+                          variant="destructive"
+                          onclick={() => deleteAppearanceLabel(label.key)}>Delete</Button
+                        >
+                      </div>
                     </div>
                   {/if}
                 {/each}
@@ -347,7 +406,9 @@
               <p class="text-muted-foreground text-xs">No custom appearance labels yet.</p>
             {/if}
 
-            {#if appearanceLabelsError}<p class="text-destructive text-xs">{appearanceLabelsError}</p>{/if}
+            {#if appearanceLabelsError}<p class="text-destructive text-xs">
+                {appearanceLabelsError}
+              </p>{/if}
           </div>
         </Collapsible.Content>
       </Collapsible.Root>
